@@ -15,7 +15,9 @@ import BECECustodians from './pages/admin/BECECustodians';
 import SSCECustodians from './pages/admin/SSCECustodians';
 import MandateConfig from './pages/admin/MandateConfig';
 import AssignmentConfig from './pages/admin/AssignmentConfig';
-import MandateStaffAssignment from './pages/admin/MandateStaffAssignment';
+import PersonalizedPost from './pages/admin/PersonalizedPost';
+// ...
+<Route path="assignments/board" element={<PersonalizedPost />} />
 import AssignmentHistory from './pages/admin/AssignmentHistory';
 import SDLPage from './pages/admin/metadata/SDLPage';
 import ComparePage from './pages/admin/metadata/ComparePage';
@@ -61,7 +63,7 @@ const App: React.FC = () => {
 
           <Route path="mandates/config" element={<MandateConfig />} />
           <Route path="assignments/config" element={<AssignmentConfig />} />
-          <Route path="assignments/board" element={<MandateStaffAssignment />} />
+          <Route path="assignments/board" element={<PersonalizedPost />} />
           <Route path="assignments/random" element={<RandomPost />} />
           <Route path="mandates/history" element={<AssignmentHistory />} />
           <Route path="audit" element={<AuditLog />} />

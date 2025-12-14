@@ -7,14 +7,20 @@ import { AssignmentBoardData, StaffMandateAssignment, MandateColumn as MandateCo
 import { State } from '../../types/state';
 import { MandateColumn } from '../../components/MandateColumn';
 import AlertModal from '../../components/AlertModal';
+import StationTypeSelectionModal from '../../components/StationTypeSelectionModal';
+import { getAllSchools } from '../../services/school';
+import { getAllNCEECenters } from '../../services/nceeCenter';
+import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
+import { getAllMarkingVenues } from '../../services/markingVenue';
 import CsvUploadModal from '../../components/CsvUploadModal';
+import SearchableSelect from '../../components/SearchableSelect';
 
-const MandateStaffAssignment: React.FC = () => {
+const PersonalizedPost: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('');
     const [selectedMandateId, setSelectedMandateId] = useState<string>('');
     const [selectedStationId, setSelectedStationId] = useState<string>('');
-    const [stationOptions, setStationOptions] = useState<{id: string; name: string; type: string}[]>([]);
+    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string }[]>([]);
     const [boardData, setBoardData] = useState<AssignmentBoardData | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -26,7 +32,10 @@ const MandateStaffAssignment: React.FC = () => {
     const [sourceSearch, setSourceSearch] = useState('');
     const [targetSearch, setTargetSearch] = useState('');
 
+
     // Modals
+    const [isStationModalOpen, setIsStationModalOpen] = useState(false);
+    const [manualStationType, setManualStationType] = useState<string>('');
     const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
     const [alert, setAlert] = useState<{ open: boolean; title: string; message: string; type: 'success' | 'error' | 'warning' }>({
         open: false,
@@ -63,13 +72,14 @@ const MandateStaffAssignment: React.FC = () => {
     const loadStationOptions = async () => {
         try {
             // Load all possible stations
-            const [states, ssceCustodians, beceCustodians, nceeCenters, markingVenues] = await Promise.all([
+            // Load all possible stations
+            const [states] = await Promise.all([
                 getAllStates(),
                 // Add API calls for custodians, centers, venues
             ]);
-            
+
             const options = [
-                ...states.map(s => ({id: s.id, name: s.name, type: 'state'})),
+                ...states.map(s => ({ id: s.id, name: s.name, type: 'state' })),
                 // Add other station types
             ];
             setStationOptions(options);
@@ -184,7 +194,7 @@ const MandateStaffAssignment: React.FC = () => {
             showAlert('Error', 'Please select a station before saving.', 'error');
             return;
         }
-        
+
         const currentAssignment = assignments.find(a => a.id === selectedAssignmentId);
         if (!currentAssignment) return;
 
@@ -197,13 +207,13 @@ const MandateStaffAssignment: React.FC = () => {
                 station: stationOptions.find(s => s.id === selectedStationId),
                 changes: pendingChanges
             };
-            
+
             await bulkSaveAssignments(savePayload as any);
             showAlert('Success', 'Staff posted successfully!', 'success');
             await loadBoardData(selectedAssignmentId);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Save failed', error);
-            showAlert('Error', 'Failed to save posting', 'error');
+            showAlert('Error', error.message || 'Failed to save posting', 'error');
             setLoading(false);
         }
     };
@@ -213,7 +223,7 @@ const MandateStaffAssignment: React.FC = () => {
             showAlert('Import Error', 'Please select a mandate first.', 'error');
             return;
         }
-        
+
         if (!selectedStationId) {
             showAlert('Import Error', 'Please select a station for this mandate.', 'error');
             return;
@@ -225,16 +235,22 @@ const MandateStaffAssignment: React.FC = () => {
         const targetCol = newBoardData.mandateColumns.find(c => c.id === selectedMandateId);
         if (!targetCol) return;
 
+        const missingStaff: string[] = [];
+
         data.forEach(row => {
+            // Pad staff number with leading zeros to ensure at least 4 digits
+            const staffNo = row.staffNo.trim();
+            // Only pad if it looks like a number
+            const paddedStaffNo = /^\d+$/.test(staffNo) ? staffNo.padStart(4, '0') : staffNo;
+
             // Find in unassigned pool first
-            let staff = newBoardData.unassignedStaff.find(s => s.staff_no.toLowerCase() === row.staffNo.toLowerCase());
+            let staff = newBoardData.unassignedStaff.find(s => s.staff_no.toLowerCase() === paddedStaffNo.toLowerCase());
             let currentMandateId: string | null = null;
 
             if (!staff) {
                 // If not in unassigned, check other mandates (maybe moving from another mandate to this one?)
-                // In this 2-box view, we might restricted to only unassigned, but let's allow "stealing" from other mandates implicitly
                 for (const col of newBoardData.mandateColumns) {
-                    const s = col.staff.find(st => st.staff_no.toLowerCase() === row.staffNo.toLowerCase());
+                    const s = col.staff.find(st => st.staff_no.toLowerCase() === paddedStaffNo.toLowerCase());
                     if (s) {
                         staff = s;
                         currentMandateId = col.id;
@@ -265,53 +281,142 @@ const MandateStaffAssignment: React.FC = () => {
                     targetMandateId: selectedMandateId
                 });
                 changesCount++;
+            } else {
+                missingStaff.push(paddedStaffNo);
             }
-            // Else: Staff not found in the system at all - currently ignored, or could alert
         });
 
         if (changesCount > 0) {
             setBoardData(newBoardData);
             setPendingChanges(newPendingChanges);
             setHasUnsavedChanges(true);
-            showAlert('Import Successful', `Added ${changesCount} staff to ${targetCol.code}.`, 'success');
+
+            if (missingStaff.length > 0) {
+                showAlert('Import with Warnings', `Added ${changesCount} staff. The following staff were not found in this assignment: ${missingStaff.join(', ')}`, 'warning');
+            } else {
+                showAlert('Import Successful', `Added ${changesCount} staff to ${targetCol.code}.`, 'success');
+            }
         } else {
-            showAlert('Import Info', 'No matching available staff found to add.', 'warning');
+            if (missingStaff.length > 0) {
+                showAlert('Import Failed', `None of the uploaded staff were found in this assignment. Missing: ${missingStaff.join(', ')}`, 'error');
+            } else {
+                showAlert('Import Info', 'No new staff to add.', 'warning');
+            }
+        }
+    };
+
+
+
+    const downloadCsvTemplate = () => {
+        const headers = ['StaffNo'];
+        const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "staff_assignment_template.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleStationTypeSelect = async (type: string) => {
+        setManualStationType(type);
+        setLoading(true);
+        try {
+            let options: { id: string; name: string; type: string }[] = [];
+
+            if (type === 'state') {
+                const data = await getAllStates();
+                options = data.map(s => ({
+                    id: s.id,
+                    name: s.state_code ? `(${s.state_code}) - ${s.name}` : s.name,
+                    type: 'state'
+                }));
+            } else if (type === 'school') {
+                const data = await getAllSchools();
+                // Assumed School has name property
+                options = data.map(s => ({
+                    id: s.id,
+                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
+                    type: 'school'
+                }));
+            } else if (type === 'bece_custodian') {
+                const data = await getAllBECECustodians();
+                options = data.map(s => ({
+                    id: s.id,
+                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
+                    type: 'bece_custodian'
+                }));
+            } else if (type === 'ssce_custodian') {
+                const data = await getAllSSCECustodians();
+                options = data.map(s => ({
+                    id: s.id,
+                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
+                    type: 'ssce_custodian'
+                }));
+            } else if (type === 'ncee_center') {
+                const data = await getAllNCEECenters();
+                // NCEECenter uses name
+                options = data.map(s => ({
+                    id: s.id,
+                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
+                    type: 'ncee_center'
+                }));
+            } else if (type === 'marking_venue') {
+                const data = await getAllMarkingVenues();
+                options = data.map(s => ({
+                    id: s.id,
+                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
+                    type: 'marking_venue'
+                }));
+            }
+
+            setStationOptions(options);
+            setSelectedStationId(''); // Reset selection
+
+            showAlert('Station Loaded', `Loaded ${options.length} stations.`, 'success');
+        } catch (error) {
+            console.error('Failed to load stations', error);
+            showAlert('Error', 'Failed to load stations', 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
     // Get selected column for station dropdown check
     const selectedColumn = boardData?.mandateColumns.find(c => c.id === selectedMandateId);
-    
+
     // Filter stations based on mandate station type
     const getFilteredStations = () => {
+        if (manualStationType) return stationOptions;
         if (!selectedColumn?.station) return [];
         const stationType = selectedColumn.station.toLowerCase();
-        
+
         if (stationType === 'state') {
             return stationOptions.filter(s => s.type === 'state');
         } else if (stationType.includes('custodian')) {
             return stationOptions.filter(s => s.type.includes('custodian'));
         } else if (stationType.includes('ncee')) {
-            return stationOptions.filter(s => s.type === 'ncee');
+            return stationOptions.filter(s => s.type === 'ncee_center');
         } else if (stationType.includes('marking')) {
-            return stationOptions.filter(s => s.type === 'marking');
+            return stationOptions.filter(s => s.type === 'marking_venue');
         }
         return stationOptions;
     };
-    
+
     // Filter Logic
     const filteredSource = boardData?.unassignedStaff.filter(s => {
         // First apply search filter
         const matchesSearch = s.staff_name.toLowerCase().includes(sourceSearch.toLowerCase()) ||
             s.staff_no.toLowerCase().includes(sourceSearch.toLowerCase());
-        
+
         if (!matchesSearch) return false;
-        
+
         // If a mandate is selected and has a station filter, apply station-based filtering
         if (selectedMandateId && selectedColumn?.station) {
             const mandateStation = selectedColumn.station.toLowerCase();
             const staffStation = s.current_station?.toLowerCase() || '';
-            
+
             // Match staff station with mandate station requirement
             if (mandateStation === 'state') {
                 // For 'State' station, show all staff
@@ -324,7 +429,7 @@ const MandateStaffAssignment: React.FC = () => {
                 return true;
             }
         }
-        
+
         return true;
     }) || [];
 
@@ -350,14 +455,25 @@ const MandateStaffAssignment: React.FC = () => {
                         </h1>
                         <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Assign staff to specific mandates manually</p>
                     </div>
-                    <button
-                        onClick={handleSaveChanges}
-                        disabled={!hasUnsavedChanges}
-                        className="h-10 px-6 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:shadow-none"
-                    >
-                        <span className="material-symbols-outlined text-lg">save</span>
-                        Save Changes
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleSaveChanges}
+                            disabled={!hasUnsavedChanges}
+                            className="h-10 px-6 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:shadow-none"
+                        >
+                            <span className="material-symbols-outlined text-lg">save</span>
+                            Post
+                        </button>
+                        <button
+                            onClick={() => setIsStationModalOpen(true)}
+                            disabled={!selectedMandateId}
+                            className="h-10 px-4 text-sm font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700 rounded-lg shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:shadow-none"
+                            title="Select Station Type"
+                        >
+                            <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400">tune</span>
+                            Select Station
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4 w-full">
@@ -394,16 +510,13 @@ const MandateStaffAssignment: React.FC = () => {
                     {selectedMandateId && (
                         <div className="flex-1">
                             <label className="block text-xs font-bold text-slate-500 mb-1">3. Select Station</label>
-                            <select
+                            <SearchableSelect
+                                options={getFilteredStations()}
                                 value={selectedStationId}
-                                onChange={(e) => setSelectedStationId(e.target.value)}
-                                className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
-                            >
-                                <option value="">-- Select Station --</option>
-                                {getFilteredStations().map(station => (
-                                    <option key={station.id} value={station.id}>{station.name}</option>
-                                ))}
-                            </select>
+                                onChange={(value) => setSelectedStationId(value)}
+                                placeholder="-- Select Station --"
+                                className="w-full"
+                            />
                         </div>
                     )}
                 </div>
@@ -478,6 +591,14 @@ const MandateStaffAssignment: React.FC = () => {
                                         <span className="material-symbols-outlined text-sm">upload_file</span>
                                         Import CSV
                                     </button>
+                                    <button
+                                        onClick={downloadCsvTemplate}
+                                        className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-gray-700 rounded hover:bg-slate-50 shadow-sm flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300"
+                                        title="Download Template"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">download</span>
+                                        Template
+                                    </button>
                                     <span className="text-xs font-bold bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-full">
                                         {selectedColumn?.staff.length || 0}
                                     </span>
@@ -533,6 +654,12 @@ const MandateStaffAssignment: React.FC = () => {
                 onClose={() => setIsCsvModalOpen(false)}
                 onUpload={handleCsvUpload}
             />
+
+            <StationTypeSelectionModal
+                isOpen={isStationModalOpen}
+                onClose={() => setIsStationModalOpen(false)}
+                onSelect={handleStationTypeSelect}
+            />
         </div>
     );
 };
@@ -543,4 +670,4 @@ const getMandateColor = (index: number): 'slate' | 'emerald' | 'blue' | 'purple'
     return colors[index % colors.length];
 };
 
-export default MandateStaffAssignment;
+export default PersonalizedPost;

@@ -1,6 +1,6 @@
 export interface MarkingVenue {
     id: string;
-    state_id: string;
+    state: string;
     name: string;
     code?: string | null;
     address?: string | null;
@@ -20,7 +20,7 @@ export interface MarkingVenueListResponse {
 }
 
 export interface MarkingVenueCreate {
-    state_id: string;
+    state: string;
     name: string;
     code?: string | null;
     address?: string | null;

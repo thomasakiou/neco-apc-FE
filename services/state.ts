@@ -88,8 +88,8 @@ export const bulkDeleteStates = async (ids: string[]): Promise<void> => {
 };
 
 // Related entities services
-export const getMarkingVenuesByState = async (stateId: string): Promise<MarkingVenue[]> => {
-    const response = await fetch(`/api/marking-venues?state_id=${stateId}&limit=10000`);
+export const getMarkingVenuesByState = async (stateName: string): Promise<MarkingVenue[]> => {
+    const response = await fetch(`/api/marking-venues?state=${encodeURIComponent(stateName)}&limit=10000`);
     if (!response.ok) {
         throw new Error('Failed to fetch marking venues');
     }

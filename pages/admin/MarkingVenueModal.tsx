@@ -11,7 +11,7 @@ interface MarkingVenueModalProps {
 }
 
 const initialFormState: MarkingVenueCreate = {
-    state_id: '',
+    state: '',
     name: '',
     code: '',
     address: '',
@@ -41,7 +41,7 @@ const MarkingVenueModal: React.FC<MarkingVenueModalProps> = ({ isOpen, onClose, 
     useEffect(() => {
         if (initialData) {
             setFormData({
-                state_id: initialData.state_id,
+                state: initialData.state,
                 name: initialData.name,
                 code: initialData.code || '',
                 address: initialData.address || '',
@@ -104,18 +104,18 @@ const MarkingVenueModal: React.FC<MarkingVenueModalProps> = ({ isOpen, onClose, 
                 <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
                     <div className="relative group">
                         <select
-                            name="state_id"
-                            value={formData.state_id}
+                            name="state"
+                            value={formData.state}
                             onChange={handleChange}
                             required
                             className="peer w-full h-12 px-4 pt-5 pb-1 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#121b25] focus:border-emerald-500 focus:ring-[3px] focus:ring-emerald-500/10 transition-all font-bold text-slate-700 dark:text-slate-200 text-sm appearance-none cursor-pointer"
                         >
                             <option value="" disabled hidden></option>
                             {states.map(state => (
-                                <option key={state.id} value={state.id}>{state.name}</option>
+                                <option key={state.id} value={state.name}>{state.name}</option>
                             ))}
                         </select>
-                        <label className={`absolute left-4 text-[10px] font-bold uppercase tracking-wider transition-all pointer-events-none ${formData.state_id ? 'top-1.5 text-emerald-500' : 'top-4 text-slate-400 peer-focus:top-1.5 peer-focus:text-emerald-500'
+                        <label className={`absolute left-4 text-[10px] font-bold uppercase tracking-wider transition-all pointer-events-none ${formData.state ? 'top-1.5 text-emerald-500' : 'top-4 text-slate-400 peer-focus:top-1.5 peer-focus:text-emerald-500'
                             }`}>
                             State
                         </label>

@@ -51,7 +51,7 @@ const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUplo
         try {
             const data = await parseAssignmentCSV(f);
             if (data.length === 0) {
-                setError('No valid data found in CSV. Please check headers (StaffNo, MandateCode).');
+                setError('No valid data found in CSV. Please check headers (StaffNo - MandateCode is optional).');
             } else {
                 setPreviewData(data);
             }
@@ -107,7 +107,7 @@ const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUplo
                                 <p className="text-sm text-slate-500 dark:text-slate-400">CSV files only (Max 5MB)</p>
                             </div>
                             <div className="text-xs text-slate-400 absolute bottom-4 font-mono">
-                                Required Columns: StaffNo, MandateCode
+                                Required Column: StaffNo (MandateCode optional)
                             </div>
                         </div>
                     ) : (

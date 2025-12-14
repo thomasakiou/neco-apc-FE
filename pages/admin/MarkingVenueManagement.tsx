@@ -23,8 +23,9 @@ const MarkingVenueManagement: React.FC = () => {
     const hasActiveFilters = selectedState !== 'All';
 
     const filteredVenues = venueList.filter(venue => {
-        const matchesState = selectedState === 'All' || venue.state_id === selectedState;
-        return matchesState;
+        if (selectedState === 'All') return true;
+        if (!venue.state) return false;
+        return venue.state.replace(/[- ]/g, '').toLowerCase() === selectedState.replace(/[- ]/g, '').toLowerCase();
     });
 
     const sortedVenues = [...filteredVenues].sort((a, b) => {
@@ -46,8 +47,9 @@ const MarkingVenueManagement: React.FC = () => {
     });
 
     const allFilteredVenues = allVenues.filter(venue => {
-        const matchesState = selectedState === 'All' || venue.state_id === selectedState;
-        return matchesState;
+        if (selectedState === 'All') return true;
+        if (!venue.state) return false;
+        return venue.state.replace(/[- ]/g, '').toLowerCase() === selectedState.replace(/[- ]/g, '').toLowerCase();
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,7 +88,7 @@ const MarkingVenueManagement: React.FC = () => {
                     errorData: response.errors || []
                 }
             });
-            fetchData();
+
             fetchAllVenues();
         } catch (error: any) {
             console.error('Upload failed:', error);
@@ -104,49 +106,48 @@ const MarkingVenueManagement: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        setPage(1);
-    }, [searchTerm]);
+    // ...
 
-    useEffect(() => {
-        setPage(1);
-    }, [selectedState]);
+    const applyFilters = () => {
+        let filtered = allVenues;
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            if (hasActiveFilters) {
-                const allData = await getAllMarkingVenues();
-                const filtered = allData.filter(venue => {
-                    const matchesSearch = !searchTerm ||
-                        venue.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        venue.code?.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesState = selectedState === 'All' || venue.state_id === selectedState;
-                    return matchesSearch && matchesState;
-                });
-
-                const startIndex = (page - 1) * limit;
-                const endIndex = startIndex + limit;
-                setVenueList(filtered.slice(startIndex, endIndex));
-                setTotal(filtered.length);
-            } else {
-                const response = await getMarkingVenueList(page, limit, searchTerm);
-                setVenueList(response.items);
-                setTotal(response.total);
-            }
-        } catch (error) {
-            console.error('Error fetching marking venues:', error);
-        } finally {
-            setLoading(false);
+        // Search Filter
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            filtered = filtered.filter(venue =>
+                venue.name?.toLowerCase().includes(lowerTerm) ||
+                venue.code?.toLowerCase().includes(lowerTerm)
+            );
         }
+
+        // State Filter
+        if (selectedState !== 'All') {
+            const normalizedState = selectedState.replace(/[- ]/g, '').toLowerCase();
+            filtered = filtered.filter(venue =>
+                venue.state && venue.state.replace(/[- ]/g, '').toLowerCase() === normalizedState
+            );
+        }
+
+        setTotal(filtered.length);
+
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        setVenueList(filtered.slice(startIndex, endIndex));
     };
 
     const fetchAllVenues = async () => {
+        setLoading(true);
         try {
             const data = await getAllMarkingVenues();
             setAllVenues(data);
+            // applyFilters will run via useEffect when allVenues updates
         } catch (error) {
             console.error('Error fetching all marking venues:', error);
+            setLoading(false);
+        } finally {
+            // setLoading(false) moved to catch/success implicit flow or use separate effect? 
+            // Better to strictly set loading false here.
+            setLoading(false);
         }
     };
 
@@ -160,8 +161,8 @@ const MarkingVenueManagement: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchData();
-    }, [page, searchTerm, limit, selectedState]);
+        applyFilters();
+    }, [page, searchTerm, limit, selectedState, allVenues]);
 
     useEffect(() => {
         fetchAllVenues();
@@ -177,7 +178,7 @@ const MarkingVenueManagement: React.FC = () => {
             onConfirm: async () => {
                 try {
                     await deleteMarkingVenue(id);
-                    fetchData();
+
                     fetchAllVenues();
                     setAlertModal({
                         isOpen: true,
@@ -215,7 +216,7 @@ const MarkingVenueManagement: React.FC = () => {
             } else {
                 await createMarkingVenue(data);
             }
-            fetchData();
+
             fetchAllVenues();
             setIsModalOpen(false);
         } catch (error) {
@@ -262,7 +263,7 @@ const MarkingVenueManagement: React.FC = () => {
     const isAllSelected = allFilteredVenues.length > 0 && allFilteredVenues.every(v => selectedIds.has(v.id));
 
     const downloadCsvTemplate = () => {
-        const headers = ['state_code', 'name', 'code', 'address', 'parcels', 'active'];
+        const headers = ['state', 'name', 'code', 'address', 'parcels', 'active'];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -293,7 +294,7 @@ const MarkingVenueManagement: React.FC = () => {
                 try {
                     await bulkDeleteMarkingVenues(Array.from(selectedIds));
                     setSelectedIds(new Set());
-                    fetchData();
+
                     fetchAllVenues();
                     setAlertModal({
                         isOpen: true,
@@ -314,10 +315,7 @@ const MarkingVenueManagement: React.FC = () => {
         });
     };
 
-    const getStateName = (stateId: string) => {
-        const state = states.find(s => s.id === stateId);
-        return state?.name || 'Unknown';
-    };
+
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
@@ -419,7 +417,7 @@ const MarkingVenueManagement: React.FC = () => {
                                 className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer focus:ring-primary focus:border-primary truncate"
                             >
                                 <option value="All">State: All</option>
-                                {states.map(state => <option key={state.id} value={state.id}>{state.name}</option>)}
+                                {states.map(state => <option key={state.id} value={state.name}>{state.name}</option>)}
                             </select>
                             <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">arrow_drop_down</span>
                         </div>
@@ -484,7 +482,7 @@ const MarkingVenueManagement: React.FC = () => {
                                             <VenueRow
                                                 key={venue.id}
                                                 venue={venue}
-                                                stateName={getStateName(venue.state_id)}
+                                                stateName={venue.state || '-'}
                                                 onEdit={handleEdit}
                                                 onDelete={handleDelete}
                                                 isSelected={selectedIds.has(venue.id)}

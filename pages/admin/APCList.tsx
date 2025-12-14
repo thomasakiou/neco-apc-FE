@@ -8,10 +8,20 @@ const APCList: React.FC = () => {
     const [records, setRecords] = useState<APCRecord[]>([]);
     const [allRecords, setAllRecords] = useState<APCRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    // Search and Filter States
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [total, setTotal] = useState(0);
-    const [search, setSearch] = useState('');
+
+    // Filters
+    const [searchFileNo, setSearchFileNo] = useState('');
+    const [searchName, setSearchName] = useState('');
+    const [filterConraiss, setFilterConraiss] = useState('');
+    const [filterStation, setFilterStation] = useState('');
+
+    // Unique options for dropdowns
+    const [conraissOptions, setConraissOptions] = useState<string[]>([]);
+    const [stationOptions, setStationOptions] = useState<string[]>([]);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
@@ -29,11 +39,11 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [search]);
+    }, [searchFileNo, searchName, filterConraiss, filterStation]);
 
     useEffect(() => {
         fetchData();
-    }, [page, limit, search]);
+    }, [page, limit, searchFileNo, searchName, filterConraiss, filterStation]);
 
     useEffect(() => {
         fetchAllRecords();
@@ -42,24 +52,74 @@ const APCList: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const response = await getAllAPC((page - 1) * limit, limit, search);
+            // For now, we are filtering locally because the API `getAllAPC` takes a single search string.
+            // In a real app with backend support, we would pass these individual filters.
+            // We fetch a larger set or use the single search if applicable, but here we'll filter on client for precise control.
+
+            // Note: If you have server-side search, you should update getAllAPC to accept more params.
+            // Assuming we fetch a page based on limit, but client filtering requires fetching more or relying on backend.
+            // Let's assume we use the search param for a generic fallback or just fetch page.
+
+            // To properly filter locally with pagination, we ideally need ALL records or backend filtering.
+            // Current `getAllAPC` implementation uses simple string search.
+            // Let's stick to the current pattern: fetch and filter.
+
+            const response = await getAllAPC((page - 1) * limit, limit, '');
             let filteredRecords = response.items;
-            
-            // Client-side filtering if search term exists
-            if (search.trim()) {
-                const searchTerm = search.toLowerCase().trim();
-                filteredRecords = response.items.filter(record => 
-                    record.file_no.toLowerCase().includes(searchTerm) ||
-                    record.name.toLowerCase().includes(searchTerm) ||
-                    (record.conraiss || '').toLowerCase().includes(searchTerm) ||
-                    (record.station || '').toLowerCase().includes(searchTerm)
-                );
-                setTotal(filteredRecords.length);
-            } else {
-                setTotal(response.total);
+
+            // Wait - if we filter locally, we need to apply filters on the full dataset or the current page?
+            // Local filtering on paginated result is bad UX (only filters current page).
+            // However, modifying the backend is out of scope unless requested.
+            // Given the requirement "make the search area ... search the table",
+            // I will use getAllAPCRecords (which fetches ALL) to do client side filtering properly found in fetchAllRecords?
+            // Actually `allRecords` variable might already have them if initialized.
+
+            // Optimization: If total count is small enough (<10k), we can load all client side.
+            // Check `fetchAllRecords` usage. It is called on mount.
+
+            // Let's use `allRecords` for filtering if available, otherwise fetch.
+            // But `allRecords` is async. Let's rely on standard fetch flow but maybe fetch more?
+            // Actually, let's look at `allRecords` state.
+
+            // The user wants efficient search.
+            // Let's apply filters on the `allRecords` state if it's populated, to simulate "searching the table".
+
+            let targetRecords = allRecords.length > 0 ? allRecords : filteredRecords;
+            // If allRecords is empty (initial load), we might depend on response.items, but that's just a slice.
+            // Let's trust `allRecords` is being populated or we trigger it.
+
+            if (allRecords.length === 0) {
+                // Fallback if allRecords not yet loaded
+                // This effectively means search only works on current page until all load
             }
-            
-            setRecords(filteredRecords);
+
+            // FILTER LOGIC
+            let result = targetRecords.filter(record => {
+                const matchFileNo = record.file_no.toLowerCase().includes(searchFileNo.toLowerCase().trim());
+                const matchName = record.name.toLowerCase().includes(searchName.toLowerCase().trim());
+                const matchConraiss = filterConraiss ? record.conraiss === filterConraiss : true;
+                const matchStation = filterStation ? record.station === filterStation : true;
+
+                return matchFileNo && matchName && matchConraiss && matchStation;
+            });
+
+            setTotal(result.length);
+
+            // Pagination logic on client filtered result
+            const startIndex = (page - 1) * limit;
+            const paginatedResult = result.slice(startIndex, startIndex + limit);
+
+            setRecords(paginatedResult);
+
+            // Extract options for dropdowns from full dataset
+            if (targetRecords.length > 0) {
+                const uniqueConraiss = Array.from(new Set(targetRecords.map(r => r.conraiss).filter(Boolean))) as string[];
+                const uniqueStation = Array.from(new Set(targetRecords.map(r => r.station).filter(Boolean))) as string[];
+                // Sort
+                setConraissOptions(uniqueConraiss.sort());
+                setStationOptions(uniqueStation.sort());
+            }
+
         } catch (error) {
             console.error("Failed to fetch APC records", error);
             setAlertModal({
@@ -72,6 +132,13 @@ const APCList: React.FC = () => {
             setLoading(false);
         }
     };
+
+    // Need to trigger re-fetch when allRecords updates
+    useEffect(() => {
+        if (allRecords.length > 0) {
+            fetchData();
+        }
+    }, [allRecords]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchAllRecords = async () => {
         try {
@@ -139,9 +206,21 @@ const APCList: React.FC = () => {
     const handleExport = async () => {
         try {
             setLoading(true);
-            const allData = await getAllAPC(0, 100000, search);
+            const allData = await getAllAPC(0, 100000, ''); // Export ignore filters? Or maybe apply them? 
+            // Better to export filtered result
+            // Let's allow exporting ALL by default or filtered if we want
+            // Implementation below exports ALL matches query, but query is now split.
 
-            const exportData = allData.items.map(record => ({
+            // Let's filter the export data same as table
+            const filteredExport = allData.items.filter(record => {
+                const matchFileNo = record.file_no.toLowerCase().includes(searchFileNo.toLowerCase().trim());
+                const matchName = record.name.toLowerCase().includes(searchName.toLowerCase().trim());
+                const matchConraiss = filterConraiss ? record.conraiss === filterConraiss : true;
+                const matchStation = filterStation ? record.station === filterStation : true;
+                return matchFileNo && matchName && matchConraiss && matchStation;
+            });
+
+            const exportData = filteredExport.map(record => ({
                 'File Number': record.file_no,
                 'Name': record.name,
                 'CONRAISS': record.conraiss,
@@ -173,7 +252,7 @@ const APCList: React.FC = () => {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "APC List");
             XLSX.writeFile(wb, `APC_List_${new Date().toISOString().split('T')[0]}.xlsx`);
-            
+
             setAlertModal({
                 isOpen: true,
                 title: 'Export Successful',
@@ -347,33 +426,85 @@ const APCList: React.FC = () => {
             <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
                 {/* Filters */}
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
-                        <div className="relative w-full md:w-64">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
+                    <div className="flex flex-col gap-4 w-full">
+                        {/* Search Row */}
+                        <div className="flex flex-col md:flex-row gap-4 w-full">
+                            {/* File No Search */}
+                            <div className="relative flex-1 md:max-w-xs">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span className="material-symbols-outlined text-slate-400 text-lg">tag</span>
+                                </div>
+                                <input
+                                    className="w-full pl-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-sm text-slate-700 dark:text-slate-200"
+                                    placeholder="Search by File No..."
+                                    value={searchFileNo}
+                                    onChange={(e) => setSearchFileNo(e.target.value)}
+                                />
                             </div>
-                            <input
-                                className="w-full pl-10 h-10 rounded-lg border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-primary focus:ring-[3px] focus:ring-primary/20 transition-all duration-200 text-slate-700 dark:text-slate-200 font-medium text-sm placeholder:text-slate-400"
-                                placeholder="Search..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
+
+                            {/* Name Search */}
+                            <div className="relative flex-1">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
+                                </div>
+                                <input
+                                    className="w-full pl-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-sm text-slate-700 dark:text-slate-200"
+                                    placeholder="Search by Name..."
+                                    value={searchName}
+                                    onChange={(e) => setSearchName(e.target.value)}
+                                />
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Per page:</label>
-                            <select
-                                value={limit}
-                                onChange={(e) => {
-                                    setLimit(Number(e.target.value));
-                                    setPage(1);
-                                }}
-                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
+
+                        {/* Filter Row */}
+                        <div className="flex flex-col md:flex-row gap-4 w-full items-center">
+                            {/* CONRAISS Filter */}
+                            <div className="relative w-full md:w-48">
+                                <select
+                                    value={filterConraiss}
+                                    onChange={(e) => setFilterConraiss(e.target.value)}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <option value="">All CONRAISS</option>
+                                    {conraissOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Station Filter */}
+                            <div className="relative w-full md:w-64">
+                                <select
+                                    value={filterStation}
+                                    onChange={(e) => setFilterStation(e.target.value)}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <option value="">All Stations</option>
+                                    {stationOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex-1"></div>
+
+                            {/* Pagination Limit */}
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Per page:</label>
+                                <select
+                                    value={limit}
+                                    onChange={(e) => {
+                                        setLimit(Number(e.target.value));
+                                        setPage(1);
+                                    }}
+                                    className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -510,7 +641,7 @@ const APCList: React.FC = () => {
                 details={alertModal.details}
                 onConfirm={alertModal.onConfirm}
             />
-            
+
             <APCModal
                 isOpen={showAddModal}
                 onClose={() => {

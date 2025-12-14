@@ -2,7 +2,7 @@ import { MarkingVenueListResponse, MarkingVenueCreate, MarkingVenueUpdate, Marki
 
 const API_BASE_URL = '/api/marking-venues';
 
-export const getMarkingVenueList = async (page: number = 1, limit: number = 10, search: string = '', stateId?: string): Promise<MarkingVenueListResponse> => {
+export const getMarkingVenueList = async (page: number = 1, limit: number = 10, search: string = '', state?: string): Promise<MarkingVenueListResponse> => {
     const skip = (page - 1) * limit;
     const params = new URLSearchParams({
         skip: skip.toString(),
@@ -11,8 +11,8 @@ export const getMarkingVenueList = async (page: number = 1, limit: number = 10, 
     if (search) {
         params.append('search', search);
     }
-    if (stateId) {
-        params.append('state_id', stateId);
+    if (state) {
+        params.append('state', state);
     }
 
     const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
