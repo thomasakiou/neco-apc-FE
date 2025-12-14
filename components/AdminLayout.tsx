@@ -72,7 +72,7 @@ const AdminLayout: React.FC = () => {
               isActive('/admin/mandates/history')
             }>
               {/* Moved Assignment History here as a logical fit for Reports since none were specified */}
-              <NavItem to="/admin/mandates/history" icon="history" label="Assignment History" active={isActive('/admin/mandates/history')} />
+              <NavItem to="/admin/mandates/history" icon="summarize" label="Generate Reports" active={isActive('/admin/mandates/history')} />
             </CollapsibleNavSection>
 
             <CollapsibleNavSection title="Configuration" icon="settings" active={

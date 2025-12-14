@@ -19,7 +19,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({ staff, onDragStart, onClic
                 <div className="font-bold text-slate-800 dark:text-slate-200 text-sm truncate pr-2" title={staff.staff_name}>
                     {staff.staff_name}
                 </div>
-                <div className="text-[10px] font-mono text-slate-400 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-700">
+                <div className="text-sm font-black font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-600 shadow-sm">
                     {staff.staff_no}
                 </div>
             </div>

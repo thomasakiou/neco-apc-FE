@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { APCRecord, APCCreate, APCUpdate } from '../../types/apc';
 import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, bulkDeleteAPC, getAllAPCRecords } from '../../services/apc';
+import { getAllAssignments } from '../../services/assignment';
+import { assignmentFieldMap } from '../../services/personalizedPost';
+import { Assignment } from '../../types/assignment';
 import AlertModal from '../../components/AlertModal';
 import * as XLSX from 'xlsx';
 
@@ -18,10 +21,12 @@ const APCList: React.FC = () => {
     const [searchName, setSearchName] = useState('');
     const [filterConraiss, setFilterConraiss] = useState('');
     const [filterStation, setFilterStation] = useState('');
+    const [filterAssignment, setFilterAssignment] = useState('');
 
     // Unique options for dropdowns
     const [conraissOptions, setConraissOptions] = useState<string[]>([]);
     const [stationOptions, setStationOptions] = useState<string[]>([]);
+    const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>([]);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
@@ -39,11 +44,23 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchFileNo, searchName, filterConraiss, filterStation]);
+    }, [searchFileNo, searchName, filterConraiss, filterStation, filterAssignment]);
 
     useEffect(() => {
         fetchData();
-    }, [page, limit, searchFileNo, searchName, filterConraiss, filterStation]);
+    }, [page, limit, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment]);
+
+    useEffect(() => {
+        const loadAssignments = async () => {
+            try {
+                const data = await getAllAssignments();
+                setAssignmentOptions(data);
+            } catch (e) {
+                console.error("Failed to load assignments", e);
+            }
+        };
+        loadAssignments();
+    }, []);
 
     useEffect(() => {
         fetchAllRecords();
@@ -100,7 +117,16 @@ const APCList: React.FC = () => {
                 const matchConraiss = filterConraiss ? record.conraiss === filterConraiss : true;
                 const matchStation = filterStation ? record.station === filterStation : true;
 
-                return matchFileNo && matchName && matchConraiss && matchStation;
+                let matchAssignment = true;
+                if (filterAssignment) {
+                    const fieldName = assignmentFieldMap[filterAssignment];
+                    if (fieldName) {
+                        const val = record[fieldName as keyof APCRecord];
+                        matchAssignment = !!(val && val.toString().trim() !== '');
+                    }
+                }
+
+                return matchFileNo && matchName && matchConraiss && matchStation && matchAssignment;
             });
 
             setTotal(result.length);
@@ -482,6 +508,20 @@ const APCList: React.FC = () => {
                                     <option value="">All Stations</option>
                                     {stationOptions.map(opt => (
                                         <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Assignment Filter */}
+                            <div className="relative w-full md:w-64">
+                                <select
+                                    value={filterAssignment}
+                                    onChange={(e) => setFilterAssignment(e.target.value)}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <option value="">All Assignments</option>
+                                    {assignmentOptions.map(opt => (
+                                        <option key={opt.id} value={opt.code}>{opt.mandate}</option>
                                     ))}
                                 </select>
                             </div>

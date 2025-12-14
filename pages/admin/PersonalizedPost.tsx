@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllAssignments } from '../../services/assignment';
-import { getAssignmentBoardData, bulkSaveAssignments } from '../../services/mandateStaffAssignment';
+import { getAssignmentBoardData, bulkSaveAssignments } from '../../services/personalizedPost';
 import { getAllStates } from '../../services/state';
 import { Assignment } from '../../types/assignment';
 import { AssignmentBoardData, StaffMandateAssignment, MandateColumn as MandateColumnType } from '../../types/apc';

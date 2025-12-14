@@ -7,7 +7,7 @@ import { getAllPostingRecords, bulkCreatePostings } from './posting';
 import { PostingCreate, PostingUpdate, BulkPostingCreateRequest } from '../types/posting';
 
 // Map assignment codes to APC field names
-const assignmentFieldMap: { [key: string]: string } = {
+export const assignmentFieldMap: { [key: string]: string } = {
     'TT': 'tt',
     'SSCE-INT': 'ssce_int',
     'SSCE-EXT': 'ssce_ext',
@@ -210,28 +210,15 @@ export const bulkSaveAssignments = async (
     const { assignment, changes, station } = payload;
     const errors: string[] = [];
 
-    // Pre-fetch all posting records once to avoid repeated large calls?
-    // Or just fetch per staff? optimizing: fetch once.
+    // Pre-fetch all posting records once
     let allPostingsRequest = await getAllPostingRecords();
     const postingMap = new Map<string, any>(allPostingsRequest.map(p => [p.file_no, p]));
-
-    // Pre-fetch all APC records once (Backend search is unreliable)
-    const allAPCResponse = await getAllAPC(0, 100000, '');
-    const apcMap = new Map<string, any>();
-    allAPCResponse.items.forEach(r => {
-        if (r.file_no) {
-            // Robust mapping: support raw, trimmed, and padded calls
-            const raw = r.file_no.toString();
-            const trimmed = raw.trim();
-            const padded = trimmed.padStart(4, '0');
-
-            apcMap.set(raw, r);
-            if (trimmed !== raw) apcMap.set(trimmed, r);
-            if (padded !== trimmed) apcMap.set(padded, r);
-        }
-    });
-
     const modifiedStaffNos = new Set<string>();
+
+    // NEW: Fetch all APC records once for in-memory lookup (User Request)
+    // This bypasses unreliable backend search for specific file numbers
+    const allAPCResponse = await getAllAPC(0, 100000, '');
+    const allAPCItems = allAPCResponse.items || [];
 
     for (const change of changes) {
         try {
@@ -240,13 +227,31 @@ export const bulkSaveAssignments = async (
             const rawStaffNo = change.staff.staff_no ? change.staff.staff_no.toString().trim() : '';
             const normalizedStaffNo = rawStaffNo.padStart(4, '0');
 
-            // Look up in map
-            let apcRecord = apcMap.get(normalizedStaffNo);
-            if (!apcRecord) apcRecord = apcMap.get(rawStaffNo);
+            // Find match in memory
+            const findMatch = (items: any[]) => {
+                return items.find(i => {
+                    if (!i.file_no) return false;
+                    const iRaw = i.file_no.toString().trim();
+                    const iNorm = iRaw.padStart(4, '0');
+
+                    // Direct string matches
+                    if (iRaw === rawStaffNo || iNorm === normalizedStaffNo || iRaw === normalizedStaffNo) return true;
+
+                    // Numeric match (robust against leading zeros differences like 003411 vs 3411)
+                    const iNum = parseInt(iRaw, 10);
+                    const rawNum = parseInt(rawStaffNo, 10);
+                    if (!isNaN(iNum) && !isNaN(rawNum) && iNum === rawNum) return true;
+
+                    return false;
+                });
+            };
+
+            let apcRecord = findMatch(allAPCItems);
 
             // Debug failure
             if (!apcRecord) {
-                console.warn(`APC Look up failed for ${rawStaffNo} (Norm: ${normalizedStaffNo}). Checked against ${allAPCResponse.items.length} loaded records.`);
+                // If not found in the entire loaded list
+                console.warn(`APC Look up failed for ${rawStaffNo} (Norm: ${normalizedStaffNo}). Checked against ${allAPCItems.length} loaded records.`);
                 if (change.action === 'add') throw new Error(`Staff ${change.staff.staff_no} not found in APC records.`);
             }
 
@@ -334,7 +339,9 @@ export const bulkSaveAssignments = async (
                     // Let's assume for now we CLEAR the field.
                     const fieldName = assignmentFieldMap[assignment.code];
                     if (fieldName) {
-                        // await updateAPC(change.staff.apc_id, { [fieldName]: '' } as any);
+                        // Clear the specific assignment field to ensure they are removed from the 'Target Box' view
+                        // which relies on this field being present.
+                        await updateAPC(change.staff.apc_id, { [fieldName]: '' } as any);
                     }
                 }
 
@@ -458,7 +465,6 @@ export const bulkSaveAssignments = async (
     }
 
     // Bulk Save Postings
-    console.log(`Modified Staff Count: ${modifiedStaffNos.size}`);
     if (modifiedStaffNos.size > 0) {
         const batch: PostingCreate[] = [];
         for (const staffNo of modifiedStaffNos) {
@@ -470,37 +476,81 @@ export const bulkSaveAssignments = async (
                 batch.push(cleanRecord as PostingCreate);
             }
         }
-        console.log(`Batch size to save: ${batch.length}`, batch);
         if (batch.length > 0) {
-            const response = await bulkCreatePostings({ items: batch });
-            console.log('Bulk create postings called successfully. Response:', response);
-            if (response.error_count > 0) {
-                console.error('Validation Errors:', JSON.stringify(response.errors, null, 2));
-            }
+            await bulkCreatePostings({ items: batch });
         }
     }
 };
 
-export const parseAssignmentCSV = async (file: File): Promise<{ staffNo: string; mandateCode: string }[]> => {
+export interface CSVPostingData {
+    staffNo: string;
+    name?: string;
+    station?: string;
+    conraiss?: string;
+    count?: number;
+    assignments?: string[];
+    mandate?: string;
+    venue?: string;
+    mandateCode?: string; // Legacy support or alias for mandate
+}
+
+export const parseAssignmentCSV = async (file: File): Promise<CSVPostingData[]> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = e.target?.result as string;
             if (!text) return resolve([]);
             const lines = text.split('\n');
-            const result: { staffNo: string; mandateCode: string }[] = [];
+            const result: CSVPostingData[] = [];
 
             const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-            const staffNoIndex = headers.findIndex(h => h.includes('staff') || h.includes('no'));
-            const mandateCodeIndex = headers.findIndex(h => h.includes('mandate') || h.includes('code'));
+
+            // Map headers to indices
+            const getIndex = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+
+            const idxStaffNo = getIndex(['staff', 'no']);
+            const idxName = getIndex(['name']);
+            const idxStation = getIndex(['station']);
+            const idxConraiss = getIndex(['conr', 'rank']);
+            const idxCount = getIndex(['count']);
+            const idxAssignments = getIndex(['assignment']);
+            const idxMandate = getIndex(['mandate', 'code']);
+            const idxVenue = getIndex(['venue']);
 
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
+                // Basic CSV split (does not handle quoted commas, but sufficient for simple templates)
                 const cols = line.split(',').map(c => c.trim());
-                const staffNo = cols[staffNoIndex !== -1 ? staffNoIndex : 0];
-                const mandateCode = mandateCodeIndex !== -1 ? cols[mandateCodeIndex] : undefined;
-                if (staffNo) result.push({ staffNo, mandateCode: mandateCode || '' });
+
+                if (idxStaffNo === -1 || !cols[idxStaffNo]) continue;
+
+                const data: CSVPostingData = {
+                    staffNo: cols[idxStaffNo],
+                };
+
+                if (idxName !== -1) data.name = cols[idxName];
+                if (idxStation !== -1) data.station = cols[idxStation];
+                if (idxConraiss !== -1) data.conraiss = cols[idxConraiss];
+                if (idxCount !== -1) data.count = parseInt(cols[idxCount]) || 0;
+
+                if (idxAssignments !== -1 && cols[idxAssignments]) {
+                    // Assume comma-separated or similar in single cell? 
+                    // Or typically just one assignment per row for this template?
+                    // Template header said "Assignments". Let's assume text.
+                    // If multiple, maybe separated by semi-colon to avoid CSV conflict? 
+                    // Or simple string is fine.
+                    data.assignments = [cols[idxAssignments]];
+                }
+
+                if (idxMandate !== -1) {
+                    data.mandate = cols[idxMandate];
+                    data.mandateCode = cols[idxMandate];
+                }
+
+                if (idxVenue !== -1) data.venue = cols[idxVenue];
+
+                result.push(data);
             }
             resolve(result);
         };

@@ -1,16 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { parseAssignmentCSV } from '../services/mandateStaffAssignment';
+import { parseAssignmentCSV, CSVPostingData } from '../services/personalizedPost';
 
 interface CsvUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onUpload: (data: { staffNo: string; mandateCode: string }[]) => void;
+    onUpload: (data: CSVPostingData[]) => void;
 }
 
 const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUpload }) => {
     const [dragging, setDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
-    const [previewData, setPreviewData] = useState<{ staffNo: string; mandateCode: string }[]>([]);
+    const [previewData, setPreviewData] = useState<CSVPostingData[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [parsing, setParsing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -146,19 +146,23 @@ const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUplo
                                         <thead>
                                             <tr className="text-slate-500 dark:text-slate-400">
                                                 <th className="pb-1">Staff No</th>
-                                                <th className="pb-1">Target Mandate</th>
+                                                <th className="pb-1">Name</th>
+                                                <th className="pb-1">Station</th>
+                                                <th className="pb-1">Mandate</th>
                                             </tr>
                                         </thead>
                                         <tbody className="text-slate-700 dark:text-slate-300">
                                             {previewData.slice(0, 5).map((row, i) => (
                                                 <tr key={i} className="border-b border-slate-100 dark:border-gray-800 last:border-0">
                                                     <td className="py-1 font-mono">{row.staffNo}</td>
-                                                    <td className="py-1 font-mono">{row.mandateCode}</td>
+                                                    <td className="py-1 truncate max-w-[100px]">{row.name}</td>
+                                                    <td className="py-1">{row.station}</td>
+                                                    <td className="py-1">{row.mandate}</td>
                                                 </tr>
                                             ))}
                                             {previewData.length > 5 && (
                                                 <tr>
-                                                    <td colSpan={2} className="py-1 text-slate-400 italic">...and {previewData.length - 5} more</td>
+                                                    <td colSpan={4} className="py-1 text-slate-400 italic">...and {previewData.length - 5} more</td>
                                                 </tr>
                                             )}
                                         </tbody>

@@ -16,8 +16,6 @@ import SSCECustodians from './pages/admin/SSCECustodians';
 import MandateConfig from './pages/admin/MandateConfig';
 import AssignmentConfig from './pages/admin/AssignmentConfig';
 import PersonalizedPost from './pages/admin/PersonalizedPost';
-// ...
-<Route path="assignments/board" element={<PersonalizedPost />} />
 import AssignmentHistory from './pages/admin/AssignmentHistory';
 import SDLPage from './pages/admin/metadata/SDLPage';
 import ComparePage from './pages/admin/metadata/ComparePage';

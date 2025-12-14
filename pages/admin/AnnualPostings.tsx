@@ -1,17 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { getAllPostingRecords } from '../../services/posting';
+import React, { useEffect, useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
+import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings } from '../../services/posting';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
-import { PostingResponse } from '../../types/posting';
+import { PostingResponse, PostingCreate } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
 import { MarkingVenue } from '../../types/markingVenue';
+import SearchableSelect from '../../components/SearchableSelect';
+import CsvUploadModal from '../../components/CsvUploadModal';
+import { CSVPostingData } from '../../services/personalizedPost';
 
 const AnnualPostings: React.FC = () => {
   const [postings, setPostings] = useState<PostingResponse[]>([]);
   const [filteredPostings, setFilteredPostings] = useState<PostingResponse[]>([]);
+  const [paginatedPostings, setPaginatedPostings] = useState<PostingResponse[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
 
   // Filter Options
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -28,7 +38,14 @@ const AnnualPostings: React.FC = () => {
   const [filterMandate, setFilterMandate] = useState('');
   const [filterVenue, setFilterVenue] = useState('');
   const [filterPostedFor, setFilterPostedFor] = useState('');
+  const [filterAssignmentsLeft, setFilterAssignmentsLeft] = useState(''); // New Filter
   const [filterToBePosted, setFilterToBePosted] = useState('');
+
+  // Modals
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchInitialData();
@@ -46,6 +63,7 @@ const AnnualPostings: React.FC = () => {
 
       setPostings(postingsData);
       setFilteredPostings(postingsData);
+      setTotal(postingsData.length);
       setAssignments(assignmentsData);
       setMandates(mandatesData);
       setVenues(venuesData);
@@ -55,6 +73,8 @@ const AnnualPostings: React.FC = () => {
       setLoading(false);
     }
   };
+
+
 
   useEffect(() => {
     filterData();
@@ -66,9 +86,23 @@ const AnnualPostings: React.FC = () => {
     filterMandate,
     filterVenue,
     filterPostedFor,
+    filterAssignmentsLeft,
     filterToBePosted,
     postings
   ]);
+
+  // Handle Pagination
+  useEffect(() => {
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    setPaginatedPostings(filteredPostings.slice(startIndex, endIndex));
+  }, [filteredPostings, page, limit]);
+
+  // Check 'page' validity when filtered count changes
+  useEffect(() => {
+    const maxPage = Math.ceil(filteredPostings.length / limit) || 1;
+    if (page > maxPage) setPage(maxPage);
+  }, [filteredPostings.length, limit]);
 
   const filterData = () => {
     let result = postings;
@@ -83,10 +117,13 @@ const AnnualPostings: React.FC = () => {
       result = result.filter(p => p.station?.toLowerCase().includes(searchStation.toLowerCase()));
     }
     if (filterAssignment) {
+      // Text search for assignment
+      const lowerSearch = filterAssignment.toLowerCase();
       result = result.filter(p =>
-        p.assignments?.some((a: any) =>
-          (typeof a === 'string' ? a : a.name || a.code) === filterAssignment
-        )
+        p.assignments?.some((a: any) => {
+          const val = typeof a === 'string' ? a : a.name || a.code;
+          return val?.toLowerCase().includes(lowerSearch);
+        })
       );
     }
     if (filterMandate) {
@@ -104,30 +141,191 @@ const AnnualPostings: React.FC = () => {
       );
     }
     if (filterPostedFor) {
-      result = result.filter(p => p.posted_for === filterPostedFor);
+      result = result.filter(p => p.posted_for === Number(filterPostedFor) || p.posted_for?.toString() === filterPostedFor);
+    }
+    if (filterAssignmentsLeft) {
+      result = result.filter(p => p.to_be_posted === Number(filterAssignmentsLeft));
     }
     if (filterToBePosted) {
       const boolVal = filterToBePosted === 'true';
-      result = result.filter(p => p.to_be_posted === boolVal);
+      if (filterToBePosted === 'true') {
+        result = result.filter(p => (p.to_be_posted || 0) > 0);
+      } else {
+        result = result.filter(p => (p.to_be_posted || 0) <= 0);
+      }
     }
 
     setFilteredPostings(result);
+    setTotal(result.length);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(filteredPostings.map(p => p.id));
+      setSelectedIds(allIds);
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} posting(s)?`)) return;
+
+    try {
+      setLoading(true);
+      await bulkDeletePostings(Array.from(selectedIds));
+      alert("Selected postings deleted successfully.");
+      setSelectedIds(new Set());
+      fetchInitialData();
+    } catch (error: any) {
+      console.error("Bulk delete failed", error);
+      alert(`Failed to delete postings: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    try {
+      setLoading(true);
+      const exportData = filteredPostings.map(record => ({
+        'File Number': record.file_no,
+        'Name': record.name,
+        'Station': record.station,
+        'CONRAISS': record.conraiss,
+        'Year': record.year,
+        'Count': record.count,
+        'Assignments': record.assignments?.map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', '),
+        'Mandates': record.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', '),
+        'Venue': record.assignment_venue?.map((v: any) => typeof v === 'string' ? v : v.name || v.code).join(', '),
+        'Posted For': record.posted_for,
+        'To Be Posted': record.to_be_posted
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Posting List");
+      XLSX.writeFile(wb, `Posting_List_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+      alert("Export successful!");
+    } catch (error) {
+      console.error("Export failed", error);
+      alert("Failed to export data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadCsvTemplate = () => {
+    // User requested Mandate and Venue fields to be added
+    const headers = ['FileNo', 'Name', 'Station', 'Conraiss', 'Count', 'Assignments', 'Mandate', 'Venue'];
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "posting_upload_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvUpload = async (data: CSVPostingData[]) => {
+    setLoading(true);
+    try {
+      const payload: PostingCreate[] = data.map(row => ({
+        file_no: row.staffNo,
+        name: row.name || '',
+        station: row.station,
+        conraiss: row.conraiss,
+        year: new Date().getFullYear().toString(),
+        count: row.count || 0,
+        // Logic for posted_for / to_be_posted if not explicit?
+        // If Assignments provided, use length. 
+        // If not, maybe 0?
+        posted_for: row.assignments?.length || 0,
+        to_be_posted: (row.count || 0) - (row.assignments?.length || 0),
+
+        assignments: row.assignments || [],
+        mandates: row.mandate ? [row.mandate] : [],
+        assignment_venue: row.venue ? [row.venue] : []
+      }));
+
+      // Send to bulk create endpoint
+      await bulkCreatePostings({ items: payload });
+
+      alert(`Successfully imported ${payload.length} records.`);
+      setIsCsvModalOpen(false);
+      fetchInitialData(); // Refresh table
+    } catch (err: any) {
+      console.error("Bulk upload failed", err);
+      alert(`Upload failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Helper to extract unique "posted_for" values for filter
-  const postedForOptions = Array.from(new Set(postings.map(p => p.posted_for).filter(Boolean))) as string[];
+  const postedForOptions = Array.from(new Set(postings.map(p => p.posted_for).filter(val => val !== undefined && val !== null))) as (string | number)[];
+  const assignmentsLeftOptions = Array.from(new Set(postings.map(p => p.to_be_posted).filter(val => val !== undefined && val !== null))) as (string | number)[];
+
+  const assignmentOptionsForSelect = assignments.map(a => ({ id: a.id, name: a.name }));
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-y-auto">
 
       {/* Header Section */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-emerald-500 to-cyan-600 dark:from-teal-400 dark:via-emerald-400 dark:to-cyan-400 drop-shadow-sm">
-          Annual Posting Board
-        </h1>
-        <p className="mt-2 text-slate-500 dark:text-slate-400 font-medium">
-          Manage staff postings, assignments, and mandates efficiently.
-        </p>
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-emerald-500 to-cyan-600 dark:from-teal-400 dark:via-emerald-400 dark:to-cyan-400 drop-shadow-sm">
+            Annual Posting Board
+          </h1>
+          <p className="mt-2 text-slate-500 dark:text-slate-400 font-medium">
+            Manage staff postings, assignments, and mandates efficiently.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {selectedIds.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+            >
+              <span className="material-symbols-outlined text-lg">delete</span>
+              Delete Selected ({selectedIds.size})
+            </button>
+          )}
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
+          >
+            <span className="material-symbols-outlined text-lg">download</span>
+            Export List
+          </button>
+          <button
+            onClick={downloadCsvTemplate}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
+          >
+            <span className="material-symbols-outlined text-lg">download</span>
+            Template
+          </button>
+          <button
+            onClick={() => setIsCsvModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all"
+          >
+            <span className="material-symbols-outlined text-lg">upload_file</span>
+            Import CSV
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-gray-800 p-6 flex flex-col gap-6">
@@ -164,46 +362,32 @@ const AnnualPostings: React.FC = () => {
 
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="material-symbols-outlined text-slate-400 group-focus-within:text-teal-500 transition-colors">location_on</span>
+              <span className="material-symbols-outlined text-slate-400 group-focus-within:text-teal-500 transition-colors">assignment</span>
             </div>
             <input
               type="text"
-              placeholder="Search Station..."
+              placeholder="Search Assignment..."
               className="w-full pl-10 h-10 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:bg-white dark:focus:bg-[#0b1015] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium"
-              value={searchStation}
-              onChange={(e) => setSearchStation(e.target.value)}
+              value={filterAssignment}
+              onChange={(e) => setFilterAssignment(e.target.value)}
             />
           </div>
 
-          {/* Posted For Filter */}
+          {/* Assignments Left Filter */}
           <div className="relative">
             <select
               className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
-              value={filterPostedFor}
-              onChange={(e) => setFilterPostedFor(e.target.value)}
+              value={filterAssignmentsLeft}
+              onChange={(e) => setFilterAssignmentsLeft(e.target.value)}
             >
-              <option value="">All Posted For</option>
-              {postedForOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              <option value="">All Assignments Left</option>
+              {assignmentsLeftOptions.sort((a, b) => Number(a) - Number(b)).map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
             <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
               <span className="material-symbols-outlined text-lg">expand_more</span>
             </div>
           </div>
 
-          {/* Assignments Filter */}
-          <div className="relative">
-            <select
-              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
-              value={filterAssignment}
-              onChange={(e) => setFilterAssignment(e.target.value)}
-            >
-              <option value="">All Assignments</option>
-              {assignments.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-            </select>
-            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
-              <span className="material-symbols-outlined text-lg">expand_more</span>
-            </div>
-          </div>
 
           {/* Mandates Filter */}
           <div className="relative">
@@ -235,20 +419,21 @@ const AnnualPostings: React.FC = () => {
             </div>
           </div>
 
-          {/* To Be Posted Filter */}
-          <div className="relative">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-bold text-slate-500 whitespace-nowrap">Page Size:</label>
             <select
-              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
-              value={filterToBePosted}
-              onChange={(e) => setFilterToBePosted(e.target.value)}
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] font-bold text-sm focus:ring-teal-500"
             >
-              <option value="">Status: All</option>
-              <option value="true">To Be Posted</option>
-              <option value="false">Not To Be Posted</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
             </select>
-            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
-              <span className="material-symbols-outlined text-lg">expand_more</span>
-            </div>
           </div>
 
         </div>
@@ -260,14 +445,19 @@ const AnnualPostings: React.FC = () => {
               <thead>
                 <tr className="bg-gradient-to-r from-slate-50 to-white dark:from-[#0f161d] dark:to-[#121b25] border-b border-slate-200 dark:border-gray-800">
                   <th className="p-4 w-10">
-                    <input type="checkbox" className="rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer w-4 h-4"
+                      checked={filteredPostings.length > 0 && filteredPostings.every(p => selectedIds.has(p.id))}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                    />
                   </th>
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">File No / Name</th>
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Station / CONRAISS</th>
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Year / Count</th>
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assignments & Mandates</th>
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Venue & Posted For</th>
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assign. Left</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
@@ -275,20 +465,26 @@ const AnnualPostings: React.FC = () => {
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-500 italic">Loading records...</td>
                   </tr>
-                ) : filteredPostings.length === 0 ? (
+                ) : paginatedPostings.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-500 italic">No records found matching your filters.</td>
                   </tr>
                 ) : (
-                  filteredPostings.map((record) => (
+                  paginatedPostings.map((record) => (
                     <tr key={record.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150">
                       <td className="p-4 align-top">
-                        <input type="checkbox" className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 mt-1" />
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 mt-1 cursor-pointer w-4 h-4"
+                          checked={selectedIds.has(record.id)}
+                          onChange={(e) => handleSelectOne(record.id, e.target.checked)}
+                        />
                       </td>
                       <td className="p-4 align-top">
                         <div className="flex flex-col">
-                          <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-teal-600 transition-colors">{record.name}</span>
-                          <span className="font-mono text-xs text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-1.5 py-0.5 rounded w-fit mt-1">{record.file_no}</span>
+                          {/* ENHANCED FILE NO STYLE */}
+                          <span className="font-mono text-lg font-black text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded w-fit mb-1 shadow-sm border border-slate-200 dark:border-slate-700">{record.file_no}</span>
+                          <span className="font-bold text-slate-600 dark:text-slate-300 group-hover:text-teal-600 transition-colors text-sm">{record.name}</span>
                         </div>
                       </td>
                       <td className="p-4 align-top">
@@ -328,9 +524,9 @@ const AnnualPostings: React.FC = () => {
                           )}
                           {/* Mandates */}
                           {record.mandates && record.mandates.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
+                            <div className="flex flex-col gap-1 mt-1">
                               {record.mandates.map((item: any, idx) => (
-                                <span key={idx} className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded">
+                                <span key={idx} className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded w-fit">
                                   {typeof item === 'string' ? item : item.mandate || item.code}
                                 </span>
                               ))}
@@ -352,25 +548,21 @@ const AnnualPostings: React.FC = () => {
                             </div>
                           )}
                           {/* Posted For */}
-                          {record.posted_for && (
+                          {record.posted_for !== undefined && (
                             <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
                               <span className="material-symbols-outlined text-[14px]">label</span>
-                              {record.posted_for}
+                              Posted: {record.posted_for}
                             </div>
                           )}
                         </div>
                       </td>
                       <td className="p-4 align-top">
-                        {record.to_be_posted ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
-                            Published
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                            Draft
-                          </span>
-                        )}
+                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold border ${(record.to_be_posted || 0) > 0
+                          ? 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800'
+                          : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+                          }`}>
+                          {record.to_be_posted || 0}
+                        </span>
                       </td>
                     </tr>
                   ))
@@ -379,15 +571,54 @@ const AnnualPostings: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination / Total Count Footer */}
-          <div className="p-4 border-t border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-[#0f161d] flex items-center justify-between">
+          {/* Pagination Footer */}
+          <div className="p-4 border-t border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-[#0f161d] flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Showing <span className="font-bold text-slate-700 dark:text-slate-200">{filteredPostings.length}</span> records
+              Showing <span className="font-bold text-slate-700 dark:text-slate-200">{(page - 1) * limit + 1}</span> to <span className="font-bold text-slate-700 dark:text-slate-200">{Math.min(page * limit, total)}</span> of <span className="font-bold text-slate-700 dark:text-slate-200">{total}</span> results
             </div>
-            {/* Simplified pagination if needed later */}
+
+            <div className="flex gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(1)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-gray-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-lg">first_page</span>
+              </button>
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-gray-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-lg">chevron_left</span>
+              </button>
+              <div className="flex items-center px-3 text-sm font-bold">
+                Page {page} of {Math.ceil(total / limit) || 1}
+              </div>
+              <button
+                disabled={page >= Math.ceil(total / limit)}
+                onClick={() => setPage(p => p + 1)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-gray-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-lg">chevron_right</span>
+              </button>
+              <button
+                disabled={page >= Math.ceil(total / limit)}
+                onClick={() => setPage(Math.ceil(total / limit))}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-gray-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-lg">last_page</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      <CsvUploadModal
+        isOpen={isCsvModalOpen}
+        onClose={() => setIsCsvModalOpen(false)}
+        onUpload={handleCsvUpload}
+      />
     </div>
   );
 };
