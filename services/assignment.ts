@@ -1,6 +1,8 @@
 import { Assignment, AssignmentCreate, AssignmentUpdate, AssignmentListResponse, AssignmentBulkUploadResponse } from '../types/assignment';
 
-const API_URL = 'http://localhost:8000/api/assignments';
+import { API_BASE_URL as BASE_URL } from '../src/config';
+
+const API_URL = `${BASE_URL}/assignments`;
 
 export const getAssignments = async (skip = 0, limit = 100, search = ''): Promise<AssignmentListResponse> => {
     const params = new URLSearchParams({

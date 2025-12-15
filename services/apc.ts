@@ -1,6 +1,8 @@
 import { APCRecord, APCListResponse, APCCreate, APCUpdate } from '../types/apc';
 
-const API_BASE_URL = '/api/apc';
+import { API_BASE_URL } from '../src/config';
+
+const REQUEST_URL = `${API_BASE_URL}/apc`;
 
 export const getAllAPC = async (
     skip: number = 0,
@@ -11,12 +13,12 @@ export const getAllAPC = async (
         skip: skip.toString(),
         limit: limit.toString(),
     });
-    
+
     if (search) {
         params.append('search', search);
     }
 
-    const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+    const response = await fetch(`${REQUEST_URL}?${params.toString()}`);
     if (!response.ok) {
         throw new Error('Failed to fetch APC records');
     }
@@ -24,7 +26,7 @@ export const getAllAPC = async (
 };
 
 export const createAPC = async (data: APCCreate): Promise<APCRecord> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(REQUEST_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -38,7 +40,7 @@ export const createAPC = async (data: APCCreate): Promise<APCRecord> => {
 };
 
 export const updateAPC = async (id: string, data: APCUpdate): Promise<APCRecord> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${REQUEST_URL}/${id}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -52,7 +54,7 @@ export const updateAPC = async (id: string, data: APCUpdate): Promise<APCRecord>
 };
 
 export const deleteAPC = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${REQUEST_URL}/${id}`, {
         method: 'DELETE',
     });
     if (!response.ok) {
@@ -61,7 +63,7 @@ export const deleteAPC = async (id: string): Promise<void> => {
 };
 
 export const bulkDeleteAPC = async (ids: string[]): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/bulk-delete`, {
+    const response = await fetch(`${REQUEST_URL}/bulk-delete`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -77,7 +79,7 @@ export const uploadAPC = async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${REQUEST_URL}/upload`, {
         method: 'POST',
         body: formData,
     });
@@ -90,7 +92,7 @@ export const uploadAPC = async (file: File): Promise<any> => {
 };
 
 export const getAllAPCRecords = async (): Promise<APCRecord[]> => {
-    const response = await fetch(`${API_BASE_URL}?limit=100000`);
+    const response = await fetch(`${REQUEST_URL}?limit=100000`);
     if (!response.ok) {
         throw new Error('Failed to fetch all APC records');
     }

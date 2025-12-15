@@ -1,6 +1,8 @@
 import { PostingCreate, PostingListResponse, PostingResponse, PostingUpdate, BulkPostingCreateRequest, BulkUploadResponse } from '../types/posting';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../src/config';
+
+const API_URL = `${API_BASE_URL}/postings`;
 const BASE_URL = `${API_URL}/api/posting`;
 
 const getAuthHeader = () => {
