@@ -754,7 +754,7 @@ const StaffRow: React.FC<{
                         onChange={(e) => onSelect(e.target.checked)}
                     />
                 </td>
-                <td className="px-4 py-4 font-mono text-xs font-bold text-slate-500 dark:text-slate-400">{staff.fileno}</td>
+                <td className="px-4 py-4 font-mono text-base font-black text-slate-700 dark:text-slate-300">{staff.fileno}</td>
                 <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-200 font-bold text-sm ring-2 ring-white dark:ring-slate-800 shadow-sm">

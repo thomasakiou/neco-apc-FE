@@ -16,6 +16,11 @@ const APCList: React.FC = () => {
     const [limit, setLimit] = useState(10);
     const [total, setTotal] = useState(0);
 
+    // Sorting State
+    const [sortField, setSortField] = useState<keyof APCRecord | null>(null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+
     // Filters
     const [searchFileNo, setSearchFileNo] = useState('');
     const [searchName, setSearchName] = useState('');
@@ -48,7 +53,16 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [page, limit, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment]);
+    }, [page, limit, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, sortField, sortDirection]);
+
+    const handleSort = (field: keyof APCRecord) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
 
     useEffect(() => {
         const loadAssignments = async () => {
@@ -128,6 +142,21 @@ const APCList: React.FC = () => {
 
                 return matchFileNo && matchName && matchConraiss && matchStation && matchAssignment;
             });
+
+            // SORT LOGIC
+            if (sortField) {
+                result.sort((a, b) => {
+                    const aValue = a[sortField];
+                    const bValue = b[sortField];
+
+                    if (aValue === bValue) return 0;
+                    if (aValue === undefined || aValue === null) return 1;
+                    if (bValue === undefined || bValue === null) return -1;
+
+                    const compareResult = aValue < bValue ? -1 : 1;
+                    return sortDirection === 'asc' ? compareResult : -compareResult;
+                });
+            }
 
             setTotal(result.length);
 
@@ -517,11 +546,11 @@ const APCList: React.FC = () => {
                                 <select
                                     value={filterAssignment}
                                     onChange={(e) => setFilterAssignment(e.target.value)}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-black dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                                 >
                                     <option value="">All Assignments</option>
                                     {assignmentOptions.map(opt => (
-                                        <option key={opt.id} value={opt.code}>{opt.mandate}</option>
+                                        <option key={opt.id} value={opt.code}>{opt.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -589,11 +618,11 @@ const APCList: React.FC = () => {
                                                 onChange={(e) => handleSelectAll(e.target.checked)}
                                             />
                                         </th>
-                                        <th className="px-4 py-3">File No</th>
-                                        <th className="px-4 py-3">Name</th>
-                                        <th className="px-4 py-3">CONRAISS</th>
-                                        <th className="px-4 py-3">Station</th>
-                                        <th className="px-4 py-3 text-center">Status</th>
+                                        <SortableHeader field="file_no" label="File No" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="name" label="Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="conraiss" label="CONRAISS" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="station" label="Station" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -735,7 +764,7 @@ const APCRow: React.FC<{
                         onChange={(e) => onSelect(e.target.checked)}
                     />
                 </td>
-                <td className="px-4 py-4 font-mono text-xs font-bold text-slate-500 dark:text-slate-400">{record.file_no}</td>
+                <td className="px-4 py-4 font-mono text-base font-black text-slate-700 dark:text-slate-300">{record.file_no}</td>
                 <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-200 font-bold text-sm ring-2 ring-white dark:ring-slate-800 shadow-sm">
@@ -1099,6 +1128,21 @@ const SelectInput = ({ label, options, ...props }: any) => (
         </label>
         <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none">expand_more</span>
     </div>
+);
+
+const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any) => (
+    <th
+        className="px-4 py-3 cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+        onClick={() => onSort(field)}
+    >
+        <div className="flex items-center gap-2">
+            {label}
+            <div className="flex flex-col text-[10px] text-slate-400 group-hover:text-slate-500">
+                <span className={`material-symbols-outlined text-[10px] -mb-1 ${sortField === field && sortDirection === 'asc' ? 'text-primary' : ''}`}>expand_less</span>
+                <span className={`material-symbols-outlined text-[10px] ${sortField === field && sortDirection === 'desc' ? 'text-primary' : ''}`}>expand_more</span>
+            </div>
+        </div>
+    </th>
 );
 
 export default APCList;

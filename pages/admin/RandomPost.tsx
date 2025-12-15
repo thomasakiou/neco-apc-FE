@@ -3,25 +3,29 @@ import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
-import { bulkCreatePostings } from '../../services/posting';
+import { bulkCreatePostings, getAllPostingRecords } from '../../services/posting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
-import { MarkingVenue } from '../../types/markingVenue';
 import { PostingCreate } from '../../types/posting';
 import { assignmentFieldMap } from '../../services/personalizedPost';
-import AlertModal from '../../components/AlertModal';
 import StationTypeSelectionModal from '../../components/StationTypeSelectionModal';
 import { getAllSchools } from '../../services/school';
+import { PostingResponse } from '../../types/posting';
 import { getAllNCEECenters } from '../../services/nceeCenter';
 import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
 import { getAllStates } from '../../services/state';
+import { useNotification } from '../../context/NotificationContext';
 
 const RandomPost: React.FC = () => {
+    // Notifications
+    const { success, error, warning, info } = useNotification();
+
     // Data States
     const [allAPC, setAllAPC] = useState<APCRecord[]>([]);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [mandates, setMandates] = useState<Mandate[]>([]);
+    const [existingPostings, setExistingPostings] = useState<PostingResponse[]>([]);
     // Using simple object structure for flexible station types
     const [venues, setVenues] = useState<{ id: string, name: string, type: string }[]>([]);
     const [loading, setLoading] = useState(false);
@@ -36,6 +40,7 @@ const RandomPost: React.FC = () => {
     const [isStationModalOpen, setIsStationModalOpen] = useState(false);
 
     // Config: CONRAISS 6-15
+    const [targetQuota, setTargetQuota] = useState<number>(0);
     const [conraissConfig, setConraissConfig] = useState<{ [key: number]: number }>({
         6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
     });
@@ -44,10 +49,6 @@ const RandomPost: React.FC = () => {
     const [generatedPostings, setGeneratedPostings] = useState<PostingCreate[]>([]);
     const [previewMode, setPreviewMode] = useState(false);
 
-    const [alert, setAlert] = useState<{ isOpen: boolean, title: string, message: string, type: 'success' | 'error' | 'warning' }>({
-        isOpen: false, title: '', message: '', type: 'success'
-    });
-
     useEffect(() => {
         fetchInitialData();
     }, []);
@@ -55,20 +56,22 @@ const RandomPost: React.FC = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [apcData, assignmentsData, mandatesData, venuesData] = await Promise.all([
+            const [apcData, assignmentsData, mandatesData, venuesData, postingsData] = await Promise.all([
                 getAllAPCRecords(),
                 getAllAssignments(),
                 getAllMandates(),
-                getAllMarkingVenues()
+                getAllMarkingVenues(),
+                getAllPostingRecords()
             ]);
             setAllAPC(apcData);
             setAssignments(assignmentsData);
             setMandates(mandatesData);
+            setExistingPostings(postingsData || []); // Ensure safe fallback
             // Default to Marking Venues
             setVenues(venuesData.map(v => ({ id: v.id, name: v.name, type: 'marking_venue' })));
-        } catch (error) {
-            console.error("Failed to load initial data", error);
-            showAlert('Error', 'Failed to load initial data.', 'error');
+        } catch (err) {
+            console.error("Failed to load initial data", err);
+            error('Failed to load initial data.');
         } finally {
             setLoading(false);
         }
@@ -125,12 +128,12 @@ const RandomPost: React.FC = () => {
 
             setVenues(options);
             setSelectedVenue('');
-            setIsAllVenues(false); // Reset "All" toggle when list changes? Or keep it? Safer to reset.
+            setIsAllVenues(false);
 
-            showAlert('Station Loaded', `Loaded ${options.length} stations.`, 'success');
-        } catch (error) {
-            console.error('Failed to load stations', error);
-            showAlert('Error', 'Failed to load stations', 'error');
+            success(`Loaded ${options.length} stations.`);
+        } catch (err) {
+            console.error('Failed to load stations', err);
+            error('Failed to load stations');
         } finally {
             setLoading(false);
         }
@@ -145,17 +148,17 @@ const RandomPost: React.FC = () => {
 
     const generatePostings = async () => {
         if (!selectedAssignment || !selectedMandate) {
-            showAlert('Validation Error', 'Please select an Assignment and Mandate.', 'warning');
+            warning('Please select an Assignment and Mandate.');
             return;
         }
 
         if (!selectedVenue && !isAllVenues) {
-            showAlert('Validation Error', 'Please select a Venue or check "All Venues".', 'warning');
+            warning('Please select a Venue or check "All Venues".');
             return;
         }
 
         if (totalStaffRequired === 0) {
-            showAlert('Validation Error', 'Please configure the number of staff required.', 'warning');
+            warning('Please configure the number of staff required.');
             return;
         }
 
@@ -165,12 +168,22 @@ const RandomPost: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
-            // 1. Filter Eligible Staff based on Assignment
             const assignmentName = assignments.find(a => a.id === selectedAssignment)?.name || selectedAssignment;
             const apcField = assignmentFieldMap[assignmentName];
 
+            // 1. Existing Assignments Lookup (duplicate prevention)
+            const targetMandate = mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate;
+            const alreadyAssignedStaffIds = new Set<string>();
+            existingPostings.forEach(p => {
+                if (Array.isArray(p.mandates) && p.mandates.some(m => m === targetMandate)) {
+                    alreadyAssignedStaffIds.add(p.file_no);
+                }
+            });
+
+            // 2. Filter Eligible Staff
             const eligibleStaff = allAPC.filter(staff => {
                 if (!staff.active) return false;
+                if (alreadyAssignedStaffIds.has(staff.file_no)) return false;
                 if (apcField) {
                     const val = staff[apcField as keyof APCRecord];
                     return !!val;
@@ -178,15 +191,17 @@ const RandomPost: React.FC = () => {
                 return true;
             });
 
-            // Group staff by CONRAISS for O(1) access
+            // 3. Group Staff by Level
             const staffByLevel: { [key: number]: APCRecord[] } = {};
             eligibleStaff.forEach(s => {
-                const lvl = parseInt(s.conraiss);
-                if (!staffByLevel[lvl]) staffByLevel[lvl] = [];
-                staffByLevel[lvl].push(s);
+                const lvl = parseInt(s.conraiss || '0');
+                if (!isNaN(lvl)) {
+                    if (!staffByLevel[lvl]) staffByLevel[lvl] = [];
+                    staffByLevel[lvl].push(s);
+                }
             });
 
-            // Shuffle each level pool once
+            // Shuffle pools
             const shuffle = <T,>(array: T[]): T[] => array.sort(() => Math.random() - 0.5);
             Object.keys(staffByLevel).forEach(key => {
                 const lvl = parseInt(key);
@@ -197,64 +212,105 @@ const RandomPost: React.FC = () => {
             const targetVenues = isAllVenues ? venues : venues.filter(v => v.id === selectedVenue);
             const usedStaffIds = new Set<string>();
 
-            // 2. Distribute
+            // 4. Distribute (Target-Capped Logic)
             targetVenues.forEach(venue => {
-                Object.entries(conraissConfig).forEach(([levelStr, count]) => {
-                    const level = parseInt(levelStr);
-                    if (count <= 0) return;
+                // Calculate Existing Total for Venue
+                let venueExistingTotal = 0;
+                const venueExistingLevels: { [key: number]: number } = {};
 
-                    let addedCount = 0;
-                    const pool = staffByLevel[level] || []; // already shuffled
+                existingPostings.forEach(p => {
+                    const matchesAssignment = Array.isArray(p.assignments) && p.assignments.includes(assignmentName);
+                    const matchesMandate = Array.isArray(p.mandates) && p.mandates.includes(targetMandate);
+                    const matchesVenue = Array.isArray(p.assignment_venue) && p.assignment_venue.includes(venue.name);
 
-                    // Iterate through pool ensuring uniqueness
-                    // Since we iterate venues typically, we can just consume from the pool pointer-style or filter used
-                    // Filtering used is safer if we want strict global uniqueness for this batch
-
-                    // Optimization: We can just loop through pool and pick unmatched
-                    // To avoid O(N) filter every time, let's keep a pointer if possible? 
-                    // But "usedStaffIds" is global for this batch.
-                    // Simpler efficient approach: Just find first N unused
-
-                    for (const staff of pool) {
-                        if (addedCount >= count) break;
-                        if (!usedStaffIds.has(staff.id)) {
-                            usedStaffIds.add(staff.id);
-                            newPostings.push({
-                                file_no: staff.file_no,
-                                name: staff.name,
-                                station: staff.station,
-                                conraiss: staff.conraiss,
-                                year: new Date().getFullYear().toString(),
-                                count: staff.count || 0,
-                                posted_for: 1,
-                                to_be_posted: 0,
-                                assignments: [assignmentName],
-                                mandates: [mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate],
-                                assignment_venue: [venue.name],
-                            });
-                            addedCount++;
+                    if (matchesAssignment && matchesMandate && matchesVenue) {
+                        venueExistingTotal++;
+                        if (p.conraiss) {
+                            const lvl = parseInt(p.conraiss);
+                            if (!isNaN(lvl)) venueExistingLevels[lvl] = (venueExistingLevels[lvl] || 0) + 1;
                         }
                     }
                 });
+
+                // Determine Effective Target
+                const effectiveTarget = targetQuota > 0 ? targetQuota : totalStaffRequired;
+
+                let venueNeeded = Math.max(0, effectiveTarget - venueExistingTotal);
+                if (venueNeeded <= 0) return; // Venue full
+
+                // Get configured levels and SHUFFLE them to ensure fair distribution for loose targets
+                const activeLevels = Object.entries(conraissConfig)
+                    .filter(([_, count]) => count > 0)
+                    .map(([lvl, count]) => ({ level: parseInt(lvl), limit: count }));
+
+                const shuffledLevels = shuffle(activeLevels);
+
+                for (const config of shuffledLevels) {
+                    if (venueNeeded <= 0) break;
+
+                    const levelExisting = venueExistingLevels[config.level] || 0;
+                    // How many can we add for this level specifically?
+                    const levelSpace = Math.max(0, config.limit - levelExisting);
+
+                    // Add minimum of (VenueNeed, LevelLimit)
+                    const countToAdd = Math.min(venueNeeded, levelSpace);
+
+                    if (countToAdd > 0) {
+                        let addedForLevel = 0;
+                        const pool = staffByLevel[config.level] || [];
+
+                        for (const staff of pool) {
+                            if (addedForLevel >= countToAdd) break;
+                            if (!usedStaffIds.has(staff.id)) {
+                                usedStaffIds.add(staff.id);
+
+                                const currentCount = staff.count || 0;
+                                const toBePosted = Math.max(0, currentCount - 1);
+
+                                newPostings.push({
+                                    file_no: staff.file_no,
+                                    name: staff.name,
+                                    station: staff.station,
+                                    conraiss: staff.conraiss,
+                                    year: new Date().getFullYear().toString(),
+                                    count: currentCount,
+                                    posted_for: 1,
+                                    to_be_posted: toBePosted,
+                                    assignments: [assignmentName],
+                                    mandates: [targetMandate],
+                                    assignment_venue: [venue.name],
+                                });
+                                addedForLevel++;
+                            }
+                        }
+
+                        venueNeeded -= addedForLevel;
+                    }
+                }
             });
 
             setGeneratedPostings(newPostings);
-            setLoading(false); // Unset loading BEFORE setting preview mode to ensure UI responsiveness
+            setLoading(false);
 
             if (newPostings.length > 0) {
                 setPreviewMode(true);
             } else {
-                showAlert('Generation Result', 'No staff matched criteria.', 'info');
+                info('No staff matched criteria or quotas already met.');
             }
 
-            if (newPostings.length > 0 && newPostings.length < totalStaffRequired * targetVenues.length) {
-                showAlert('Generation Result', `Generated ${newPostings.length} records. Some quotas could not be fully met due to staff shortage.`, 'warning');
-            }
-
-        } catch (e) {
-            console.error("Error generating postings", e);
+        } catch (err) {
+            console.error("Error generating postings", err);
             setLoading(false);
-            showAlert('Error', 'An error occurred during generation.', 'error');
+            error('An error occurred during generation.');
+        }
+    };
+
+    const refreshPostings = async () => {
+        try {
+            const data = await getAllPostingRecords();
+            setExistingPostings(data);
+        } catch (err) {
+            console.error("Failed to refresh postings", err);
         }
     };
 
@@ -263,19 +319,16 @@ const RandomPost: React.FC = () => {
         setLoading(true);
         try {
             await bulkCreatePostings({ items: generatedPostings });
-            showAlert('Success', `Successfully posted ${generatedPostings.length} staff!`, 'success');
+            success(`Successfully posted ${generatedPostings.length} staff!`);
             setGeneratedPostings([]);
             setPreviewMode(false);
-        } catch (error: any) {
-            console.error("Save failed", error);
-            showAlert('Error', `Failed to save postings: ${error.message}`, 'error');
+            refreshPostings(); // Update local cache of postings
+        } catch (err: any) {
+            console.error("Save failed", err);
+            error(`Failed to save postings: ${err.message}`);
         } finally {
             setLoading(false);
         }
-    };
-
-    const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning') => {
-        setAlert({ isOpen: true, title, message, type });
     };
 
     if (previewMode) {
@@ -285,14 +338,27 @@ const RandomPost: React.FC = () => {
                     <h2 className="text-2xl font-bold">Generated Preview ({generatedPostings.length})</h2>
                     <div className="flex gap-3">
                         <button onClick={() => setPreviewMode(false)} className="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold">Back to Config</button>
-                        <button onClick={handleSave} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-emerald-700">Confirm & Post</button>
+                        <button
+                            onClick={handleSave}
+                            disabled={loading}
+                            className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {loading ? (
+                                <>
+                                    <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                                    Processing...
+                                </>
+                            ) : (
+                                "Confirm & Post"
+                            )}
+                        </button>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#121b25] rounded-xl border border-slate-200 dark:border-gray-800 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-50 dark:bg-[#0f161d] text-xs uppercase font-bold text-slate-500">
+                <div className="bg-white dark:bg-[#121b25] rounded-xl border border-slate-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[600px]">
+                    <div className="overflow-x-auto overflow-y-auto flex-1">
+                        <table className="w-full text-left border-collapse relative">
+                            <thead className="bg-slate-50 dark:bg-[#0f161d] text-xs uppercase font-bold text-slate-500 sticky top-0 z-10 shadow-sm">
                                 <tr>
                                     <th className="p-3">File No</th>
                                     <th className="p-3">Name</th>
@@ -315,7 +381,6 @@ const RandomPost: React.FC = () => {
                         </table>
                     </div>
                 </div>
-                <AlertModal isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title={alert.title} message={alert.message} type={alert.type} />
             </div>
         );
     }
@@ -372,9 +437,9 @@ const RandomPost: React.FC = () => {
                                     Pick Station
                                 </button>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 min-w-0">
                                 <select
-                                    className="flex-1 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50"
+                                    className="flex-1 w-full min-w-0 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50 text-ellipsis"
                                     value={selectedVenue}
                                     onChange={e => setSelectedVenue(e.target.value)}
                                     disabled={isAllVenues}
@@ -407,8 +472,22 @@ const RandomPost: React.FC = () => {
                             <span className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center">2</span>
                             Staff Quota (Per Venue)
                         </h3>
-                        <div className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
-                            Total: <span className="text-emerald-600 text-lg">{totalStaffRequired}</span> Staff
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-end">
+                                <label className="text-[10px] uppercase font-bold text-slate-400">Target</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Total"
+                                    className="w-20 h-9 px-2 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d]"
+                                    value={targetQuota || ''}
+                                    onChange={e => setTargetQuota(parseInt(e.target.value) || 0)}
+                                />
+                            </div>
+                            <div className={`text-sm font-bold px-3 py-2 rounded-lg flex flex-col items-center border ${totalStaffRequired === targetQuota ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
+                                <span className="text-[10px] uppercase opacity-70">Current</span>
+                                <span className="text-lg">{totalStaffRequired}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -447,8 +526,6 @@ const RandomPost: React.FC = () => {
                     )}
                 </button>
             </div>
-
-            <AlertModal isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title={alert.title} message={alert.message} type={alert.type} />
 
             <StationTypeSelectionModal
                 isOpen={isStationModalOpen}

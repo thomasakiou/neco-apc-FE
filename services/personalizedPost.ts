@@ -16,6 +16,7 @@ export const assignmentFieldMap: { [key: string]: string } = {
     'NCEE': 'ncee',
     'BECEP': 'becep',
     'BECE-MRK-P': 'bece_mrkp',
+    'BECE-MRKP': 'bece_mrkp',
     'MAR-ACCR': 'mar_accr',
     'OCT-ACCR': 'oct_accr',
     'PUR-SAMP': 'pur_samp',
@@ -86,6 +87,8 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         }
     });
 
+    const usedApcIds = new Set<string>();
+
     allStaff.forEach(staff => {
         const normalizedStaffFileNo = staff.fileno.padStart(4, '0');
 
@@ -97,6 +100,10 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         }
 
         const existingApcRecord = apcMap.get(normalizedStaffFileNo);
+        if (existingApcRecord) {
+            usedApcIds.add(existingApcRecord.id);
+        }
+
         const mandateId = assignedStaffMap.get(normalizedStaffFileNo); // Use normalized key
 
         const staffAssignment: StaffMandateAssignment = {
@@ -130,6 +137,42 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
                 }
             }
             // If no APC record or no text in column, they are NOT eligible for this assignment view
+        }
+    });
+
+    // 7. Handle Orphans (APC records with no corresponding Staff record)
+    apcResponse.items.forEach(record => {
+        if (!usedApcIds.has(record.id)) {
+            // Check if this orphan is relevant for THIS assignment
+            if (fieldName) {
+                const assignmentValue = record[fieldName as keyof APCRecord];
+                if (assignmentValue && typeof assignmentValue === 'string' && assignmentValue.trim() !== '') {
+                    // It's an eligible orphan
+
+                    const normalizedFileNo = record.file_no.padStart(4, '0');
+                    const mandateId = assignedStaffMap.get(normalizedFileNo);
+
+                    const orphanStaff: StaffMandateAssignment = {
+                        id: `orphan-${record.id}`, // Temporary ID for UI
+                        staff_no: record.file_no,
+                        staff_name: record.name,
+                        rank: 'N/A',
+                        current_station: record.station || 'Unknown',
+                        conr: record.conraiss || '',
+                        apc_id: record.id,
+                        mandate_id: mandateId || null
+                    };
+
+                    if (mandateId) {
+                        const col = mandateColumns.find(c => c.id === mandateId);
+                        if (col) {
+                            col.staff.push(orphanStaff);
+                        }
+                    } else {
+                        unassignedStaff.push(orphanStaff);
+                    }
+                }
+            }
         }
     });
 

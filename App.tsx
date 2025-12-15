@@ -33,47 +33,51 @@ const ScrollToTop = () => {
   return null;
 };
 
+import { NotificationProvider } from './context/NotificationContext';
+
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<Login />} />
+    <NotificationProvider>
+      <HashRouter>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<Login />} />
 
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route path="dashboard" element={<AdminDashboard />} />
+          {/* Admin Routes */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route path="dashboard" element={<AdminDashboard />} />
 
-          <Route path="apc/generate" element={<APCGenerate />} />
-          <Route path="apc/modes" element={<PostingModes />} />
-          <Route path="apc/list" element={<APCList />} />
-          <Route path="apc/annual" element={<AnnualPostings />} />
-          <Route path="states" element={<StateManagement />} />
-          <Route path="stations" element={<StationManagement />} />
-          <Route path="marking-venues" element={<MarkingVenueManagement />} />
-          <Route path="ncee-centers" element={<NCEECenters />} />
-          <Route path="bece-custodians" element={<BECECustodians />} />
-          <Route path="ssce-custodians" element={<SSCECustodians />} />
+            <Route path="apc/generate" element={<APCGenerate />} />
+            <Route path="apc/modes" element={<PostingModes />} />
+            <Route path="apc/list" element={<APCList />} />
+            <Route path="apc/annual" element={<AnnualPostings />} />
+            <Route path="states" element={<StateManagement />} />
+            <Route path="stations" element={<StationManagement />} />
+            <Route path="marking-venues" element={<MarkingVenueManagement />} />
+            <Route path="ncee-centers" element={<NCEECenters />} />
+            <Route path="bece-custodians" element={<BECECustodians />} />
+            <Route path="ssce-custodians" element={<SSCECustodians />} />
 
-          {/* Meta Data Routes */}
-          <Route path="metadata/sdl" element={<SDLPage />} />
-          <Route path="metadata/compare" element={<ComparePage />} />
+            {/* Meta Data Routes */}
+            <Route path="metadata/sdl" element={<SDLPage />} />
+            <Route path="metadata/compare" element={<ComparePage />} />
 
-          <Route path="mandates/config" element={<MandateConfig />} />
-          <Route path="assignments/config" element={<AssignmentConfig />} />
-          <Route path="assignments/board" element={<PersonalizedPost />} />
-          <Route path="assignments/random" element={<RandomPost />} />
-          <Route path="mandates/history" element={<AssignmentHistory />} />
-          <Route path="audit" element={<AuditLog />} />
-          <Route index element={<Navigate to="dashboard" replace />} />
-        </Route>
+            <Route path="mandates/config" element={<MandateConfig />} />
+            <Route path="assignments/config" element={<AssignmentConfig />} />
+            <Route path="assignments/board" element={<PersonalizedPost />} />
+            <Route path="assignments/random" element={<RandomPost />} />
+            <Route path="mandates/history" element={<AssignmentHistory />} />
+            <Route path="audit" element={<AuditLog />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+          </Route>
 
-        {/* Staff Routes - Simplified Layout for Staff */}
-        <Route path="/staff/dashboard" element={<StaffDashboard />} />
-        <Route path="/staff/posting" element={<MyPostingDetails />} />
+          {/* Staff Routes - Simplified Layout for Staff */}
+          <Route path="/staff/dashboard" element={<StaffDashboard />} />
+          <Route path="/staff/posting" element={<MyPostingDetails />} />
 
-      </Routes>
-    </HashRouter>
+        </Routes>
+      </HashRouter>
+    </NotificationProvider>
   );
 };
 
