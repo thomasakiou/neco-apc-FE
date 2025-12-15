@@ -85,8 +85,16 @@ export const uploadAPC = async (file: File): Promise<any> => {
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        throw new Error(errorData.detail || 'Failed to upload APC CSV');
+        let errorMessage = 'Failed to upload APC CSV';
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorData.message || errorData.error || JSON.stringify(errorData);
+        } catch (e) {
+            // If JSON parse fails, try text
+            const errorText = await response.text();
+            errorMessage = errorText || response.statusText;
+        }
+        throw new Error(errorMessage);
     }
     return response.json();
 };
