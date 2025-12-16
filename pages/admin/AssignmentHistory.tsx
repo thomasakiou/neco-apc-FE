@@ -4,6 +4,7 @@ import { getAllPostingRecords } from '../../services/posting';
 import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
+import { useNotification } from '../../context/NotificationContext';
 import { PostingResponse } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
@@ -11,6 +12,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const GeneratePage: React.FC = () => {
+    const { success, error } = useNotification();
     const [postings, setPostings] = useState<PostingResponse[]>([]);
     const [filteredPostings, setFilteredPostings] = useState<PostingResponse[]>([]);
     const [paginatedPostings, setPaginatedPostings] = useState<PostingResponse[]>([]);
@@ -27,6 +29,10 @@ const GeneratePage: React.FC = () => {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [total, setTotal] = useState(0);
+
+    // Report Customization
+    const [reportTitle1, setReportTitle1] = useState('');
+    const [reportTitle2, setReportTitle2] = useState('');
 
     useEffect(() => {
         fetchInitialData();
@@ -137,10 +143,10 @@ const GeneratePage: React.FC = () => {
                 document.body.removeChild(link);
             }
 
-            alert(`${type.toUpperCase()} Export successful!`);
+            success(`${type.toUpperCase()} Export successful!`);
         } catch (error) {
             console.error("Export failed", error);
-            alert("Failed to export data.");
+            error("Failed to export data.");
         } finally {
             setLoading(false);
         }
@@ -166,7 +172,7 @@ const GeneratePage: React.FC = () => {
             // Save state to restore opacity/gstate later
             doc.saveGraphicsState();
             doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-            const wmWidth = 150;
+            const wmWidth = 200;
             const wmHeight = (width / logoImg.width) * logoImg.height * (wmWidth / width) * (logoImg.width / logoImg.height); // maintain aspect ratio roughly or just predefined
             // actually just scale properly:
             const aspectRatio = logoImg.width / logoImg.height;
@@ -175,71 +181,111 @@ const GeneratePage: React.FC = () => {
             doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmH) / 2, wmWidth, wmH);
             doc.restoreGraphicsState();
 
-            // 2. Header
-            // Logo Top-Left
-            doc.addImage(logoImg, 'PNG', 15, 10, 25, 25 / aspectRatio);
 
-            // Text Centered
-            doc.setFontSize(18);
-            doc.setFont("helvetica", "bold");
-            doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", width / 2, 22, { align: 'center' });
 
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Posting Assignment Report - ${new Date().toLocaleDateString()}`, width / 2, 30, { align: 'center' });
 
-            // 3. Header Metadata
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-
-            // "Below the HEADER, Write the assignment"
-            doc.text(`Assignment: ${filterAssignment || 'All Assignments'}`, 15, 38);
-
-            // "on the right side of the table on the top, write the mandates - venue"
-            doc.text(`Mandate - Venue: ${filterMandate || 'All Mandates'}`, width - 15, 38, { align: 'right' });
 
             // 4. Table
-            const tableColumn = ["File No", "Name", "Station", "CONRAISS", "Assignments", "Mandates", "Venue", "Status"];
-            const tableRows = filteredPostings.map(post => [
-                post.file_no,
-                post.name,
-                post.station,
-                post.conraiss || '-',
-                post.assignments?.map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', ') || '-',
-                post.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-',
-                post.assignment_venue?.map((v: any) => typeof v === 'string' ? v : v.name || v.code).join(', ') || '-',
-                post.to_be_posted || 0
-            ]);
+            const tableColumn = ["S/N", "FILE No", "NAME", "CONR", "STATION", "POSTING", "MANDATE"];
+            const tableRows = filteredPostings.map((post, index) => {
+                // Mandate Name(s)
+                const mandates = post.mandates?.map((m: any) => (typeof m === 'string' ? m : m.mandate || m.name)).join(', ') || '-';
+
+                // Venue Name(s) - Pick name and remove code prefix
+                const venues = post.assignment_venue?.map((v: any) => {
+                    let name = typeof v === 'string' ? v : v.name;
+                    return name ? name.replace(/^\(\d+\)\s*-\s*/, '').trim() : '';
+                }).join(', ') || '';
+                const posting = venues;
+
+                return [
+                    index + 1,
+                    post.file_no,
+                    post.name,
+                    post.conraiss || '-',
+                    post.station,
+                    posting || '-',
+                    mandates
+                ];
+            });
 
             autoTable(doc, {
                 head: [tableColumn],
                 body: tableRows,
                 startY: 45,
+                margin: { top: 45, bottom: 40 }, // Added top margin for header, bottom for signature
                 theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 2 },
-                headStyles: { fillColor: [4, 120, 87], textColor: 255, fontStyle: 'bold' }, // Emerald-700
-                alternateRowStyles: { fillColor: [240, 253, 244] }, // Emerald-50
+                styles: { fontSize: 12, cellPadding: 3, minCellHeight: 12 },
+                headStyles: { fillColor: [4, 120, 87], textColor: 255, fontStyle: 'bold' },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 15 }, // S/No
+                    1: { cellWidth: 30 }, // File No
+                    2: { cellWidth: 60 }, // Name
+                    3: { halign: 'center', cellWidth: 20 }, // CONR
+                    4: { cellWidth: 30 }, // Station
+                    5: { cellWidth: 50 }, // Posting (Reduced)
+                    6: { cellWidth: 'auto' } // Mandate (Wide/Auto)
+                },
+                alternateRowStyles: { fillColor: [240, 253, 244] },
                 didDrawPage: (data) => {
-                    // Footer
                     const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
                     const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
 
+                    // --- 1. WATERMARK (Every Page) ---
+                    doc.saveGraphicsState();
+                    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                    const wmWidth = 200;
+                    const aspectRatio = logoImg.width / logoImg.height;
+                    const wmH = wmWidth / aspectRatio;
+                    doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmH) / 2, wmWidth, wmH);
+                    doc.restoreGraphicsState();
+
+                    // --- 2. HEADER ---
+                    doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
+                    doc.setTextColor(0);
+                    // National Header NEW Size: 18 (Bigger)
+                    doc.setFontSize(18);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", width / 2, 18, { align: 'center' });
+
+                    // Report Titles (Smaller than National)
+                    doc.setFontSize(14);
+                    if (reportTitle1) doc.text(reportTitle1.toUpperCase(), width / 2, 28, { align: 'center' });
+
+                    doc.setFontSize(12);
+                    if (reportTitle2) doc.text(reportTitle2.toUpperCase(), width / 2, 34, { align: 'center' });
+
+                    // --- 3. SIGNATURE ---
+                    const signatureY = pageHeight - 20;
+
+                    doc.setFontSize(11);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(0);
+
+                    doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
+                    doc.setFontSize(10);
+                    doc.text("REG/CE", 15, signatureY + 5);
+
+                    // --- 4. FOOTER ---
                     doc.setFontSize(8);
                     doc.setTextColor(100);
+                    doc.setFont("helvetica", "normal");
 
-                    // Left: NECO APCIC Document
-                    doc.text("NECO APCIC Document", 15, pageHeight - 10);
+                    // Left
+                    doc.text(`Generated ${new Date().toLocaleDateString()} By NECO APCIC Manager`, 15, pageHeight - 10);
 
-                    // Right: Generated - [Date]
-                    doc.text(`Generated - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    // Right: Pagination
+                    // Use jspdf's internal page count for "Page X"
+                    // Right: Pagination
+                    doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
                 }
             });
 
             doc.save(`NECO_Posting_Report_${new Date().toISOString().split('T')[0]}.pdf`);
-            alert("PDF Export successful!");
-        } catch (error) {
-            console.error("PDF Export failed:", error);
-            alert("Failed to export PDF. Ensure the logo exists at /images/neco.png");
+            success("PDF Export successful!");
+        } catch (err) {
+            console.error("PDF Export failed:", err);
+            error("Failed to export PDF. Ensure the logo exists at /images/neco.png");
         } finally {
             setLoading(false);
         }
@@ -284,6 +330,30 @@ const GeneratePage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-gray-800 p-6 flex flex-col gap-6">
+                {/* Report Titles */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Report Title 1</label>
+                        <input
+                            type="text"
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={reportTitle1}
+                            onChange={(e) => setReportTitle1(e.target.value)}
+                            placeholder="e.g. 2024 SENIOR SCHOOL CERTIFICATE EXAMINATION (INTERNAL)"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Report Title 2</label>
+                        <input
+                            type="text"
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={reportTitle2}
+                            onChange={(e) => setReportTitle2(e.target.value)}
+                            placeholder="e.g. LIST OF SUPERVISORS"
+                        />
+                    </div>
+                </div>
+
                 {/* Filters */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="relative">
