@@ -17,6 +17,7 @@ const StateManagement: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStateCode, setSelectedStateCode] = useState('All');
     const [selectedStateName, setSelectedStateName] = useState('All');
+    const [selectedZone, setSelectedZone] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [relatedData, setRelatedData] = useState<{
@@ -29,13 +30,15 @@ const StateManagement: React.FC = () => {
 
     const uniqueStateCodes = Array.from(new Set(allStates.map(s => s.state_code).filter(Boolean))) as string[];
     const uniqueStateNames = Array.from(new Set(allStates.map(s => s.name).filter(Boolean))) as string[];
+    const uniqueZones = Array.from(new Set(allStates.map(s => s.zone).filter(Boolean))) as string[];
 
-    const hasActiveFilters = selectedStateCode !== 'All' || selectedStateName !== 'All';
+    const hasActiveFilters = selectedStateCode !== 'All' || selectedStateName !== 'All' || selectedZone !== 'All';
 
     const filteredStates = stateList.filter(state => {
         const matchesCode = selectedStateCode === 'All' || state.state_code === selectedStateCode;
         const matchesName = selectedStateName === 'All' || state.name === selectedStateName;
-        return matchesCode && matchesName;
+        const matchesZone = selectedZone === 'All' || state.zone === selectedZone;
+        return matchesCode && matchesName && matchesZone;
     });
 
     const sortedStates = [...filteredStates].sort((a, b) => {
@@ -59,7 +62,8 @@ const StateManagement: React.FC = () => {
     const allFilteredStates = allStates.filter(state => {
         const matchesCode = selectedStateCode === 'All' || state.state_code === selectedStateCode;
         const matchesName = selectedStateName === 'All' || state.name === selectedStateName;
-        return matchesCode && matchesName;
+        const matchesZone = selectedZone === 'All' || state.zone === selectedZone;
+        return matchesCode && matchesName && matchesZone;
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,7 +126,7 @@ const StateManagement: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStateCode, selectedStateName]);
+    }, [selectedStateCode, selectedStateName, selectedZone]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -133,10 +137,12 @@ const StateManagement: React.FC = () => {
                     const matchesSearch = !searchTerm ||
                         state.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         state.state_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        state.capital?.toLowerCase().includes(searchTerm.toLowerCase());
+                        state.capital?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        state.zone?.toLowerCase().includes(searchTerm.toLowerCase());
                     const matchesCode = selectedStateCode === 'All' || state.state_code === selectedStateCode;
                     const matchesName = selectedStateName === 'All' || state.name === selectedStateName;
-                    return matchesSearch && matchesCode && matchesName;
+                    const matchesZone = selectedZone === 'All' || state.zone === selectedZone;
+                    return matchesSearch && matchesCode && matchesName && matchesZone;
                 });
 
                 const startIndex = (page - 1) * limit;
@@ -158,7 +164,7 @@ const StateManagement: React.FC = () => {
     const fetchAllStates = async () => {
         try {
             const data = await getAllStates();
-            setAllStates(data);
+            setAllStates(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error fetching all states:', error);
         }
@@ -166,7 +172,7 @@ const StateManagement: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [page, searchTerm, limit, selectedStateCode, selectedStateName]);
+    }, [page, searchTerm, limit, selectedStateCode, selectedStateName, selectedZone]);
 
     useEffect(() => {
         fetchAllStates();
@@ -274,14 +280,25 @@ const StateManagement: React.FC = () => {
                 try {
                     const state = allStates.find(s => s.id === stateId);
                     if (!state) return;
-                    
-                    const [ssceCustodians, beceCustodians] = await Promise.all([
+
+                    const [ssceRes, beceRes] = await Promise.all([
                         getSSCECustodiansByState(state.name).catch(() => []),
                         getBECECustodiansByState(state.name).catch(() => [])
                     ]);
+
+                    const normalizeData = (data: any) => {
+                        if (Array.isArray(data)) return data;
+                        if (data && Array.isArray(data.items)) return data.items;
+                        return [];
+                    };
+
                     setRelatedData(prev => ({
                         ...prev,
-                        [stateId]: { ssceCustodians, beceCustodians, loading: false }
+                        [stateId]: {
+                            ssceCustodians: normalizeData(ssceRes),
+                            beceCustodians: normalizeData(beceRes),
+                            loading: false
+                        }
                     }));
                 } catch (error) {
                     console.error('Error loading related data:', error);
@@ -296,7 +313,7 @@ const StateManagement: React.FC = () => {
     const isAllSelected = allFilteredStates.length > 0 && allFilteredStates.every(s => selectedIds.has(s.id));
 
     const downloadCsvTemplate = () => {
-        const headers = ['state_code', 'name', 'capital', 'mkv_count', 'schools_count', 'custodians_count'];
+        const headers = ['state_code', 'name', 'capital', 'zone', 'mkv_count', 'schools_count', 'custodians_count'];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -453,6 +470,12 @@ const StateManagement: React.FC = () => {
                             options={uniqueStateNames}
                             onChange={setSelectedStateName}
                         />
+                        <FilterSelect
+                            label="Zone"
+                            value={selectedZone}
+                            options={uniqueZones}
+                            onChange={setSelectedZone}
+                        />
                         {selectedIds.size > 0 && (
                             <button
                                 onClick={handleBulkDelete}
@@ -491,6 +514,7 @@ const StateManagement: React.FC = () => {
                                         <SortableHeader field="state_code" label="Code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="name" label="State Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="capital" label="Capital" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="zone" label="Zone" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="mkv_count" label="MKV" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
                                         <SortableHeader field="schools_count" label="Schools" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
                                         <SortableHeader field="custodians_count" label="Custodians" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
@@ -672,6 +696,7 @@ const StateRow = ({
                 <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-sm">{state.state_code}</td>
                 <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-sm">{state.name}</td>
                 <td className="px-4 py-4 text-slate-600 dark:text-slate-400 text-sm">{state.capital}</td>
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-400 text-sm">{state.zone || '-'}</td>
                 <td className="px-4 py-4 text-center">
                     <span className="inline-flex px-2 py-1 rounded-md text-xs font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
                         {state.mkv_count}
@@ -708,7 +733,7 @@ const StateRow = ({
             </tr>
             {isExpanded && (
                 <tr>
-                    <td colSpan={9} className="bg-slate-50/50 dark:bg-slate-800/30 p-6">
+                    <td colSpan={10} className="bg-slate-50/50 dark:bg-slate-800/30 p-6">
                         {relatedData?.loading ? (
                             <div className="flex items-center justify-center py-8">
                                 <span className="material-symbols-outlined animate-spin text-2xl text-primary/50">donut_large</span>

@@ -245,9 +245,17 @@ const APCList: React.FC = () => {
                 try {
                     setLoading(true);
                     await bulkDeleteAPC(Array.from(selectedIds));
+
+                    // Optimistic Update
+                    setRecords(prev => prev.filter(r => !selectedIds.has(r.id)));
+                    setAllRecords(prev => prev.filter(r => !selectedIds.has(r.id)));
+                    setTotal(prev => Math.max(0, prev - selectedIds.size));
+
                     setSelectedIds(new Set());
-                    fetchData();
+
+                    // Background re-sync
                     fetchAllRecords();
+
                     setAlertModal({ isOpen: true, title: 'Success', message: 'Records deleted successfully.', type: 'success' });
                 } catch (error) {
                     setAlertModal({ isOpen: true, title: 'Error', message: 'Failed to delete records.', type: 'error' });
@@ -379,8 +387,15 @@ const APCList: React.FC = () => {
                 try {
                     setLoading(true);
                     await deleteAPC(id);
-                    fetchData();
+
+                    // Optimistic Update
+                    setRecords(prev => prev.filter(r => r.id !== id));
+                    setAllRecords(prev => prev.filter(r => r.id !== id));
+                    setTotal(prev => prev - 1);
+
+                    // Background re-sync
                     fetchAllRecords();
+
                     setAlertModal({
                         isOpen: true,
                         title: 'Success',

@@ -3,6 +3,7 @@ export interface State {
     state_code: string;
     name: string;
     capital: string;
+    zone?: string | null;
     mkv_count: number;
     schools_count: number;
     custodians_count: number;
@@ -23,6 +24,7 @@ export interface StateCreate {
     state_code: string;
     name: string;
     capital: string;
+    zone?: string | null;
     mkv_count?: number;
     schools_count?: number;
     custodians_count?: number;
