@@ -7,6 +7,8 @@ import { getAllMandates } from '../../services/mandate';
 import { PostingResponse } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const GeneratePage: React.FC = () => {
     const [postings, setPostings] = useState<PostingResponse[]>([]);
@@ -144,6 +146,105 @@ const GeneratePage: React.FC = () => {
         }
     };
 
+    const handlePDFExport = async () => {
+        try {
+            setLoading(true);
+            const doc = new jsPDF('l', 'mm', 'a4');
+            const width = doc.internal.pageSize.getWidth();
+            const height = doc.internal.pageSize.getHeight();
+
+            // Load Logo
+            const logoUrl = '/images/neco.png';
+            const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image();
+                img.src = logoUrl;
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+            });
+
+            // 1. Watermark (Large, Faint, Centered)
+            // Save state to restore opacity/gstate later
+            doc.saveGraphicsState();
+            doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+            const wmWidth = 150;
+            const wmHeight = (width / logoImg.width) * logoImg.height * (wmWidth / width) * (logoImg.width / logoImg.height); // maintain aspect ratio roughly or just predefined
+            // actually just scale properly:
+            const aspectRatio = logoImg.width / logoImg.height;
+            const wmH = wmWidth / aspectRatio;
+
+            doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmH) / 2, wmWidth, wmH);
+            doc.restoreGraphicsState();
+
+            // 2. Header
+            // Logo Top-Left
+            doc.addImage(logoImg, 'PNG', 15, 10, 25, 25 / aspectRatio);
+
+            // Text Centered
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", width / 2, 22, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Posting Assignment Report - ${new Date().toLocaleDateString()}`, width / 2, 30, { align: 'center' });
+
+            // 3. Header Metadata
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+
+            // "Below the HEADER, Write the assignment"
+            doc.text(`Assignment: ${filterAssignment || 'All Assignments'}`, 15, 38);
+
+            // "on the right side of the table on the top, write the mandates - venue"
+            doc.text(`Mandate - Venue: ${filterMandate || 'All Mandates'}`, width - 15, 38, { align: 'right' });
+
+            // 4. Table
+            const tableColumn = ["File No", "Name", "Station", "CONRAISS", "Assignments", "Mandates", "Venue", "Status"];
+            const tableRows = filteredPostings.map(post => [
+                post.file_no,
+                post.name,
+                post.station,
+                post.conraiss || '-',
+                post.assignments?.map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', ') || '-',
+                post.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-',
+                post.assignment_venue?.map((v: any) => typeof v === 'string' ? v : v.name || v.code).join(', ') || '-',
+                post.to_be_posted || 0
+            ]);
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 45,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [4, 120, 87], textColor: 255, fontStyle: 'bold' }, // Emerald-700
+                alternateRowStyles: { fillColor: [240, 253, 244] }, // Emerald-50
+                didDrawPage: (data) => {
+                    // Footer
+                    const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+                    const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+
+                    doc.setFontSize(8);
+                    doc.setTextColor(100);
+
+                    // Left: NECO APCIC Document
+                    doc.text("NECO APCIC Document", 15, pageHeight - 10);
+
+                    // Right: Generated - [Date]
+                    doc.text(`Generated - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+                }
+            });
+
+            doc.save(`NECO_Posting_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+            alert("PDF Export successful!");
+        } catch (error) {
+            console.error("PDF Export failed:", error);
+            alert("Failed to export PDF. Ensure the logo exists at /images/neco.png");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-y-auto">
             {/* Header */}
@@ -158,8 +259,9 @@ const GeneratePage: React.FC = () => {
                 </div>
                 <div className="flex gap-3">
                     <button
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all opacity-50 cursor-not-allowed"
-                        title="PDF Export (Coming Soon)"
+                        onClick={handlePDFExport}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
+                        title="Export as PDF"
                     >
                         <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
                         PDF

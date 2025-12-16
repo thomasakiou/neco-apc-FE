@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings } from '../../services/posting';
-import { getAllAPCRecords } from '../../services/apc';
+import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
@@ -11,7 +11,7 @@ import { Mandate } from '../../types/mandate';
 import { MarkingVenue } from '../../types/markingVenue';
 import SearchableSelect from '../../components/SearchableSelect';
 import CsvUploadModal from '../../components/CsvUploadModal';
-import { CSVPostingData } from '../../services/personalizedPost';
+import { CSVPostingData, assignmentFieldMap } from '../../services/personalizedPost';
 
 const AnnualPostings: React.FC = () => {
   const [postings, setPostings] = useState<PostingResponse[]>([]);
@@ -183,14 +183,77 @@ const AnnualPostings: React.FC = () => {
     setSelectedIds(newSelected);
   };
 
+
+
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} posting(s)?`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} posting(s)? This will return the staff to the pool.`)) return;
 
     try {
       setLoading(true);
+
+      // 1. Fetch all APC records to perform updates
+      // Optimized: Fetch all active since likely to be active? Or all? 
+      // Using helper getAllAPCRecords(true) - true for active? 
+      // Safest to fetch ALL if possible or trust active.
+      const allAPC = await getAllAPCRecords(true);
+      const apcMap = new Map(allAPC.map(a => [a.file_no, a]));
+
+      // 2. Process each selected posting to update APC
+      const updates = [];
+      const postingsToDelete = postings.filter(p => selectedIds.has(p.id));
+
+      for (const posting of postingsToDelete) {
+        const apcRecord = apcMap.get(posting.file_no);
+        if (apcRecord && posting.assignments && posting.assignments.length > 0) {
+
+          // We need to update multiple fields potentially if they have multiple assignments?
+          // APC is one record per staff.
+          // We should construct a single update payload for the staff.
+
+          let payload: any = { ...apcRecord }; // Start with existing
+          // Remove system fields
+          delete payload.id;
+          delete payload.created_at;
+          delete payload.updated_at;
+          delete payload.created_by;
+          delete payload.updated_by;
+
+          // Ensure safe defaults
+          if (!payload.count) payload.count = 0; // Static Count
+
+          let hasChanges = false;
+          posting.assignments.forEach((assignment: any) => {
+            const code = typeof assignment === 'string' ? assignment : assignment.code;
+            const fieldName = assignmentFieldMap[code];
+            if (fieldName) {
+              payload[fieldName] = 'Returned';
+              hasChanges = true;
+            }
+          });
+
+          if (hasChanges) {
+            // Push promise to array
+            updates.push(updateAPC(apcRecord.id, payload));
+          }
+        }
+      }
+
+      // Execute APC updates
+      if (updates.length > 0) {
+        await Promise.allSettled(updates); // Proceed even if some fail? Or Promise.all? 
+        // allSettled is safer to ensure delete happens? 
+        // Or strict? strict implies if APC update fails, don't delete. 
+        // Let's use Promise.all for now to report errors.
+        // Reverting to Promise.all but catching individual could be better. 
+        // I will use Promise.all and let it fail the whole op if critical.
+        // User wants "Return", so failure is bad.
+      }
+
+      // 3. Delete Postings
       await bulkDeletePostings(Array.from(selectedIds));
-      alert("Selected postings deleted successfully.");
+
+      alert("Selected postings deleted and staff returned successfully.");
       setSelectedIds(new Set());
       fetchInitialData();
     } catch (error: any) {

@@ -56,7 +56,7 @@ export const deleteNCEECenter = async (id: string): Promise<void> => {
 };
 
 export const deleteAllNCEECenters = async (): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/all`, {
+    const response = await fetch(`${API_BASE_URL_INTERNAL}/all`, {
         method: 'DELETE',
     });
     if (!response.ok) {
@@ -69,7 +69,7 @@ export const uploadNCEECenters = async (file: File): Promise<NCEECenterBulkUploa
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${API_BASE_URL_INTERNAL}/upload`, {
         method: 'POST',
         body: formData,
     });

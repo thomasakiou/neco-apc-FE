@@ -3,7 +3,7 @@ import { getAllStaff } from './staff';
 import { getMandatesByAssignment } from './assignment';
 import { getAllAPC, createAPC, updateAPC, deleteAPC } from './apc';
 import { Assignment } from '../types/assignment';
-import { getAllPostingRecords, bulkCreatePostings } from './posting';
+import { getAllPostingRecords, bulkCreatePostings, createPosting, updatePosting } from './posting';
 import { PostingCreate, PostingUpdate, BulkPostingCreateRequest } from '../types/posting';
 
 // Map assignment codes to APC field names
@@ -323,10 +323,10 @@ export const bulkSaveAssignments = async (
 
             // 2. Perform Action
             if (change.action === 'add') {
-                // CHECK LIMIT
-                const toBePosted = allottedCount - currentPostedCount;
-                if (toBePosted <= 0) {
-                    throw new Error(`Posting limit reached for ${change.staff.staff_name}. Allotted: ${allottedCount}, Posted: ${currentPostedCount}. Cannot post.`);
+                // CHECK LIMIT & COUNT
+                // Strict check: Count must be > 0 to post (Quota Logic)
+                if (allottedCount <= 0) {
+                    throw new Error(`Posting limit reached for ${change.staff.staff_name}. Allotted count is 0. Cannot post.`);
                 }
 
                 // Truncate mandate name to fit DB schema
@@ -334,14 +334,32 @@ export const bulkSaveAssignments = async (
                     mandateName = mandateName.substring(0, 50);
                 }
 
-                // Update APC - DISABLED per user request (read-only APC)
-                // await assignStaffToMandate(change.staff, change.targetMandateId!, assignment, mandateName, apcRecord);
+                // Update APC - Clear eligibility field
+                if (apcRecord && change.staff.apc_id) {
+                    const fieldName = assignmentFieldMap[assignment.code];
+                    if (fieldName) {
+                        // PRESERVE DATA: Spread existing record
+                        // STATIC COUNT: Do not change count
+                        const newCount = apcRecord.count || 0;
+
+                        const { id, created_at, updated_at, created_by, updated_by, ...cleanRecord } = apcRecord;
+
+                        await updateAPC(change.staff.apc_id, {
+                            ...cleanRecord, // Preserve other fields!
+                            [fieldName]: '', // Clear assignment
+                            count: newCount,
+                            file_no: change.staff.staff_no, // Update/Ensure these are correct
+                            name: change.staff.staff_name
+                        } as any);
+                    }
+                }
 
                 // Update Posting
                 const newAssignments = postingRecord?.assignments ? [...postingRecord.assignments, assignment.code] : [assignment.code];
                 const newMandates = postingRecord?.mandates ? [...postingRecord.mandates, mandateName] : [mandateName];
                 const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue, assignmentVenue] : [assignmentVenue];
 
+                // Posting record count logic
                 const newCount = allottedCount;
                 const newPostedFor = newAssignments.length;
                 const newToBePosted = newCount - newPostedFor;
@@ -355,37 +373,37 @@ export const bulkSaveAssignments = async (
                     count: newCount,
                     posted_for: newPostedFor,
                     to_be_posted: newToBePosted,
+                    assignment_venue: newVenues,
                     assignments: newAssignments,
-                    mandates: newMandates,
-                    assignment_venue: newVenues
+                    mandates: newMandates
                 };
 
                 if (postingRecord) {
-                    // Update local map
-                    Object.assign(postingRecord, postingPayload);
-                    modifiedStaffNos.add(change.staff.staff_no);
+                    await updatePosting(postingRecord.id, postingPayload);
                 } else {
-                    // New record
-                    postingMap.set(change.staff.staff_no, postingPayload);
-                    modifiedStaffNos.add(change.staff.staff_no);
+                    await createPosting(postingPayload as PostingCreate);
                 }
 
-                // Update local map for next iteration if same staff involved twice? (Unlikely but good practice)
-                // postingMap.set(change.staff.staff_no, { ...postingRecord, ...postingPayload });
-
             } else if (change.action === 'remove') {
-                // Remove from APC
-                if (change.staff.apc_id) {
-                    // We only want to clear the specific field! 
-                    // deleteAPC deletes the WHOLE record. 
-                    // If we want to just unassign, we should updateAPC with empty string for that field.
-                    // But `removeStaffFromMandate` was deleting. 
-                    // Let's assume for now we CLEAR the field.
+                // Logic for REMOVE (Un-assign)
+
+                // Update APC - Set to 'Returned'
+                if (apcRecord && change.staff.apc_id) {
                     const fieldName = assignmentFieldMap[assignment.code];
                     if (fieldName) {
-                        // Clear the specific assignment field to ensure they are removed from the 'Target Box' view
-                        // which relies on this field being present.
-                        await updateAPC(change.staff.apc_id, { [fieldName]: '' } as any);
+                        // PRESERVE DATA: Spread existing record
+                        // STATIC COUNT: Do not change count
+                        const newCount = apcRecord.count || 0;
+
+                        const { id, created_at, updated_at, created_by, updated_by, ...cleanRecord } = apcRecord;
+
+                        await updateAPC(change.staff.apc_id, {
+                            ...cleanRecord, // Preserve other fields!
+                            [fieldName]: 'Returned',
+                            count: newCount,
+                            file_no: change.staff.staff_no,
+                            name: change.staff.staff_name
+                        } as any);
                     }
                 }
 
@@ -403,11 +421,11 @@ export const bulkSaveAssignments = async (
                         newVenues.splice(idx, 1);
 
                         const newCount = allottedCount;
+
                         const newPostedFor = newAssignments.length;
                         const newToBePosted = newCount - newPostedFor;
 
                         const updatedRecord = {
-                            ...postingRecord,
                             count: newCount,
                             posted_for: newPostedFor,
                             to_be_posted: newToBePosted,
@@ -415,8 +433,8 @@ export const bulkSaveAssignments = async (
                             mandates: newMandates,
                             assignment_venue: newVenues
                         };
-                        Object.assign(postingRecord, updatedRecord);
-                        modifiedStaffNos.add(change.staff.staff_no);
+
+                        await updatePosting(postingRecord.id, updatedRecord);
                     }
                 }
             } else if (change.action === 'move') {

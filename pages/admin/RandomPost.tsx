@@ -410,10 +410,15 @@ const RandomPost: React.FC = () => {
                             <select
                                 className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700"
                                 value={selectedAssignment}
-                                onChange={e => setSelectedAssignment(e.target.value)}
+                                onChange={e => {
+                                    setSelectedAssignment(e.target.value);
+                                    setSelectedMandate(''); // Reset mandate on assignment change
+                                }}
                             >
                                 <option value="">Select Assignment</option>
-                                {assignments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                {assignments
+                                    .filter(a => a.active)
+                                    .map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         </div>
                         <div>
@@ -422,9 +427,17 @@ const RandomPost: React.FC = () => {
                                 className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700"
                                 value={selectedMandate}
                                 onChange={e => setSelectedMandate(e.target.value)}
+                                disabled={!selectedAssignment}
                             >
                                 <option value="">Select Mandate</option>
-                                {mandates.map(m => <option key={m.id} value={m.mandate}>{m.mandate}</option>)}
+                                {mandates
+                                    .filter(m => {
+                                        if (!selectedAssignment) return false;
+                                        const assignment = assignments.find(a => a.id === selectedAssignment);
+                                        if (!assignment || !Array.isArray(assignment.mandates)) return false;
+                                        return assignment.mandates.includes(m.code);
+                                    })
+                                    .map(m => <option key={m.id} value={m.mandate}>{m.mandate}</option>)}
                             </select>
                         </div>
                         <div>

@@ -2,8 +2,8 @@ import { PostingCreate, PostingListResponse, PostingResponse, PostingUpdate, Bul
 
 import { API_BASE_URL } from '../src/config';
 
-const API_URL = `${API_BASE_URL}/postings`;
-const BASE_URL = `${API_URL}/api/posting`;
+const API_URL = `${API_BASE_URL}/posting`;
+const BASE_URL = API_URL;
 
 const getAuthHeader = () => {
     const token = localStorage.getItem('token');
