@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { getAllPostingRecords } from '../../services/posting';
+import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { PostingResponse } from '../../types/posting';
@@ -32,15 +33,19 @@ const GeneratePage: React.FC = () => {
     const fetchInitialData = async () => {
         try {
             setLoading(true);
-            const [postingsData, assignmentsData, mandatesData] = await Promise.all([
+            const [postingsData, assignmentsData, mandatesData, activeAPC] = await Promise.all([
                 getAllPostingRecords(),
                 getAllAssignments(),
-                getAllMandates()
+                getAllMandates(),
+                getAllAPCRecords(true)
             ]);
 
-            setPostings(postingsData);
-            setFilteredPostings(postingsData);
-            setTotal(postingsData.length);
+            const activeFileNos = new Set(activeAPC.map(a => a.file_no));
+            const activePostings = postingsData.filter(p => activeFileNos.has(p.file_no));
+
+            setPostings(activePostings);
+            setFilteredPostings(activePostings);
+            setTotal(activePostings.length);
             setAssignments(assignmentsData);
             setMandates(mandatesData);
         } catch (error) {
@@ -144,7 +149,7 @@ const GeneratePage: React.FC = () => {
             {/* Header */}
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-violet-600 dark:from-blue-400 dark:via-indigo-400 dark:to-violet-400 drop-shadow-sm">
+                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
                         Generate Reports
                     </h1>
                     <p className="mt-2 text-slate-500 dark:text-slate-400 font-medium">

@@ -57,7 +57,7 @@ const RandomPost: React.FC = () => {
         setLoading(true);
         try {
             const [apcData, assignmentsData, mandatesData, venuesData, postingsData] = await Promise.all([
-                getAllAPCRecords(),
+                getAllAPCRecords(true),
                 getAllAssignments(),
                 getAllMandates(),
                 getAllMarkingVenues(),

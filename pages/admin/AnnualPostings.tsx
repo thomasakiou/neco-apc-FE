@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings } from '../../services/posting';
+import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
@@ -54,16 +55,20 @@ const AnnualPostings: React.FC = () => {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [postingsData, assignmentsData, mandatesData, venuesData] = await Promise.all([
+      const [postingsData, assignmentsData, mandatesData, venuesData, activeAPC] = await Promise.all([
         getAllPostingRecords(),
         getAllAssignments(),
         getAllMandates(),
-        getAllMarkingVenues()
+        getAllMarkingVenues(),
+        getAllAPCRecords(true) // Get only active staff
       ]);
 
-      setPostings(postingsData);
-      setFilteredPostings(postingsData);
-      setTotal(postingsData.length);
+      const activeFileNos = new Set(activeAPC.map(a => a.file_no));
+      const activePostings = postingsData.filter(p => activeFileNos.has(p.file_no));
+
+      setPostings(activePostings);
+      setFilteredPostings(activePostings);
+      setTotal(activePostings.length);
       setAssignments(assignmentsData);
       setMandates(mandatesData);
       setVenues(venuesData);

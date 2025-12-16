@@ -7,7 +7,8 @@ const REQUEST_URL = `${API_BASE_URL}/apc`;
 export const getAllAPC = async (
     skip: number = 0,
     limit: number = 100,
-    search: string = ''
+    search: string = '',
+    onlyActive: boolean = false
 ): Promise<APCListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
@@ -22,7 +23,12 @@ export const getAllAPC = async (
     if (!response.ok) {
         throw new Error('Failed to fetch APC records');
     }
-    return response.json();
+    const data: APCListResponse = await response.json();
+    if (onlyActive) {
+        data.items = data.items.filter(item => item.active);
+        data.total = data.items.length; // Adjust total if possible, though backend total is cleaner
+    }
+    return data;
 };
 
 export const createAPC = async (data: APCCreate): Promise<APCRecord> => {
@@ -99,11 +105,15 @@ export const uploadAPC = async (file: File): Promise<any> => {
     return response.json();
 };
 
-export const getAllAPCRecords = async (): Promise<APCRecord[]> => {
+export const getAllAPCRecords = async (onlyActive: boolean = false): Promise<APCRecord[]> => {
     const response = await fetch(`${REQUEST_URL}?limit=100000`);
     if (!response.ok) {
         throw new Error('Failed to fetch all APC records');
     }
     const data: APCListResponse = await response.json();
-    return data.items;
+    let items = data.items;
+    if (onlyActive) {
+        items = items.filter(item => item.active);
+    }
+    return items;
 };

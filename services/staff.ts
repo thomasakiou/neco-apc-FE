@@ -73,13 +73,17 @@ export const uploadStaffCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
-export const getAllStaff = async (): Promise<Staff[]> => {
+export const getAllStaff = async (onlyActive: boolean = false): Promise<Staff[]> => {
     const response = await fetch(`${API_BASE_URL}?limit=10000`);
     if (!response.ok) {
         throw new Error('Failed to fetch all staff');
     }
     const data: StaffListResponse = await response.json();
-    return data.items;
+    let items = data.items;
+    if (onlyActive) {
+        items = items.filter(item => item.active);
+    }
+    return items;
 };
 
 export const bulkDeleteStaff = async (ids: string[]): Promise<void> => {

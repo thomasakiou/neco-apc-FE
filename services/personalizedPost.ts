@@ -31,10 +31,11 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const mandates = await getMandatesByAssignment(assignment);
 
     // 2. Fetch all staff 
-    const allStaff = await getAllStaff();
+    // 2. Fetch all staff 
+    const allStaff = await getAllStaff(true);
 
     // 3. Fetch all APC records 
-    const apcResponse = await getAllAPC(0, 100000, '');
+    const apcResponse = await getAllAPC(0, 100000, '', true);
 
     const fieldName = assignmentFieldMap[assignment.code];
     // We want ALL records to map them, not just filtered ones for this specific field yet
@@ -260,7 +261,7 @@ export const bulkSaveAssignments = async (
 
     // NEW: Fetch all APC records once for in-memory lookup (User Request)
     // This bypasses unreliable backend search for specific file numbers
-    const allAPCResponse = await getAllAPC(0, 100000, '');
+    const allAPCResponse = await getAllAPC(0, 100000, '', true);
     const allAPCItems = allAPCResponse.items || [];
 
     for (const change of changes) {

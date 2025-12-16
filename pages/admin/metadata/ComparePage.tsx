@@ -30,6 +30,7 @@ const ComparePage: React.FC = () => {
     const [missingInAPC, setMissingInAPC] = useState<MissingRow[]>([]);
     const [activeTab, setActiveTab] = useState<'compare' | 'mismatch' | 'missing'>('compare');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Match' | 'Mismatch' | 'MissingSDL'>('All');
+    const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(25);
     const [stats, setStats] = useState({
@@ -48,14 +49,14 @@ const ComparePage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [activeTab, statusFilter]);
+    }, [activeTab, statusFilter, searchQuery]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const [apcRes, staffList] = await Promise.all([
-                getAllAPC(0, 10000),
-                getAllStaff()
+                getAllAPC(0, 10000, '', true),
+                getAllStaff(true)
             ]);
 
             const apcRecords = apcRes.items;
@@ -173,30 +174,43 @@ const ComparePage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
-                <div className="flex items-center gap-2 border-b border-slate-200 dark:border-gray-700">
-                    <TabButton
-                        active={activeTab === 'compare'}
-                        onClick={() => setActiveTab('compare')}
-                        label="All Records"
-                        count={comparisonData.length}
-                        icon="compare_arrows"
-                    />
-                    <TabButton
-                        active={activeTab === 'mismatch'}
-                        onClick={() => setActiveTab('mismatch')}
-                        label="Mismatches"
-                        count={comparisonData.filter(r => r.status === 'Mismatch').length}
-                        icon="warning"
-                        alert={comparisonData.filter(r => r.status === 'Mismatch').length > 0}
-                    />
-                    <TabButton
-                        active={activeTab === 'missing'}
-                        onClick={() => setActiveTab('missing')}
-                        label="Missing in APC"
-                        count={missingInAPC.length}
-                        icon="playlist_remove"
-                        alert={missingInAPC.length > 0}
-                    />
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-200 dark:border-gray-700 pr-2">
+                    <div className="flex items-center gap-2 overflow-x-auto">
+                        <TabButton
+                            active={activeTab === 'compare'}
+                            onClick={() => setActiveTab('compare')}
+                            label="All Records"
+                            count={comparisonData.length}
+                            icon="compare_arrows"
+                        />
+                        <TabButton
+                            active={activeTab === 'mismatch'}
+                            onClick={() => setActiveTab('mismatch')}
+                            label="Mismatches"
+                            count={comparisonData.filter(r => r.status === 'Mismatch').length}
+                            icon="warning"
+                            alert={comparisonData.filter(r => r.status === 'Mismatch').length > 0}
+                        />
+                        <TabButton
+                            active={activeTab === 'missing'}
+                            onClick={() => setActiveTab('missing')}
+                            label="Missing in APC"
+                            count={missingInAPC.length}
+                            icon="playlist_remove"
+                            alert={missingInAPC.length > 0}
+                        />
+                    </div>
+
+                    <div className="relative w-full md:w-64 mb-2 md:mb-0">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                        <input
+                            type="text"
+                            placeholder="Search File No or Name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-400"
+                        />
+                    </div>
                 </div>
 
                 {loading ? (
@@ -209,23 +223,52 @@ const ComparePage: React.FC = () => {
                 ) : (
                     <div className="flex-1 flex flex-col">
                         {activeTab === 'compare' ? (
-                            <ComparisonTable 
-                                data={statusFilter === 'All' ? comparisonData : comparisonData.filter(r => r.status === statusFilter)} 
-                                page={page} 
-                                limit={limit} 
-                                setPage={setPage} 
+                            <ComparisonTable
+                                data={(statusFilter === 'All' ? comparisonData : comparisonData.filter(r => r.status === statusFilter)).filter(item => {
+                                    if (!searchQuery) return true;
+                                    const q = searchQuery.toLowerCase();
+                                    return (
+                                        item.fileNo.toLowerCase().includes(q) ||
+                                        item.apcName.toLowerCase().includes(q) ||
+                                        (item.sdlName && item.sdlName.toLowerCase().includes(q))
+                                    );
+                                })}
+                                page={page}
+                                limit={limit}
+                                setPage={setPage}
                                 setLimit={setLimit}
                                 statusFilter={statusFilter}
                                 setStatusFilter={setStatusFilter}
                             />
                         ) : activeTab === 'mismatch' ? (
-                            <ComparisonTable data={comparisonData.filter(r => r.status === 'Mismatch')} page={page} limit={limit} setPage={setPage} setLimit={setLimit} />
+                            <ComparisonTable
+                                data={comparisonData.filter(r => r.status === 'Mismatch').filter(item => {
+                                    if (!searchQuery) return true;
+                                    const q = searchQuery.toLowerCase();
+                                    return (
+                                        item.fileNo.toLowerCase().includes(q) ||
+                                        item.apcName.toLowerCase().includes(q) ||
+                                        (item.sdlName && item.sdlName.toLowerCase().includes(q))
+                                    );
+                                })}
+                                page={page}
+                                limit={limit}
+                                setPage={setPage}
+                                setLimit={setLimit}
+                            />
                         ) : (
-                            <MissingTable 
-                                data={missingInAPC} 
-                                page={page} 
-                                limit={limit} 
-                                setPage={setPage} 
+                            <MissingTable
+                                data={missingInAPC.filter(item => {
+                                    if (!searchQuery) return true;
+                                    const q = searchQuery.toLowerCase();
+                                    return (
+                                        item.fileNo.toLowerCase().includes(q) ||
+                                        item.name.toLowerCase().includes(q)
+                                    );
+                                })}
+                                page={page}
+                                limit={limit}
+                                setPage={setPage}
                                 setLimit={setLimit}
                                 onAddToAPC={(staff) => {
                                     setSelectedStaff(staff);
@@ -237,12 +280,12 @@ const ComparePage: React.FC = () => {
                 )}
             </div>
             {showAddModal && selectedStaff && (
-                <AddToAPCModal 
-                    staff={selectedStaff} 
+                <AddToAPCModal
+                    staff={selectedStaff}
                     onClose={() => {
                         setShowAddModal(false);
                         setSelectedStaff(null);
-                    }} 
+                    }}
                     onSuccess={() => {
                         setShowAddModal(false);
                         setSelectedStaff(null);
@@ -492,7 +535,7 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.station}</td>
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.remark}</td>
                                         <td className="px-4 py-3 text-center">
-                                            <button 
+                                            <button
                                                 onClick={() => onAddToAPC(row)}
                                                 className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1 rounded text-xs font-bold transition-colors"
                                             >
@@ -640,10 +683,10 @@ const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClo
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Count</label>
-                        <input 
-                            type="number" 
-                            min="1" 
-                            value={count} 
+                        <input
+                            type="number"
+                            min="1"
+                            value={count}
                             onChange={(e) => {
                                 const newCount = parseInt(e.target.value) || 1;
                                 setCount(newCount);
@@ -651,7 +694,7 @@ const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClo
                                     setSelectedAssignments(selectedAssignments.slice(0, newCount));
                                 }
                             }}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg font-bold" 
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg font-bold"
                         />
                     </div>
 
@@ -664,9 +707,8 @@ const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClo
                                 const isChecked = selectedAssignments.includes(code);
                                 const isDisabled = !isChecked && selectedAssignments.length >= count;
                                 return (
-                                    <label key={code} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
-                                        isDisabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-50'
-                                    } ${isChecked ? 'bg-emerald-50 border-emerald-200' : 'border-slate-200'}`}>
+                                    <label key={code} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-50'
+                                        } ${isChecked ? 'bg-emerald-50 border-emerald-200' : 'border-slate-200'}`}>
                                         <input
                                             type="checkbox"
                                             checked={isChecked}
@@ -686,7 +728,7 @@ const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClo
                     <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors">
                         Cancel
                     </button>
-                    <button 
+                    <button
                         onClick={handleSubmit}
                         disabled={loading || selectedAssignments.length === 0}
                         className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
