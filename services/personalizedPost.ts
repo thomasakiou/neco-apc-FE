@@ -249,15 +249,17 @@ export const bulkSaveAssignments = async (
         mandate?: MandateColumn;
         station?: { id: string; name: string; type: string };
         changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[];
+        numberOfNights?: number;
     }
 ): Promise<void> => {
-    const { assignment, changes, station } = payload;
-    const errors: string[] = [];
+    const { assignment, changes, station, numberOfNights } = payload;
+    if (!assignment || !changes || changes.length === 0) return;
 
-    // Pre-fetch all posting records once
-    let allPostingsRequest = await getAllPostingRecords();
-    const postingMap = new Map<string, any>(allPostingsRequest.map(p => [p.file_no, p]));
+    // 1. Fetch current postings to avoid overwrites
+    const allPostings = await getAllPostingRecords(true);
+    const postingMap = new Map<string, any>(allPostings.map(p => [p.file_no, p]));
     const modifiedStaffNos = new Set<string>();
+    const errors: string[] = [];
 
     // NEW: Fetch all APC records once for in-memory lookup (User Request)
     // This bypasses unreliable backend search for specific file numbers
@@ -307,7 +309,7 @@ export const bulkSaveAssignments = async (
                 // We ensure we send exactly what is in DB to avoid validation errors
             }
 
-            const allottedCount = apcRecord ? (apcRecord.count || 0) : 0;
+            const allottedCount = numberOfNights !== undefined && numberOfNights > 0 ? numberOfNights : (apcRecord ? (apcRecord.count || 0) : 0);
             // Use normalized staff no for map lookup too
             let postingRecord = postingMap.get(change.staff.staff_no); // now change.staff.staff_no is normalized
 

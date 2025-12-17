@@ -43,6 +43,8 @@ const PersonalizedPost: React.FC = () => {
         message: '',
         type: 'success'
     });
+    // Accreditation Specific
+    const [numberOfNights, setNumberOfNights] = useState<number>(0);
 
     useEffect(() => {
         loadAssignments();
@@ -205,7 +207,8 @@ const PersonalizedPost: React.FC = () => {
                 assignment: currentAssignment,
                 mandate: selectedColumn,
                 station: stationOptions.find(s => s.id === selectedStationId),
-                changes: pendingChanges
+                changes: pendingChanges,
+                numberOfNights: currentAssignment.name.toUpperCase().includes('ACCREDITATION') && numberOfNights > 0 ? numberOfNights : undefined
             };
 
             await bulkSaveAssignments(savePayload as any);
@@ -447,6 +450,21 @@ const PersonalizedPost: React.FC = () => {
                     <div>
                         <h1 className="text-2xl font-black text-slate-800 dark:text-slate-200 flex items-center gap-3">
                             Personalized Posting
+                            {/* Accreditation Specific Input */}
+                            {assignments.find(a => a.id === selectedAssignmentId)?.name.toUpperCase().includes('ACCREDITATION') && (
+                                <div className="bg-white dark:bg-[#121b25] px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-gray-800 flex flex-col justify-center min-w-[150px]">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Number of Nights</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="w-full h-8 px-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-medium text-xs"
+                                        value={numberOfNights}
+                                        onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
+                                        placeholder="#"
+                                    />
+                                </div>
+                            )}
+
                             {hasUnsavedChanges && (
                                 <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded-full border border-amber-200 animate-pulse">
                                     Unsaved Changes

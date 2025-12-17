@@ -44,6 +44,8 @@ const RandomPost: React.FC = () => {
     const [conraissConfig, setConraissConfig] = useState<{ [key: number]: number }>({
         6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
     });
+    // Accreditation Specific
+    const [numberOfNights, setNumberOfNights] = useState<number>(0);
 
     // Generated Preview
     const [generatedPostings, setGeneratedPostings] = useState<PostingCreate[]>([]);
@@ -273,7 +275,9 @@ const RandomPost: React.FC = () => {
                                     station: staff.station,
                                     conraiss: staff.conraiss,
                                     year: new Date().getFullYear().toString(),
-                                    count: currentCount,
+                                    // Use 'numberOfNights' for Accreditation if set, else maintain original logic (or default to 0/1)
+                                    // Assuming 'count' field on Posting is appropriate for 'Number of Nights' in this context
+                                    count: assignmentName.toUpperCase().includes('ACCREDITATION') && numberOfNights > 0 ? numberOfNights : (staff.count || 0),
                                     posted_for: 1,
                                     to_be_posted: toBePosted,
                                     assignments: [assignmentName],
@@ -538,6 +542,24 @@ const RandomPost: React.FC = () => {
                         </>
                     )}
                 </button>
+                {/* Accreditation Specific Input */}
+                {assignments.find(a => a.id === selectedAssignment)?.name.toUpperCase().includes('ACCREDITATION') && (
+                    <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 mt-4">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Number of Nights</label>
+                        <input
+                            type="number"
+                            min="0"
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-medium text-sm"
+                            value={numberOfNights}
+                            onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
+                            placeholder="Enter number of nights..."
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="mb-20">
+                {/* Preview Table Placeholder if needed, currently empty div */}
             </div>
 
             <StationTypeSelectionModal

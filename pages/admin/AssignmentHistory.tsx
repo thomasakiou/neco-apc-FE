@@ -4,6 +4,7 @@ import { getAllPostingRecords } from '../../services/posting';
 import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
+import { APCRecord } from '../../types/apc';
 import { useNotification } from '../../context/NotificationContext';
 import { PostingResponse } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
@@ -20,7 +21,9 @@ const GeneratePage: React.FC = () => {
 
     // Filters
     const [assignments, setAssignments] = useState<Assignment[]>([]);
+
     const [mandates, setMandates] = useState<Mandate[]>([]);
+    const [apcRecords, setApcRecords] = useState<APCRecord[]>([]);
 
     const [filterAssignment, setFilterAssignment] = useState('');
     const [filterMandate, setFilterMandate] = useState('');
@@ -32,7 +35,9 @@ const GeneratePage: React.FC = () => {
 
     // Report Customization
     const [reportTitle1, setReportTitle1] = useState('');
+
     const [reportTitle2, setReportTitle2] = useState('');
+    const [reportTemplate, setReportTemplate] = useState('SSCE');
 
     useEffect(() => {
         fetchInitialData();
@@ -55,7 +60,9 @@ const GeneratePage: React.FC = () => {
             setFilteredPostings(activePostings);
             setTotal(activePostings.length);
             setAssignments(assignmentsData);
+
             setMandates(mandatesData);
+            setApcRecords(activeAPC);
         } catch (error) {
             console.error("Failed to fetch data", error);
         } finally {
@@ -168,120 +175,224 @@ const GeneratePage: React.FC = () => {
                 img.onerror = reject;
             });
 
-            // 1. Watermark (Large, Faint, Centered)
-            // Save state to restore opacity/gstate later
-            doc.saveGraphicsState();
-            doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-            const wmWidth = 200;
-            const wmHeight = (width / logoImg.width) * logoImg.height * (wmWidth / width) * (logoImg.width / logoImg.height); // maintain aspect ratio roughly or just predefined
-            // actually just scale properly:
-            const aspectRatio = logoImg.width / logoImg.height;
-            const wmH = wmWidth / aspectRatio;
-
-            doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmH) / 2, wmWidth, wmH);
-            doc.restoreGraphicsState();
-
-
-
-
-
-            // 4. Table
-            const tableColumn = ["S/N", "FILE No", "NAME", "CONR", "STATION", "POSTING", "MANDATE"];
-            const tableRows = filteredPostings.map((post, index) => {
-                // Mandate Name(s)
-                const mandates = post.mandates?.map((m: any) => (typeof m === 'string' ? m : m.mandate || m.name)).join(', ') || '-';
-
-                // Venue Name(s) - Pick name and remove code prefix
-                const venues = post.assignment_venue?.map((v: any) => {
-                    let name = typeof v === 'string' ? v : v.name;
-                    return name ? name.replace(/^\(\d+\)\s*-\s*/, '').trim() : '';
-                }).join(', ') || '';
-                const posting = venues;
-
-                return [
-                    index + 1,
-                    post.file_no,
-                    post.name,
-                    post.conraiss || '-',
-                    post.station,
-                    posting || '-',
-                    mandates
-                ];
-            });
-
-            autoTable(doc, {
-                head: [tableColumn],
-                body: tableRows,
-                startY: 45,
-                margin: { top: 45, bottom: 40 }, // Added top margin for header, bottom for signature
-                theme: 'grid',
-                styles: { fontSize: 12, cellPadding: 3, minCellHeight: 12 },
-                headStyles: { fillColor: [4, 120, 87], textColor: 255, fontStyle: 'bold' },
-                columnStyles: {
-                    0: { halign: 'center', cellWidth: 15 }, // S/No
-                    1: { cellWidth: 30 }, // File No
-                    2: { cellWidth: 60 }, // Name
-                    3: { halign: 'center', cellWidth: 20 }, // CONR
-                    4: { cellWidth: 30 }, // Station
-                    5: { cellWidth: 50 }, // Posting (Reduced)
-                    6: { cellWidth: 'auto' } // Mandate (Wide/Auto)
-                },
-                alternateRowStyles: { fillColor: [240, 253, 244] },
-                didDrawPage: (data) => {
-                    const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
-                    const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
-
-                    // --- 1. WATERMARK (Every Page) ---
-                    doc.saveGraphicsState();
-                    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-                    const wmWidth = 200;
-                    const aspectRatio = logoImg.width / logoImg.height;
-                    const wmH = wmWidth / aspectRatio;
-                    doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmH) / 2, wmWidth, wmH);
-                    doc.restoreGraphicsState();
-
-                    // --- 2. HEADER ---
-                    doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
-                    doc.setTextColor(0);
-                    // National Header NEW Size: 18 (Bigger)
-                    doc.setFontSize(18);
-                    doc.setFont("helvetica", "bold");
-                    doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", width / 2, 18, { align: 'center' });
-
-                    // Report Titles (Smaller than National)
-                    doc.setFontSize(14);
-                    if (reportTitle1) doc.text(reportTitle1.toUpperCase(), width / 2, 28, { align: 'center' });
-
-                    doc.setFontSize(12);
-                    if (reportTitle2) doc.text(reportTitle2.toUpperCase(), width / 2, 34, { align: 'center' });
-
-                    // --- 3. SIGNATURE ---
-                    const signatureY = pageHeight - 20;
-
-                    doc.setFontSize(11);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(0);
-
-                    doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
-                    doc.setFontSize(10);
-                    doc.text("REG/CE", 15, signatureY + 5);
-
-                    // --- 4. FOOTER ---
-                    doc.setFontSize(8);
-                    doc.setTextColor(100);
-                    doc.setFont("helvetica", "normal");
-
-                    // Left
-                    doc.text(`Generated ${new Date().toLocaleDateString()} By NECO APCIC Manager`, 15, pageHeight - 10);
-
-                    // Right: Pagination
-                    // Use jspdf's internal page count for "Page X"
-                    // Right: Pagination
-                    doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+            // Template Configurations
+            const getTemplateConfig = () => {
+                switch (reportTemplate) {
+                    case 'NCEE':
+                        return {
+                            headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
+                            headerColor: [0, 80, 160], // Blue-ish
+                            tableHeaderColor: [0, 80, 160],
+                            defaultTitle1: "2026 NATIONAL COMMON ENTRANCE EXAMINATION",
+                            defaultTitle2: "NCEE OFFICERS POSTING LIST"
+                        };
+                    case 'ACCREDITATION':
+                        return {
+                            headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
+                            headerColor: [180, 0, 0], // Red-ish
+                            tableHeaderColor: [180, 0, 0],
+                            defaultTitle1: "2026 ACCREDITATION EXERCISE",
+                            defaultTitle2: "ACCREDITATION OFFICERS POSTING LIST"
+                        };
+                    case 'SSCE':
+                    default:
+                        return {
+                            headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
+                            headerColor: [0, 0, 0], // Black text for header, Green for table
+                            tableHeaderColor: [4, 120, 87], // Green
+                            defaultTitle1: reportTitle1 || "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE)",
+                            defaultTitle2: reportTitle2 || "SSCE OFFICERS POSTING LIST"
+                        };
                 }
-            });
+            };
 
-            doc.save(`NECO_Posting_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+            const config = getTemplateConfig();
+
+            // --- Shared Page Draw Function (Define this right before the if block or inside shared scope) ---
+            const drawPageContent = (data: any) => {
+                const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+                const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+
+                // --- Watermark ---
+                doc.saveGraphicsState();
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const wmWidth = 200;
+                const aspectRatio = logoImg.width / logoImg.height;
+                const wmH = wmWidth / aspectRatio;
+                doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmH) / 2, wmWidth, wmH);
+                doc.restoreGraphicsState();
+
+                // --- Header ---
+                doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
+
+                // Header Color Check inside function
+                if (reportTemplate !== 'SSCE') {
+                    doc.setTextColor(config.headerColor[0], config.headerColor[1], config.headerColor[2]);
+                } else {
+                    doc.setTextColor(0);
+                }
+
+                doc.setFontSize(18);
+                doc.setFont("helvetica", "bold");
+                doc.text(config.headerTitle, width / 2, 18, { align: 'center' });
+
+                doc.setTextColor(0);
+                doc.setFontSize(14);
+                const t1 = reportTitle1 || config.defaultTitle1;
+                if (t1) doc.text(t1.toUpperCase(), width / 2, 28, { align: 'center' });
+
+                doc.setFontSize(12);
+                const t2 = reportTitle2 || config.defaultTitle2;
+                if (t2) doc.text(t2.toUpperCase(), width / 2, 34, { align: 'center' });
+
+                // --- Signature ---
+                const signatureY = pageHeight - 20;
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(0);
+                doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
+                doc.setFontSize(10);
+                doc.text("REG/CE", 15, signatureY + 5);
+
+                // --- Footer ---
+                doc.setFontSize(8);
+                doc.setTextColor(100);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Generated ${new Date().toLocaleDateString()} By NECO APCIC Manager`, 15, pageHeight - 10);
+                doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+            };
+
+            // --- Shared Generation Logic ---
+
+            // 1. Watermark (Every Page in didDrawPage) - Just setup here? 
+            // We can just rely on didDrawPage.
+
+            // 2. Table Data Generation
+            if (reportTemplate === 'ACCREDITATION') {
+                // Group by State (Venue)
+                const groupedByState: { [key: string]: any[] } = {};
+                // Create lookup for Qualification
+                const apcMap = new Map(apcRecords.map(a => [a.file_no, a]));
+
+                filteredPostings.forEach(post => {
+                    const venues = post.assignment_venue?.map((v: any) => {
+                        let name = typeof v === 'string' ? v : v.name;
+                        return name ? name.replace(/^\(\d+\)\s*-\s*/, '').trim() : '';
+                    }).join(', ') || 'UNKNOWN STATE';
+                    // Utilize the first venue as the state key if multiple (though likely one for accreditation)
+                    const stateKey = venues.split(',')[0].trim();
+                    if (!groupedByState[stateKey]) groupedByState[stateKey] = [];
+                    groupedByState[stateKey].push(post);
+                });
+
+                const sortedStates = Object.keys(groupedByState).sort();
+                let currentY = 55; // Initial Start Y for first table
+
+                const accreditationColumns = ["S/N", "FILE NO", "NAME", "CONR", "STATION", "QUALIFICATION", "NUMBER OF NIGHTS"];
+
+                for (const state of sortedStates) {
+                    const stateRows = groupedByState[state].map((post, index) => {
+                        const apc = apcMap.get(post.file_no);
+                        const qual = apc?.qualification || '-';
+                        return [
+                            index + 1,
+                            post.file_no,
+                            post.name,
+                            post.conraiss || '-',
+                            post.station,
+                            qual,
+                            post.count || '' // Number of Nights
+                        ];
+                    });
+
+                    // Check space for Title + Table Header (approx 20 + 20)
+                    // If near bottom, add page
+                    if (currentY > height - 40) {
+                        doc.addPage();
+                        currentY = 55;
+                    }
+
+                    // Print State Title
+                    doc.setFontSize(12);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(config.tableHeaderColor[0], config.tableHeaderColor[1], config.tableHeaderColor[2]);
+                    doc.text(state.toUpperCase(), 15, currentY);
+
+                    // Generate Table
+                    autoTable(doc, {
+                        head: [accreditationColumns],
+                        body: stateRows,
+                        startY: currentY + 5,
+                        margin: { top: 45, bottom: 40 },
+                        theme: 'grid',
+                        styles: { fontSize: 10, cellPadding: 3, minCellHeight: 10 }, // Slightly smaller font for more cols?
+                        headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
+                        columnStyles: {
+                            0: { halign: 'center', cellWidth: 15 },  // S/N
+                            1: { cellWidth: 25 }, // File No
+                            2: { cellWidth: 70 }, // Name
+                            3: { halign: 'center', cellWidth: 20 }, // Conraiss
+                            4: { cellWidth: 25 }, // Station
+                            5: { cellWidth: 80 }, // Qualification
+                            6: { halign: 'center', cellWidth: 'auto' } // Nights
+                        },
+                        didDrawPage: (data) => {
+                            // Use the shared didDrawPage logic, but we need to pass it here.
+                            // Duplicating the function body for simplicity or defining it outside loop.
+                            // Actually, since autoTable calls it, we can define it once above loop and pass it.
+                            // BUT, didDrawPage in loop replaces the callback. 
+                            // We should define `drawPageContent` function outside.
+                            drawPageContent(data);
+                        }
+                    });
+
+                    // Update Y for next table
+                    currentY = (doc as any).lastAutoTable.finalY + 15;
+                }
+
+            } else {
+                // SSCE / NCEE (Standard Single Table)
+                const tableColumn = ["S/N", "FILE No", "NAME", "CONR", "STATION", "POSTING", "MANDATE"];
+                const tableRows = filteredPostings.map((post, index) => {
+                    const mandates = post.mandates?.map((m: any) => (typeof m === 'string' ? m : m.mandate || m.name)).join(', ') || '-';
+                    const venues = post.assignment_venue?.map((v: any) => {
+                        let name = typeof v === 'string' ? v : v.name;
+                        return name ? name.replace(/^\(\d+\)\s*-\s*/, '').trim() : '';
+                    }).join(', ') || '';
+                    return [
+                        index + 1,
+                        post.file_no,
+                        post.name,
+                        post.conraiss || '-',
+                        post.station,
+                        venues || '-',
+                        mandates
+                    ];
+                });
+
+                autoTable(doc, {
+                    head: [tableColumn],
+                    body: tableRows,
+                    startY: 45,
+                    margin: { top: 45, bottom: 40 },
+                    theme: 'grid',
+                    styles: { fontSize: 12, cellPadding: 3, minCellHeight: 12 },
+                    headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 15 },
+                        1: { cellWidth: 30 },
+                        2: { cellWidth: 60 },
+                        3: { halign: 'center', cellWidth: 20 },
+                        4: { cellWidth: 30 },
+                        5: { cellWidth: 50 },
+                        6: { cellWidth: 'auto' }
+                    },
+                    alternateRowStyles: { fillColor: [240, 253, 244] },
+                    didDrawPage: (data) => drawPageContent(data)
+                });
+            }
+
+            doc.save(`NECO_${reportTemplate}_Report_${new Date().toISOString().split('T')[0]}.pdf`);
             success("PDF Export successful!");
         } catch (err) {
             console.error("PDF Export failed:", err);
@@ -330,6 +441,34 @@ const GeneratePage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-gray-800 p-6 flex flex-col gap-6">
+
+                {/* PDF Template Selection */}
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">PDF Report Design</label>
+                    <div className="flex gap-4">
+                        {['SSCE', 'NCEE', 'ACCREDITATION'].map((template) => (
+                            <label key={template} className={`flex-1 cursor-pointer relative px-4 py-3 rounded-lg border-2 transition-all duration-200 flex items-center justify-center gap-2 ${reportTemplate === template ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-emerald-200'}`}>
+                                <input
+                                    type="radio"
+                                    name="reportTemplate"
+                                    className="hidden"
+                                    checked={reportTemplate === template}
+                                    onChange={() => setReportTemplate(template)}
+                                />
+                                <span className={`material-symbols-outlined text-xl ${reportTemplate === template ? 'font-filled' : ''}`}>
+                                    {template === 'SSCE' ? 'school' : template === 'NCEE' ? 'child_care' : 'verified'}
+                                </span>
+                                <span className="font-bold text-sm">{template}</span>
+                                {reportTemplate === template && (
+                                    <span className="absolute -top-2 -right-2 bg-emerald-500 text-white rounded-full p-0.5 shadow-sm">
+                                        <span className="material-symbols-outlined text-[14px] font-bold block">check</span>
+                                    </span>
+                                )}
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Report Titles */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
