@@ -67,11 +67,11 @@ const RandomPost: React.FC = () => {
         try {
             const [apcData, assignmentsData, mandatesData, venuesData, postingsData, stationsData, statesData] = await Promise.all([
                 getAllAPCRecords(true),
-                getAllAssignments(),
-                getAllMandates(),
-                getAllMarkingVenues(),
+                getAllAssignments(true),
+                getAllMandates(true),
+                getAllMarkingVenues(true),
                 getAllPostingRecords(),
-                getAllStations(),
+                getAllStations(true),
                 getAllStates()
             ]);
             setAllAPC(apcData);
@@ -109,8 +109,8 @@ const RandomPost: React.FC = () => {
             let options: any[] = [];
 
             if (type === 'state') {
-                const data = await getAllStates();
-                options = data.map(s => ({
+                const states = await getAllStates();
+                options = states.map(s => ({
                     id: s.id,
                     name: s.state_code ? `(${s.state_code}) - ${s.name} - ${s.name}` : `${s.name} - ${s.name}`,
                     type: 'state',
@@ -120,11 +120,11 @@ const RandomPost: React.FC = () => {
             } else {
                 const [statesData, specificData] = await Promise.all([
                     getAllStates(),
-                    type === 'school' ? getAllSchools() :
-                        type === 'bece_custodian' ? getAllBECECustodians() :
-                            type === 'ssce_custodian' ? getAllSSCECustodians() :
-                                type === 'ncee_center' ? getAllNCEECenters() :
-                                    getAllMarkingVenues()
+                    type === 'school' ? getAllSchools(true) :
+                        type === 'bece_custodian' ? getAllBECECustodians(true) :
+                            type === 'ssce_custodian' ? getAllSSCECustodians(true) :
+                                type === 'ncee_center' ? getAllNCEECenters(true) :
+                                    getAllMarkingVenues(true)
                 ]);
 
                 const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));

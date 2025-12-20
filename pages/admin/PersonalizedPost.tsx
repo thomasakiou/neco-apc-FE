@@ -55,8 +55,8 @@ const PersonalizedPost: React.FC = () => {
 
     const loadAssignments = async () => {
         try {
-            const data = await getAllAssignments();
-            setAssignments(data.filter(a => a.active));
+            const data = await getAllAssignments(true);
+            setAssignments(data);
         } catch (error) { console.error(error); }
     };
 
@@ -180,12 +180,14 @@ const PersonalizedPost: React.FC = () => {
         setLoading(true);
         try {
             let data: any[] = [];
-            if (type === 'state') data = await getAllStates();
-            else if (type === 'school') data = await getAllSchools();
-            else if (type === 'bece_custodian') data = await getAllBECECustodians();
-            else if (type === 'ssce_custodian') data = await getAllSSCECustodians();
-            else if (type === 'ncee_center') data = await getAllNCEECenters();
-            else data = await getAllMarkingVenues();
+            if (type === 'state') {
+                const stateData = await getAllStates();
+                data = stateData.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (type === 'school') data = await getAllSchools(true);
+            else if (type === 'bece_custodian') data = await getAllBECECustodians(true);
+            else if (type === 'ssce_custodian') data = await getAllSSCECustodians(true);
+            else if (type === 'ncee_center') data = await getAllNCEECenters(true);
+            else data = await getAllMarkingVenues(true);
 
             setStationOptions(data.map(s => ({
                 id: s.id,

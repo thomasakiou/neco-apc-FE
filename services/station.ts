@@ -76,7 +76,7 @@ export const uploadStationCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
-export const getAllStations = async (): Promise<Station[]> => {
+export const getAllStations = async (onlyActive: boolean = false): Promise<Station[]> => {
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -84,7 +84,7 @@ export const getAllStations = async (): Promise<Station[]> => {
         throw new Error('Failed to fetch all stations');
     }
     const data: StationListResponse = await response.json();
-    return data.items;
+    return onlyActive ? data.items.filter(s => s.active) : data.items;
 };
 
 export const bulkDeleteStations = async (ids: string[]): Promise<void> => {

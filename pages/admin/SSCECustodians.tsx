@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getSSCECustodiansByState } from '../../services/state';
+import { getSSCECustodiansByState, getAllSSCECustodians, createSSCECustodian, updateSSCECustodian, deleteSSCECustodian, bulkDeleteSSCECustodians, uploadSSCECustodianCsv } from '../../services/custodianSpecific';
 import AlertModal from '../../components/AlertModal';
 
 interface SSCECustodian {
@@ -54,7 +54,7 @@ const SSCECustodians: React.FC = () => {
             custodian.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             custodian.state?.toLowerCase().includes(searchTerm.toLowerCase())
         );
-        
+
         const sorted = [...filtered].sort((a, b) => {
             if (!sortField) return 0;
             const aValue = a[sortField];
@@ -62,14 +62,14 @@ const SSCECustodians: React.FC = () => {
             if (aValue === bValue) return 0;
             if (aValue === undefined || aValue === null) return 1;
             if (bValue === undefined || bValue === null) return -1;
-            
+
             const compareResult = aValue < bValue ? -1 : 1;
             return sortDirection === 'asc' ? compareResult : -compareResult;
         });
-        
+
         setFilteredCustodians(sorted);
         setTotal(sorted.length);
-        
+
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
         setDisplayedCustodians(sorted.slice(startIndex, endIndex));
@@ -87,10 +87,9 @@ const SSCECustodians: React.FC = () => {
                 setCustodians(data);
                 setFilteredCustodians(data);
             } else {
-                const response = await fetch('/api/ssce-custodians');
-                const data = await response.json();
-                setCustodians(data.items);
-                setFilteredCustodians(data.items);
+                const items = await getAllSSCECustodians();
+                setCustodians(items);
+                setFilteredCustodians(items);
             }
         } catch (error) {
             console.error('Error fetching SSCE custodians:', error);
@@ -117,7 +116,7 @@ const SSCECustodians: React.FC = () => {
             onConfirm: async () => {
                 try {
                     setLoading(true);
-                    await fetch(`/api/ssce-custodians/${id}`, { method: 'DELETE' });
+                    await deleteSSCECustodian(id);
                     fetchCustodians();
                     setAlertModal({
                         isOpen: true,
@@ -197,11 +196,7 @@ const SSCECustodians: React.FC = () => {
 
         try {
             setLoading(true);
-            const response = await fetch('/api/ssce-custodians/upload', {
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json();
+            const result = await uploadSSCECustodianCsv(file);
             fetchCustodians();
             setAlertModal({
                 isOpen: true,
@@ -306,11 +301,7 @@ const SSCECustodians: React.FC = () => {
                                     onConfirm: async () => {
                                         try {
                                             setLoading(true);
-                                            await fetch('http://localhost:8000/api/ssce-custodians/all', {
-                                                method: 'DELETE',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ ids: Array.from(selectedIds) })
-                                            });
+                                            await bulkDeleteSSCECustodians(Array.from(selectedIds));
                                             setSelectedIds(new Set());
                                             fetchCustodians();
                                             setAlertModal({
@@ -426,7 +417,7 @@ const SSCECustodians: React.FC = () => {
                         </table>
                     )}
                 </div>
-                
+
                 {/* Pagination */}
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-6 border-t border-slate-100 dark:border-gray-800">
                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -505,13 +496,11 @@ const SSCECustodianModal: React.FC<{ custodian?: SSCECustodian | null; onClose: 
         e.preventDefault();
         setLoading(true);
         try {
-            const url = custodian ? `/api/ssce-custodians/${custodian.id}` : '/api/ssce-custodians';
-            const method = custodian ? 'PUT' : 'POST';
-            await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+            if (custodian) {
+                await updateSSCECustodian(custodian.id, formData);
+            } else {
+                await createSSCECustodian(formData);
+            }
             onSuccess();
         } catch (error) {
             console.error('Error saving custodian:', error);

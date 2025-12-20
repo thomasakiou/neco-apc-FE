@@ -79,7 +79,7 @@ export const uploadSchoolCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
-export const getAllSchools = async (): Promise<School[]> => {
+export const getAllSchools = async (onlyActive: boolean = false): Promise<School[]> => {
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -87,7 +87,7 @@ export const getAllSchools = async (): Promise<School[]> => {
         throw new Error('Failed to fetch all schools');
     }
     const data: SchoolListResponse = await response.json();
-    return data.items;
+    return onlyActive ? data.items.filter(s => s.active) : data.items;
 };
 
 export const bulkDeleteSchools = async (ids: string[]): Promise<void> => {

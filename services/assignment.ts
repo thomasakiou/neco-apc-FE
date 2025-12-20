@@ -22,8 +22,10 @@ export const getAssignments = async (skip = 0, limit = 100, search = ''): Promis
 // Cache
 let assignmentCache: Assignment[] | null = null;
 
-export const getAllAssignments = async (): Promise<Assignment[]> => {
-    if (assignmentCache) return assignmentCache;
+export const getAllAssignments = async (onlyActive: boolean = false): Promise<Assignment[]> => {
+    if (assignmentCache) {
+        return onlyActive ? assignmentCache.filter(a => a.active) : assignmentCache;
+    }
 
     const response = await fetch(`${API_URL}?skip=0&limit=10000`, {
         headers: getAuthHeaders(),
@@ -32,7 +34,7 @@ export const getAllAssignments = async (): Promise<Assignment[]> => {
     const data: AssignmentListResponse = await response.json();
 
     assignmentCache = data.items;
-    return data.items;
+    return onlyActive ? data.items.filter(a => a.active) : data.items;
 };
 
 export const getMandatesByAssignment = async (assignmentObj: any): Promise<any[]> => {

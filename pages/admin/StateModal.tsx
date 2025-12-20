@@ -39,10 +39,10 @@ const StateModal: React.FC<StateModalProps> = ({ isOpen, onClose, onSubmit, init
     }, [initialData, isOpen]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type } = e.target;
+        const { name, value, type, checked } = e.target;
         setFormData((prev) => ({
             ...prev,
-            [name]: type === 'number' ? Number(value) : value
+            [name]: type === 'checkbox' ? checked : (type === 'number' ? Number(value) : value)
         }));
     };
 
@@ -141,6 +141,8 @@ const StateModal: React.FC<StateModalProps> = ({ isOpen, onClose, onSubmit, init
                             />
                         </div>
                     </div>
+
+
                 </form>
 
                 {/* Footer */}

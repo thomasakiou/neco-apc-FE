@@ -215,10 +215,10 @@ const AnnualPostings: React.FC = () => {
       setLoading(true);
       const [postingsData, assignmentsData, mandatesData, venuesData, activeAPC] = await Promise.all([
         getAllPostingRecords(true),
-        getAllAssignments(),
-        getAllMandates(),
-        getAllMarkingVenues(),
-        getAllAPCRecords(false, true) // Get only active staff
+        getAllAssignments(true),
+        getAllMandates(true),
+        getAllMarkingVenues(true),
+        getAllAPCRecords(true, true) // Get only active staff
       ]);
 
       const activeFileNos = new Set(activeAPC.map(a => a.file_no));

@@ -336,11 +336,19 @@ export const parseAssignmentCSV = async (file: File): Promise<CSVPostingData[]> 
                 const cols = line.split(',').map(c => c.trim());
                 if (!cols[idxStaffNo]) return null;
 
+                const assignmentsVal = idxStation !== -1 ? cols[idxStation] : undefined;
+                const assignments = assignmentsVal ? assignmentsVal.split(';').map(a => a.trim()) : undefined;
+
                 return {
                     staffNo: cols[idxStaffNo].padStart(4, '0'),
                     mandateCode: idxMandate !== -1 ? cols[idxMandate] : undefined,
                     name: idxName !== -1 ? cols[idxName] : undefined,
-                    station: idxStation !== -1 ? cols[idxStation] : undefined
+                    station: idxStation !== -1 ? cols[idxStation] : undefined,
+                    conraiss: headers.findIndex(h => h.includes('conraiss')) !== -1 ? cols[headers.findIndex(h => h.includes('conraiss'))] : undefined,
+                    count: headers.findIndex(h => h.includes('count')) !== -1 ? parseInt(cols[headers.findIndex(h => h.includes('count'))]) || 0 : undefined,
+                    assignments: assignments,
+                    mandate: idxMandate !== -1 ? cols[idxMandate] : undefined,
+                    venue: idxStation !== -1 ? cols[idxStation] : undefined
                 };
             }).filter(Boolean) as CSVPostingData[];
 
@@ -358,4 +366,9 @@ export interface CSVPostingData {
     mandateCode?: string;
     name?: string;
     station?: string;
+    conraiss?: string;
+    count?: number;
+    assignments?: string[];
+    mandate?: string;
+    venue?: string;
 }

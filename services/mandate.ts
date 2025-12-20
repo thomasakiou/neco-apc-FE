@@ -26,8 +26,10 @@ export const getMandateList = async (page: number = 1, limit: number = 10, searc
 // Cache
 let mandateCache: Mandate[] | null = null;
 
-export const getAllMandates = async (): Promise<Mandate[]> => {
-    if (mandateCache) return mandateCache;
+export const getAllMandates = async (onlyActive: boolean = false): Promise<Mandate[]> => {
+    if (mandateCache) {
+        return onlyActive ? mandateCache.filter(m => m.active) : mandateCache;
+    }
 
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
@@ -35,7 +37,7 @@ export const getAllMandates = async (): Promise<Mandate[]> => {
     if (!response.ok) throw new Error('Failed to fetch all mandates');
     const data = await response.json();
     mandateCache = data.items;
-    return data.items;
+    return onlyActive ? data.items.filter((m: Mandate) => m.active) : data.items;
 };
 
 export const getMandateById = async (id: string): Promise<Mandate> => {

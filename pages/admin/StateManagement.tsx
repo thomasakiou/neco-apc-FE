@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
-import { getStateList, deleteState, createState, updateState, uploadStateCsv, getAllStates, bulkDeleteStates, getMarkingVenuesByState, getCustodiansByState, getSchoolsByState, getSSCECustodiansByState, getBECECustodiansByState, getMarkingVenuesByStateName, getSchoolsByStateName, getNCEECentersByStateName } from '../../services/state';
+import { getStateList, deleteState, createState, updateState, uploadStateCsv, getAllStates, bulkDeleteStates, getMarkingVenuesByState, getCustodiansByState, getSchoolsByState, getMarkingVenuesByStateName, getSchoolsByStateName, getNCEECentersByStateName } from '../../services/state';
+import { getSSCECustodiansByState, getBECECustodiansByState } from '../../services/custodianSpecific';
 import { State, StateCreate, MarkingVenue, Custodian, School } from '../../types/state';
 import StateModal from './StateModal';
 import AlertModal from '../../components/AlertModal';
@@ -497,6 +498,7 @@ const StateManagement: React.FC = () => {
                                         <SortableHeader field="name" label="State Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="capital" label="Capital" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="zone" label="Zone" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+
                                         <SortableHeader field="mkv_count" label="MKV" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
                                         <SortableHeader field="schools_count" label="Schools" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
                                         <SortableHeader field="custodians_count" label="Custodians" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
@@ -681,6 +683,7 @@ const StateRow = React.memo<StateRowProps>(({
                 <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-sm">{state.name}</td>
                 <td className="px-4 py-4 text-slate-600 dark:text-slate-400 text-sm">{state.capital}</td>
                 <td className="px-4 py-4 text-slate-600 dark:text-slate-400 text-sm">{state.zone || '-'}</td>
+
                 <td className="px-4 py-4 text-center">
                     <span className="inline-flex px-2 py-1 rounded-md text-xs font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
                         {state.mkv_count}

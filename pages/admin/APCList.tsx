@@ -181,7 +181,7 @@ const APCList: React.FC = () => {
     useEffect(() => {
         const loadAssignments = async () => {
             try {
-                const data = await getAllAssignments();
+                const data = await getAllAssignments(true);
                 setAssignmentOptions(data);
             } catch (e) {
                 console.error("Failed to load assignments", e);

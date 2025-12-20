@@ -86,8 +86,10 @@ export const uploadMarkingVenueCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
-export const getAllMarkingVenues = async (): Promise<MarkingVenue[]> => {
-    if (venueCache) return venueCache;
+export const getAllMarkingVenues = async (onlyActive: boolean = false): Promise<MarkingVenue[]> => {
+    if (venueCache) {
+        return onlyActive ? venueCache.filter(v => v.active) : venueCache;
+    }
 
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
@@ -97,7 +99,7 @@ export const getAllMarkingVenues = async (): Promise<MarkingVenue[]> => {
     }
     const data: MarkingVenueListResponse = await response.json();
     venueCache = data.items;
-    return data.items;
+    return onlyActive ? data.items.filter(v => v.active) : data.items;
 };
 
 export const bulkDeleteMarkingVenues = async (ids: string[]): Promise<void> => {

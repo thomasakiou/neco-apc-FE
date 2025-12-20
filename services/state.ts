@@ -84,7 +84,9 @@ export const uploadStateCsv = async (file: File): Promise<any> => {
 }
 
 export const getAllStates = async (): Promise<State[]> => {
-    if (allStatesCache) return allStatesCache;
+    if (allStatesCache) {
+        return allStatesCache;
+    }
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -93,7 +95,7 @@ export const getAllStates = async (): Promise<State[]> => {
     }
     const data: StateListResponse = await response.json();
     allStatesCache = data.items;
-    return allStatesCache;
+    return data.items;
 };
 
 export const bulkDeleteStates = async (ids: string[]): Promise<void> => {
@@ -102,7 +104,7 @@ export const bulkDeleteStates = async (ids: string[]): Promise<void> => {
 };
 
 // Related entities services
-export const getMarkingVenuesByState = async (stateName: string): Promise<MarkingVenue[]> => {
+export const getMarkingVenuesByState = async (stateName: string, onlyActive: boolean = false): Promise<MarkingVenue[]> => {
     const response = await fetch(`${API_BASE_URL}/marking-venues?state=${encodeURIComponent(stateName)}&limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -110,10 +112,10 @@ export const getMarkingVenuesByState = async (stateName: string): Promise<Markin
         throw new Error('Failed to fetch marking venues');
     }
     const data = await response.json();
-    return data.items;
+    return onlyActive ? data.items.filter((v: any) => v.active) : data.items;
 };
 
-export const getCustodiansByState = async (stateId: string): Promise<Custodian[]> => {
+export const getCustodiansByState = async (stateId: string, onlyActive: boolean = false): Promise<Custodian[]> => {
     const response = await fetch(`${API_BASE_URL}/custodians?state_id=${stateId}&limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -121,10 +123,10 @@ export const getCustodiansByState = async (stateId: string): Promise<Custodian[]
         throw new Error('Failed to fetch custodians');
     }
     const data = await response.json();
-    return data.items;
+    return onlyActive ? data.items.filter((c: any) => c.active) : data.items;
 };
 
-export const getSchoolsByState = async (stateId: string): Promise<School[]> => {
+export const getSchoolsByState = async (stateId: string, onlyActive: boolean = false): Promise<School[]> => {
     const response = await fetch(`${API_BASE_URL}/schools?state_id=${stateId}&limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -132,29 +134,10 @@ export const getSchoolsByState = async (stateId: string): Promise<School[]> => {
         throw new Error('Failed to fetch schools');
     }
     const data = await response.json();
-    return data.items;
+    return onlyActive ? data.items.filter((s: any) => s.active) : data.items;
 };
 
 // New state-specific custodian endpoints
-export const getSSCECustodiansByState = async (stateName: string): Promise<any[]> => {
-    const response = await fetch(`${API_URL}/${encodeURIComponent(stateName)}/ssce-custodians`, {
-        headers: getAuthHeaders(),
-    });
-    if (!response.ok) {
-        throw new Error('Failed to fetch SSCE custodians');
-    }
-    return response.json();
-};
-
-export const getBECECustodiansByState = async (stateName: string): Promise<any[]> => {
-    const response = await fetch(`${API_URL}/${encodeURIComponent(stateName)}/bece-custodians`, {
-        headers: getAuthHeaders(),
-    });
-    if (!response.ok) {
-        throw new Error('Failed to fetch BECE custodians');
-    }
-    return response.json();
-};
 
 // Additional state-specific endpoints
 export const getMarkingVenuesByStateName = async (stateName: string): Promise<any[]> => {

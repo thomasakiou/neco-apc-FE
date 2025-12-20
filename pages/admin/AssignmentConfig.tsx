@@ -101,21 +101,16 @@ const AssignmentConfig: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const fetchMandates = async () => {
+        const fetchMandatesData = async () => {
             try {
-                const response = await fetch('/api/mandates?limit=10000&include_inactive=false');
-                if (!response.ok) throw new Error('Failed to fetch all mandates');
-                const data = await response.json();
-                // Explicitly filter inactive mandates in case backend ignores the param
-                // Use robust check that matches UI logic: treat null/undefined as true, false/0 as false.
-                const activeMandates = (data.items || []).filter((m: any) => (m.active ?? true));
-                setAllMandates(activeMandates);
+                const data = await getAllMandates(true);
+                setAllMandates(data);
             } catch (error) {
                 console.error('Error fetching mandates:', error);
                 setAllMandates([]);
             }
         };
-        fetchMandates();
+        fetchMandatesData();
     }, []);
 
     const handleSort = (field: keyof Assignment) => {

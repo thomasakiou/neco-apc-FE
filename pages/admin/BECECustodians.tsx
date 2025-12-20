@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getBECECustodiansByState } from '../../services/state';
+import { getBECECustodiansByState, getAllBECECustodians, createBECECustodian, updateBECECustodian, deleteBECECustodian, bulkDeleteBECECustodians, uploadBECECustodianCsv } from '../../services/custodianSpecific';
 import AlertModal from '../../components/AlertModal';
 
 interface BECECustodian {
@@ -54,7 +54,7 @@ const BECECustodians: React.FC = () => {
             custodian.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             custodian.state?.toLowerCase().includes(searchTerm.toLowerCase())
         );
-        
+
         const sorted = [...filtered].sort((a, b) => {
             if (!sortField) return 0;
             const aValue = a[sortField];
@@ -62,14 +62,14 @@ const BECECustodians: React.FC = () => {
             if (aValue === bValue) return 0;
             if (aValue === undefined || aValue === null) return 1;
             if (bValue === undefined || bValue === null) return -1;
-            
+
             const compareResult = aValue < bValue ? -1 : 1;
             return sortDirection === 'asc' ? compareResult : -compareResult;
         });
-        
+
         setFilteredCustodians(sorted);
         setTotal(sorted.length);
-        
+
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
         setDisplayedCustodians(sorted.slice(startIndex, endIndex));
@@ -87,10 +87,9 @@ const BECECustodians: React.FC = () => {
                 setCustodians(data);
                 setFilteredCustodians(data);
             } else {
-                const response = await fetch('/api/bece-custodians');
-                const data = await response.json();
-                setCustodians(data.items);
-                setFilteredCustodians(data.items);
+                const items = await getAllBECECustodians();
+                setCustodians(items);
+                setFilteredCustodians(items);
             }
         } catch (error) {
             console.error('Error fetching BECE custodians:', error);
@@ -117,7 +116,7 @@ const BECECustodians: React.FC = () => {
             onConfirm: async () => {
                 try {
                     setLoading(true);
-                    await fetch(`/api/bece-custodians/${id}`, { method: 'DELETE' });
+                    await deleteBECECustodian(id);
                     fetchCustodians();
                     setAlertModal({
                         isOpen: true,
@@ -197,11 +196,7 @@ const BECECustodians: React.FC = () => {
 
         try {
             setLoading(true);
-            const response = await fetch('/api/bece-custodians/upload', {
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json();
+            const result = await uploadBECECustodianCsv(file);
             fetchCustodians();
             setAlertModal({
                 isOpen: true,
@@ -306,11 +301,7 @@ const BECECustodians: React.FC = () => {
                                     onConfirm: async () => {
                                         try {
                                             setLoading(true);
-                                            await fetch('http://localhost:8000/api/bece-custodians/all', {
-                                                method: 'DELETE',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ ids: Array.from(selectedIds) })
-                                            });
+                                            await bulkDeleteBECECustodians(Array.from(selectedIds));
                                             setSelectedIds(new Set());
                                             fetchCustodians();
                                             setAlertModal({
@@ -426,7 +417,7 @@ const BECECustodians: React.FC = () => {
                         </table>
                     )}
                 </div>
-                
+
                 {/* Pagination */}
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-6 border-t border-slate-100 dark:border-gray-800">
                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -505,13 +496,11 @@ const BECECustodianModal: React.FC<{ custodian?: BECECustodian | null; onClose: 
         e.preventDefault();
         setLoading(true);
         try {
-            const url = custodian ? `/api/bece-custodians/${custodian.id}` : '/api/bece-custodians';
-            const method = custodian ? 'PUT' : 'POST';
-            await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+            if (custodian) {
+                await updateBECECustodian(custodian.id, formData);
+            } else {
+                await createBECECustodian(formData);
+            }
             onSuccess();
         } catch (error) {
             console.error('Error saving custodian:', error);

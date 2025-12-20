@@ -18,13 +18,13 @@ export const getNCEECenters = async (skip = 0, limit = 100000): Promise<NCEECent
     return response.json();
 };
 
-export const getAllNCEECenters = async (): Promise<NCEECenter[]> => {
+export const getAllNCEECenters = async (onlyActive: boolean = false): Promise<NCEECenter[]> => {
     const response = await fetch(`${API_URL}?skip=0&limit=100000`, {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch all NCEE centers');
     const data: NCEECenterListResponse = await response.json();
-    return data.items;
+    return onlyActive ? data.items.filter(item => item.active) : data.items;
 };
 
 export const getNCEECenterById = async (id: string): Promise<NCEECenter> => {

@@ -7,6 +7,16 @@ import { UserResponse, UserCreate, UserRole } from '../../types/auth';
 import { AuditLogResponse } from '../../types/audit';
 import moment from 'moment';
 
+const TabButton = ({ active, onClick, label, icon }: { active: boolean, onClick: () => void, label: string, icon: string }) => (
+    <button
+        onClick={onClick}
+        className={`flex items-center gap-2.5 py-2.5 px-6 rounded-xl transition-all font-black text-xs uppercase tracking-widest ${active ? 'bg-white dark:bg-[#1e293b] text-teal-600 dark:text-teal-400 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+    >
+        <span className="material-symbols-outlined text-lg">{icon}</span>
+        {label}
+    </button>
+);
+
 const Configuration: React.FC = () => {
     const { isSuperAdmin, moduleLocks, toggleModuleLock, user: currentUser } = useAuth();
     const { showNotification } = useNotification();
@@ -17,11 +27,6 @@ const Configuration: React.FC = () => {
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-    // Filtered users: exclude the Super User (current user if they are the only super admin, or by role)
-    // The requirement says "view audit log for all users except the Super User"
-    // I will assume "Super User" means the current super admin or a specific account.
-    // For now, I'll list all users but maybe visually distinguish the Super Admin.
-
     useEffect(() => {
         if (activeTab === 'users') fetchUsers();
         if (activeTab === 'audit') fetchLogs();
@@ -31,7 +36,6 @@ const Configuration: React.FC = () => {
         setIsLoading(true);
         try {
             const data = await listUsers();
-            // Filter out Super Admin 1 as requested
             const filteredData = data.filter(u => u.full_name !== 'Super Admin 1');
             setUsers(filteredData);
         } catch (error: any) {
@@ -45,8 +49,7 @@ const Configuration: React.FC = () => {
         setIsLoading(true);
         try {
             const data = await getAuditLogs(0, 50);
-            // Filter out logs from the current Super User if required
-            const filteredLogs = data.items.filter(log => log.user_name !== currentUser?.full_name);
+            const filteredLogs = data.items.filter(log => log.user_name !== 'Super Admin 1');
             setAuditLogs(filteredLogs);
         } catch (error: any) {
             showNotification(error.message, 'error');
@@ -74,7 +77,6 @@ const Configuration: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
-            {/* Premium Header */}
             <header className="flex-none flex items-center justify-between px-10 py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
@@ -83,25 +85,20 @@ const Configuration: React.FC = () => {
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">NECO APCIC Administration Hub</p>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-8">
                     <div className="flex bg-slate-100/50 dark:bg-white/5 p-1 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-inner">
                         <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} label="Users" icon="group" />
                         <TabButton active={activeTab === 'modules'} onClick={() => setActiveTab('modules')} label="Modules" icon="lock_open" />
                         <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} label="Audit" icon="history" />
                     </div>
 
-                    <div className="h-8 w-[1px] bg-slate-200 dark:bg-white/10"></div>
-
-                    <div
-                        onClick={() => setIsPasswordModalOpen(true)}
-                        className="flex items-center gap-3 bg-white dark:bg-white/5 p-1.5 pr-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm cursor-pointer hover:border-teal-500/50 transition-all group/profile"
-                    >
-                        <div className="size-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-500/20 group-hover/profile:scale-110 transition-transform">
+                    <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all group">
+                        <div className="size-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform">
                             {currentUser?.full_name.charAt(0) || 'U'}
                         </div>
                         <div className="flex flex-col">
                             <span className="text-xs font-black text-slate-900 dark:text-white leading-none">{currentUser?.full_name || 'User'}</span>
-                            <span className="text-[10px] font-bold text-indigo-500 uppercase leading-none mt-1">Change Password</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mt-1">System Administrator</span>
                         </div>
                     </div>
                 </div>
@@ -121,13 +118,15 @@ const Configuration: React.FC = () => {
                                             <h2 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">User Directory</h2>
                                             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Manage administrative access control</p>
                                         </div>
-                                        <button
-                                            onClick={() => setIsUserModalOpen(true)}
-                                            className="group flex items-center gap-3 px-6 py-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl hover:shadow-xl hover:shadow-emerald-500/20 transition-all font-black text-sm active:scale-95"
-                                        >
-                                            <span className="material-symbols-outlined text-xl group-hover:rotate-90 transition-transform">add_circle</span>
-                                            Register New User
-                                        </button>
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={() => setIsUserModalOpen(true)}
+                                                className="group flex items-center gap-3 px-6 py-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl hover:shadow-xl hover:shadow-emerald-500/20 transition-all font-black text-sm active:scale-95"
+                                            >
+                                                <span className="material-symbols-outlined text-xl group-hover:rotate-90 transition-transform">add_circle</span>
+                                                Register New User
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur-sm shadow-inner">
@@ -172,19 +171,19 @@ const Configuration: React.FC = () => {
                                                         </td>
                                                         <td className="px-8 py-6">
                                                             <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (currentUser?.id === u.id) {
-                                                                            setIsPasswordModalOpen(true);
-                                                                        } else if (window.confirm(`Are you sure you want to reset password for ${u.full_name}?`)) {
-                                                                            showNotification('Advanced user management required for remote reset', 'info');
-                                                                        }
-                                                                    }}
-                                                                    className="size-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-90"
-                                                                    title={currentUser?.id === u.id ? "Change My Password" : "Reset Password"}
-                                                                >
-                                                                    <span className="material-symbols-outlined text-lg">{currentUser?.id === u.id ? 'password' : 'lock_reset'}</span>
-                                                                </button>
+                                                                {u.role === 'user' && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (window.confirm(`Are you sure you want to reset password for ${u.full_name}?`)) {
+                                                                                showNotification('Advanced user management required for remote reset', 'info');
+                                                                            }
+                                                                        }}
+                                                                        className="size-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-90"
+                                                                        title="Reset Password"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-lg">lock_reset</span>
+                                                                    </button>
+                                                                )}
                                                                 {currentUser?.id !== u.id && (
                                                                     <button
                                                                         onClick={() => {
@@ -338,46 +337,36 @@ const Configuration: React.FC = () => {
     );
 };
 
-// --- Sub-Components ---
-
-const TabButton = ({ active, onClick, label, icon }: { active: boolean, onClick: () => void, label: string, icon: string }) => (
-    <button
-        onClick={onClick}
-        className={`flex items-center gap-2.5 py-2.5 px-6 rounded-xl transition-all font-black text-xs uppercase tracking-widest ${active ? 'bg-white dark:bg-[#1e293b] text-teal-600 dark:text-teal-400 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-    >
-        <span className="material-symbols-outlined text-lg">{icon}</span>
-        {label}
-    </button>
-);
-
-const ModuleToggle = ({ label, description, isLocked, onToggle, icon }: { label: string, description: string, isLocked: boolean, onToggle: () => void, icon: string }) => (
-    <div className="group relative flex items-center justify-between p-6 rounded-[2rem] bg-slate-50/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/[0.08] transition-all duration-300">
-        <div className="flex items-center gap-5">
-            <div className={`size-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${isLocked ? 'bg-rose-500/10 text-rose-500 rotate-12' : 'bg-emerald-500/10 text-emerald-500 group-hover:scale-110'}`}>
-                <span className="material-symbols-outlined text-3xl">{isLocked ? 'lock' : icon}</span>
+function ModuleToggle({ label, description, isLocked, onToggle, icon }: { label: string, description: string, isLocked: boolean, onToggle: () => void, icon: string }) {
+    return (
+        <div className="group relative flex items-center justify-between p-6 rounded-[2rem] bg-slate-50/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/[0.08] transition-all duration-300">
+            <div className="flex items-center gap-5">
+                <div className={`size-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${isLocked ? 'bg-rose-500/10 text-rose-500 rotate-12' : 'bg-emerald-500/10 text-emerald-500 group-hover:scale-110'}`}>
+                    <span className="material-symbols-outlined text-3xl">{isLocked ? 'lock' : icon}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-lg font-black text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                        {label}
+                        {isLocked && <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter">Locked</span>}
+                    </span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 max-w-[200px]">{description}</span>
+                </div>
             </div>
-            <div className="flex flex-col gap-0.5">
-                <span className="text-lg font-black text-slate-900 dark:text-white leading-tight flex items-center gap-2">
-                    {label}
-                    {isLocked && <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter">Locked</span>}
-                </span>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 max-w-[200px]">{description}</span>
-            </div>
+            <button
+                onClick={onToggle}
+                className={`relative inline-flex h-9 w-16 items-center rounded-2xl transition-all focus:outline-none shadow-inner border ${isLocked ? 'bg-rose-500/20 border-rose-500/30' : 'bg-emerald-500/20 border-emerald-500/30'}`}
+            >
+                <div className={`absolute top-1 size-7 rounded-[0.6rem] bg-white shadow-lg transition-all duration-500 flex items-center justify-center ${isLocked ? 'left-1 rotate-[360deg]' : 'left-8'}`}>
+                    <span className={`material-symbols-outlined text-lg ${isLocked ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {isLocked ? 'close' : 'check'}
+                    </span>
+                </div>
+            </button>
         </div>
-        <button
-            onClick={onToggle}
-            className={`relative inline-flex h-9 w-16 items-center rounded-2xl transition-all focus:outline-none shadow-inner border ${isLocked ? 'bg-rose-500/20 border-rose-500/30' : 'bg-emerald-500/20 border-emerald-500/30'}`}
-        >
-            <div className={`absolute top-1 size-7 rounded-[0.6rem] bg-white shadow-lg transition-all duration-500 flex items-center justify-center ${isLocked ? 'left-1 rotate-[360deg]' : 'left-8'}`}>
-                <span className={`material-symbols-outlined text-lg ${isLocked ? 'text-rose-500' : 'text-emerald-500'}`}>
-                    {isLocked ? 'close' : 'check'}
-                </span>
-            </div>
-        </button>
-    </div>
-);
+    );
+}
 
-const UserCreateModal = ({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) => {
+function UserCreateModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
     const { showNotification } = useNotification();
     const [formData, setFormData] = useState<UserCreate>({
         email: '',
@@ -464,26 +453,28 @@ const UserCreateModal = ({ onClose, onSuccess }: { onClose: () => void, onSucces
             </div>
         </div>
     );
-};
+}
 
-const InputField = ({ label, value, onChange, type = 'text', placeholder, required = false, icon }: { label: string, value: string, onChange: (v: string) => void, type?: string, placeholder?: string, required?: boolean, icon: string }) => (
-    <div className="flex flex-col gap-2.5 group">
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1 group-focus-within:text-teal-500 transition-colors">{label}</label>
-        <div className="relative">
-            <span className="absolute left-5 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 dark:text-white/20 group-focus-within:text-teal-500 transition-colors">{icon}</span>
-            <input
-                type={type}
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                placeholder={placeholder}
-                required={required}
-                className="w-full h-14 bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-[1.25rem] pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none dark:text-white transition-all placeholder:text-slate-300 dark:placeholder:text-white/10"
-            />
+function InputField({ label, value, onChange, type = 'text', placeholder, required = false, icon }: { label: string, value: string, onChange: (v: string) => void, type?: string, placeholder?: string, required?: boolean, icon: string }) {
+    return (
+        <div className="flex flex-col gap-2.5 group">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1 group-focus-within:text-teal-500 transition-colors">{label}</label>
+            <div className="relative">
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 dark:text-white/20 group-focus-within:text-teal-500 transition-colors">{icon}</span>
+                <input
+                    type={type}
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    placeholder={placeholder}
+                    required={required}
+                    className="w-full h-14 bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-[1.25rem] pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none dark:text-white transition-all placeholder:text-slate-300 dark:placeholder:text-white/10"
+                />
+            </div>
         </div>
-    </div>
-);
+    );
+}
 
-const PasswordChangeModal = ({ onClose }: { onClose: () => void }) => {
+function PasswordChangeModal({ onClose }: { onClose: () => void }) {
     const { showNotification } = useNotification();
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -550,6 +541,6 @@ const PasswordChangeModal = ({ onClose }: { onClose: () => void }) => {
             </div>
         </div>
     );
-};
+}
 
 export default Configuration;
