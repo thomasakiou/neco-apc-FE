@@ -8,20 +8,44 @@ const AdminLayout: React.FC = () => {
   const { user, isSuperAdmin, isModuleLocked, logout } = useAuth();
   const isActive = (path: string) => location.pathname.includes(path);
   const { theme, toggleTheme } = useTheme();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+  // Close mobile menu on navigation
+  React.useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   return (
-    <div className="flex h-screen w-full bg-background-light dark:bg-[#101922] transition-colors duration-200">
+    <div className="flex h-screen w-full bg-background-light dark:bg-[#101922] transition-colors duration-200 overflow-hidden">
+      {/* Mobile Backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* SideNavBar */}
-      <aside className="flex w-64 flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121b25] sticky top-0 h-screen overflow-y-auto transition-colors duration-200">
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 flex flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121b25] 
+        transition-transform duration-300 ease-in-out h-full overflow-y-auto
+        lg:translate-x-0 lg:static lg:h-screen
+        ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+      `}>
         <div className="flex flex-col p-4 gap-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-white">
-              <span className="material-symbols-outlined">local_library</span>
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-white">
+                <span className="material-symbols-outlined">local_library</span>
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-slate-900 dark:text-white text-base font-bold leading-normal truncate max-w-[120px]">{user?.full_name || 'NECO APCIC'}</h1>
+                <p className="text-slate-500 dark:text-slate-400 text-[10px] font-normal leading-normal capitalize">{user?.role?.replace('_', ' ') || 'Admin Panel'}</p>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-slate-900 dark:text-white text-base font-bold leading-normal truncate max-w-[150px]">{user?.full_name || 'NECO APCIC'}</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-normal leading-normal capitalize">{user?.role?.replace('_', ' ') || 'Admin Panel'}</p>
-            </div>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-slate-600">
+              <span className="material-symbols-outlined">close</span>
+            </button>
           </div>
 
           <nav className="flex flex-col gap-2">
@@ -116,8 +140,25 @@ const AdminLayout: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-        <Outlet />
+      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto w-full">
+        {/* Mobile Header Bar */}
+        <div className="lg:hidden h-16 flex-shrink-0 flex items-center justify-between px-4 bg-white dark:bg-[#121b25] border-b border-gray-200 dark:border-gray-800 z-30">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded bg-primary text-white">
+              <span className="material-symbols-outlined text-sm">local_library</span>
+            </div>
+            <span className="font-bold text-slate-900 dark:text-white text-sm">NECO APCIC</span>
+          </div>
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

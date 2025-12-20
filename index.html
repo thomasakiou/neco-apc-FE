@@ -56,8 +56,15 @@
       }
       .workspace-grid {
         display: grid;
-        grid-template-columns: 340px 1fr;
-        height: calc(100vh - 80px);
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: calc(100vh - 80px);
+      }
+      @media (min-width: 1024px) {
+        .workspace-grid {
+          grid-template-columns: 340px 1fr;
+          height: calc(100vh - 80px);
+        }
       }
     </style>
   <script type="importmap">

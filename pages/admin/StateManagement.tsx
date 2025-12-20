@@ -308,6 +308,35 @@ const StateManagement: React.FC = () => {
         document.body.removeChild(link);
     }, []);
 
+    const handleExport = useCallback(() => {
+        try {
+            const headers = ['Code', 'State Name', 'Capital', 'Zone', 'MKV', 'Schools', 'Custodians'];
+            const rows = filteredStates.map(state => [
+                state.state_code,
+                state.name,
+                state.capital,
+                state.zone,
+                state.mkv_count,
+                state.schools_count,
+                state.custodians_count
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8,"
+                + headers.join(",") + "\n"
+                + rows.map(r => r.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `State_Records_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Export failed:', error);
+        }
+    }, [filteredStates]);
+
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) {
             setAlertModal({
@@ -368,61 +397,66 @@ const StateManagement: React.FC = () => {
             />
 
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-500 tracking-tight">
-                        State Management
+            <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 px-2">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                        State Configuration
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse ml-2" />
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Manage states and their related entities</p>
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">Geographical Infrastructure Management</p>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".csv,.xlsx,.xls"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="csv-upload"
-                    />
-                    <button
-                        onClick={downloadCsvTemplate}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 hover:border-emerald-300 transition-all shadow-sm"
-                    >
-                        <span className="material-symbols-outlined text-lg">download</span>
-                        Template
-                    </button>
-                    <label
-                        htmlFor="csv-upload"
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/50 hover:border-teal-300 transition-all cursor-pointer shadow-sm"
-                    >
-                        <span className="material-symbols-outlined text-lg">upload_file</span>
-                        Upload CSV
-                    </label>
+
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                     <button
                         onClick={handleAdd}
-                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5 transition-all"
                     >
-                        <span className="material-symbols-outlined text-lg">add</span>
+                        <span className="material-symbols-outlined text-lg">add_location</span>
                         Add State
                     </button>
+                    <button
+                        onClick={handleExport}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm"
+                    >
+                        <span className="material-symbols-outlined text-lg">download</span>
+                        Export
+                    </button>
                 </div>
-            </div>
+            </header>
 
             <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
                 {/* Filters */}
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
-                        <div className="relative w-full md:w-64">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
-                            </div>
-                            <input
-                                className="w-full pl-10 h-10 rounded-lg border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-primary focus:ring-[3px] focus:ring-primary/20 transition-all duration-200 text-slate-700 dark:text-slate-200 font-medium text-sm placeholder:text-slate-400"
-                                placeholder="Search..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 px-2">
+                    <div className="relative group w-full lg:max-w-md">
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+                        <input
+                            type="text"
+                            placeholder="Search states, codes or capitals..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full h-12 pl-12 pr-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+                        />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                        <FilterSelect
+                            label="State Name"
+                            value={selectedStateName}
+                            options={uniqueStateNames}
+                            onChange={setSelectedStateName}
+                        />
+                        <FilterSelect
+                            label="State Code"
+                            value={selectedStateCode}
+                            options={uniqueStateCodes}
+                            onChange={setSelectedStateCode}
+                        />
+                        <FilterSelect
+                            label="Zone"
+                            value={selectedZone}
+                            options={uniqueZones}
+                            onChange={setSelectedZone}
+                        />
                         <div className="flex items-center gap-2">
                             <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Per page:</label>
                             <select
@@ -439,26 +473,6 @@ const StateManagement: React.FC = () => {
                                 <option value={100}>100</option>
                             </select>
                         </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                        <FilterSelect
-                            label="State Code"
-                            value={selectedStateCode}
-                            options={uniqueStateCodes}
-                            onChange={setSelectedStateCode}
-                        />
-                        <FilterSelect
-                            label="State Name"
-                            value={selectedStateName}
-                            options={uniqueStateNames}
-                            onChange={setSelectedStateName}
-                        />
-                        <FilterSelect
-                            label="Zone"
-                            value={selectedZone}
-                            options={uniqueZones}
-                            onChange={setSelectedZone}
-                        />
                         {selectedIds.size > 0 && (
                             <button
                                 onClick={handleBulkDelete}

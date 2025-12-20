@@ -2,10 +2,10 @@ import React from 'react';
 
 const ExamCenters: React.FC = () => {
     return (
-        <div className="flex-1 p-8 max-w-7xl mx-auto flex flex-col gap-6 bg-slate-50 dark:bg-[#101922] transition-colors duration-200 min-h-screen">
+        <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto flex flex-col gap-4 md:gap-6 bg-slate-50 dark:bg-[#101922] transition-colors duration-200 min-h-screen">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-slate-200">Exam Centers Management</h1>
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-slate-200">Exam Centers Management</h1>
                     <p className="text-slate-500 dark:text-slate-400">Manage, add, and import exam centers.</p>
                 </div>
                 <div className="flex gap-3">

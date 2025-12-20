@@ -54,9 +54,9 @@ const AuditLog: React.FC = () => {
    return (
       <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
          {/* Premium Header */}
-         <header className="flex-none flex items-center justify-between px-10 py-6 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
+         <header className="flex-none flex items-center justify-between px-4 md:px-10 py-4 md:py-6 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
             <div>
-               <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+               <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
                   Audit <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Intelligence</span>
                </h1>
                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">Security & Operational Traceability</p>
@@ -80,7 +80,7 @@ const AuditLog: React.FC = () => {
             </div>
          </header>
 
-         <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-12">
+         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-12">
             <div className="max-w-[1400px] mx-auto flex flex-col gap-8">
                {/* Metrics Row (Small visualization of activity) */}
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-500">

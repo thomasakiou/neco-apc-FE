@@ -2,9 +2,9 @@ import React from 'react';
 
 const CustodianPoints: React.FC = () => {
     return (
-        <div className="p-8 max-w-7xl mx-auto flex flex-col gap-6 bg-slate-50 dark:bg-[#101922] transition-colors duration-200 min-h-screen">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto flex flex-col gap-4 md:gap-6 bg-slate-50 dark:bg-[#101922] transition-colors duration-200 min-h-screen">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-200">Custodian Points Management</h1>
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-slate-200">Custodian Points Management</h1>
                 <button className="btn-primary h-10 px-4 flex items-center gap-2 text-sm font-bold"><span className="material-symbols-outlined text-lg">add_circle</span> Add New Custodian Point</button>
             </div>
 

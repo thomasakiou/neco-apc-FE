@@ -77,9 +77,9 @@ const Configuration: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
-            <header className="flex-none flex items-center justify-between px-10 py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
+            <header className="flex-none flex items-center justify-between px-4 md:px-10 py-4 md:py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
                         System <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Configuration</span>
                     </h1>
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">NECO APCIC Administration Hub</p>
@@ -104,9 +104,9 @@ const Configuration: React.FC = () => {
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-12">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-12">
                 <div className="max-w-[1400px] mx-auto">
-                    <div className="bg-white/70 dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-8 shadow-xl shadow-slate-200/20 dark:shadow-none min-h-[600px] transition-all relative overflow-hidden">
+                    <div className="bg-white/70 dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-4 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none min-h-[600px] transition-all relative overflow-hidden">
                         <div className="absolute top-0 right-0 size-96 bg-emerald-500/5 blur-[100px] rounded-full -mr-48 -mt-48 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 size-96 bg-blue-500/5 blur-[100px] rounded-full -ml-48 -mb-48 pointer-events-none"></div>
 

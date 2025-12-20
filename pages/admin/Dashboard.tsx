@@ -57,42 +57,42 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
       {/* Premium Header */}
-      <header className="flex-none flex items-center justify-between px-10 py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
+      <header className="flex-none flex flex-col sm:flex-row sm:items-center justify-between px-6 md:px-10 py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20 gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
             APCIC <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Dashboard</span>
           </h1>
-          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">NECO APCIC Posting Ecosystem</p>
+          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">NECO APCIC Posting Ecosystem</p>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center justify-between sm:justify-end gap-4 md:gap-6 w-full sm:w-auto">
           <button
             onClick={() => fetchStats(true)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-[10px] md:text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
           >
-            <span className={`material-symbols-outlined text-lg ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
+            <span className={`material-symbols-outlined text-base md:text-lg ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
             {isRefreshing ? 'Refreshing...' : 'Live Data'}
           </button>
 
-          <div className="h-8 w-[1px] bg-slate-200 dark:bg-white/10"></div>
+          <div className="hidden xs:block h-8 w-[1px] bg-slate-200 dark:bg-white/10"></div>
 
-          <div className="flex items-center gap-3 bg-white dark:bg-white/5 p-1.5 pr-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
-            <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-emerald-500/20">
+          <div className="flex items-center gap-2 md:gap-3 bg-white dark:bg-white/5 p-1 md:p-1.5 md:pr-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
+            <div className="size-8 md:size-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-xs md:text-sm shadow-lg shadow-emerald-500/20">
               AD
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-black text-slate-900 dark:text-white leading-none">Admin Controller</span>
-              <span className="text-[10px] font-bold text-emerald-500 uppercase leading-none mt-1">Neco HQ</span>
+              <span className="text-[10px] md:text-xs font-black text-slate-900 dark:text-white leading-none">Admin Controller</span>
+              <span className="text-[9px] md:text-[10px] font-bold text-emerald-500 uppercase leading-none mt-1">Neco HQ</span>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-12">
-        <div className="max-w-[1600px] mx-auto space-y-10">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-12">
+        <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-10">
 
           {/* Executive Metrics Grid */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
             <GlassCard
               title="Global Staff Pool"
               value={counts.staff}
@@ -124,24 +124,24 @@ const AdminDashboard: React.FC = () => {
           </section>
 
           {/* Core Analytics Sections */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
 
             {/* Staff Geographical Distribution */}
             <div className="lg:col-span-8 group">
-              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-emerald-500/20">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                    <span className="size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-emerald-500 transition-colors">
-                      <span className="material-symbols-outlined">analytics</span>
+              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-6 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-emerald-500/20">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+                  <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                    <span className="size-8 md:size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-emerald-500 transition-colors">
+                      <span className="material-symbols-outlined text-xl md:text-2xl">analytics</span>
                     </span>
                     Deployment Distribution
                   </h3>
-                  <div className="px-4 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                  <div className="w-fit px-4 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 text-[9px] md:text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
                     Top 10 Active Stations
                   </div>
                 </div>
 
-                <div className="h-[400px] w-full">
+                <div className="h-[300px] md:h-[400px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={charts.staffDistribution} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                       <defs>
@@ -192,16 +192,16 @@ const AdminDashboard: React.FC = () => {
 
             {/* Posting Integrity Overview */}
             <div className="lg:col-span-4 group">
-              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-teal-500/20 flex flex-col">
-                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-8 flex items-center gap-3">
-                  <span className="size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-teal-500 transition-colors">
-                    <span className="material-symbols-outlined">donut_large</span>
+              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-6 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-teal-500/20 flex flex-col">
+                <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white mb-8 flex items-center gap-3">
+                  <span className="size-8 md:size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-teal-500 transition-colors">
+                    <span className="material-symbols-outlined text-xl md:text-2xl">donut_large</span>
                   </span>
                   Posting Target Status
                 </h3>
 
                 <div className="flex-1 flex flex-col items-center justify-center -mt-4">
-                  <div className="size-64 relative">
+                  <div className="size-48 md:size-64 relative">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -227,9 +227,9 @@ const AdminDashboard: React.FC = () => {
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Utilization</span>
-                      <span className="text-4xl font-black text-slate-900 dark:text-white leading-none">{charts.totalPostings.toLocaleString()}</span>
-                      <div className="mt-2 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black">APC ACTIVE</div>
+                      <span className="text-[8px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Utilization</span>
+                      <span className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white leading-none">{charts.totalPostings.toLocaleString()}</span>
+                      <div className="mt-2 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] md:text-[10px] font-black">APC ACTIVE</div>
                     </div>
                   </div>
 
@@ -257,11 +257,11 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Secondary Operational Stats */}
-          <section className="bg-slate-900 dark:bg-emerald-950/20 rounded-[3rem] p-10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 size-96 bg-emerald-500/10 blur-[100px] rounded-full -mr-48 -mt-48"></div>
-            <div className="absolute bottom-0 left-0 size-96 bg-blue-500/5 blur-[100px] rounded-full -ml-48 -mb-48"></div>
+          <section className="bg-slate-900 dark:bg-emerald-950/20 rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 size-64 md:size-96 bg-emerald-500/10 blur-[80px] md:blur-[100px] rounded-full -mr-32 -mt-32 md:-mr-48 md:-mt-48"></div>
+            <div className="absolute bottom-0 left-0 size-64 md:size-96 bg-blue-500/5 blur-[80px] md:blur-[100px] rounded-full -ml-32 -mb-32 md:-ml-48 md:-mb-48"></div>
 
-            <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="relative z-10 grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               <MiniOperational title="SSCE Custodians" value={counts.ssceCustodians} icon="shield_person" />
               <MiniOperational title="BECE Custodians" value={counts.beceCustodians} icon="security" />
               <MiniOperational title="Marking Venues" value={counts.markingVenues} icon="room_preferences" />
@@ -288,8 +288,8 @@ const GlassCard = ({ title, value, icon, gradient, trend }: any) => (
           LIVE
         </div>
       </div>
-      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-2">{title}</p>
-      <p className="text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+      <p className="text-[10px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-2">{title}</p>
+      <p className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
       <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">

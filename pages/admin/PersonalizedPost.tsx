@@ -236,23 +236,23 @@ const PersonalizedPost: React.FC = () => {
     return (
         <div className="h-full flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] overflow-hidden">
             {/* Action Bar */}
-            <header className="h-20 flex-shrink-0 bg-white dark:bg-[#1E293B] border-b border-slate-200 dark:border-slate-800 px-8 flex items-center justify-between shadow-sm z-30">
-                <div className="flex items-center gap-6">
-                    <div>
-                        <h1 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
+            <header className="min-h-20 py-4 flex-shrink-0 bg-white dark:bg-[#1E293B] border-b border-slate-200 dark:border-slate-800 px-4 md:px-10 flex flex-col lg:flex-row items-start lg:items-center justify-between shadow-sm z-30 gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 lg:gap-6 w-full lg:w-auto">
+                    <div className="flex-shrink-0">
+                        <h1 className="text-lg md:text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
                             Board Workspace
                             {hasUnsavedChanges && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Unsaved Changes"></span>}
                         </h1>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Personnel Distribution Engine</p>
                     </div>
 
-                    <div className="h-10 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
+                    <div className="hidden sm:block h-10 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                         <select
                             value={selectedAssignmentId}
                             onChange={(e) => setSelectedAssignmentId(e.target.value)}
-                            className="h-10 px-4 rounded-xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-indigo-500 outline-none transition-all min-w-[240px]"
+                            className="h-10 px-4 rounded-xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-indigo-500 outline-none transition-all w-full sm:min-w-[200px] flex-1"
                         >
                             <option value="">Select Assignment...</option>
                             {assignments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -263,21 +263,21 @@ const PersonalizedPost: React.FC = () => {
                             value={selectedStationId}
                             onChange={setSelectedStationId}
                             placeholder="Target Station..."
-                            className="min-w-[280px]"
+                            className="w-full sm:min-w-[240px] flex-1"
                         />
 
                         <button
                             onClick={() => setIsStationModalOpen(true)}
-                            className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-inner"
+                            className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-inner flex-shrink-0"
                         >
                             <span className="material-symbols-outlined text-xl font-bold">tune</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 pt-3 lg:pt-0">
                     {selectedStaffIds.size > 0 && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 mr-4">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
                             <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{selectedStaffIds.size} Selected</span>
                             <div className="h-4 w-[1px] bg-indigo-500/20 mx-1"></div>
                             <button onClick={() => setSelectedStaffIds(new Set())} className="text-[10px] font-bold text-slate-500 hover:text-rose-500 uppercase tracking-tighter">Clear</button>
@@ -287,10 +287,11 @@ const PersonalizedPost: React.FC = () => {
                     <button
                         onClick={handleSaveChanges}
                         disabled={!hasUnsavedChanges}
-                        className="h-11 px-8 rounded-xl bg-emerald-600 text-white font-black text-sm shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 disabled:grayscale disabled:opacity-50 transition-all flex items-center gap-2"
+                        className="h-11 px-4 sm:px-8 rounded-xl bg-emerald-600 text-white font-black text-sm shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 disabled:grayscale disabled:opacity-50 transition-all flex items-center gap-2 whitespace-nowrap"
                     >
                         <span className="material-symbols-outlined text-xl">commit</span>
-                        Commit Changes
+                        <span className="hidden sm:inline">Commit Changes</span>
+                        <span className="sm:hidden">Commit</span>
                     </button>
                 </div>
             </header>
@@ -331,59 +332,60 @@ const PersonalizedPost: React.FC = () => {
                 </aside>
 
                 {/* Right Area: Board */}
-                <section className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#F1F5F9]/30 dark:bg-transparent">
+                <section className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#F1F5F9]/30 dark:bg-transparent overflow-hidden">
                     {/* View Controls */}
-                    <div className="h-14 px-8 flex items-center justify-between flex-shrink-0 border-b border-slate-200/50 dark:border-slate-800/50">
-                        <div className="flex items-center gap-8">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <div className="h-auto py-3 md:h-14 px-4 md:px-8 flex flex-col md:flex-row items-start md:items-center justify-between flex-shrink-0 border-b border-slate-200/50 dark:border-slate-800/50 gap-4">
+                        <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto overflow-x-auto no-scrollbar">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 whitespace-nowrap">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                 Distribution Grid
                             </h3>
-                            <div className="relative">
+                            <div className="relative flex-1 md:flex-none">
                                 <span className="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 text-lg">search</span>
                                 <input
                                     type="text"
                                     placeholder="Filter grid..."
                                     value={boardSearch}
                                     onChange={(e) => setBoardSearch(e.target.value)}
-                                    className="h-8 pl-6 bg-transparent border-none text-xs font-bold text-slate-900 dark:text-white outline-none placeholder:text-slate-300"
+                                    className="h-8 pl-6 bg-transparent border-none text-xs font-bold text-slate-900 dark:text-white outline-none placeholder:text-slate-300 w-full"
                                 />
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:w-auto">
                             <button
                                 onClick={downloadCsvTemplate}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 whitespace-nowrap"
                             >
                                 <span className="material-symbols-outlined text-sm">download</span>
-                                Template
+                                <span className="hidden sm:inline">Template</span>
                             </button>
-                            <button onClick={() => setIsCsvModalOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                            <button onClick={() => setIsCsvModalOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 whitespace-nowrap">
                                 <span className="material-symbols-outlined text-sm">cloud_upload</span>
-                                Import CSV
+                                <span className="hidden sm:inline">Import CSV</span>
+                                <span className="sm:hidden">Import</span>
                             </button>
                             <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-800 mx-1"></div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase">Columns: {boardData?.mandateColumns.length || 0}</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">Cols: {boardData?.mandateColumns.length || 0}</span>
                         </div>
                     </div>
 
                     {/* Columns Grid */}
                     <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
-                        <div className="flex h-full p-8 gap-6 min-w-max">
+                        <div className="flex h-full p-4 md:p-8 gap-4 md:gap-6 min-w-max">
                             {!selectedAssignmentId ? (
                                 <div className="flex-1 w-full flex flex-col items-center justify-center opacity-30 gap-4 grayscale">
-                                    <span className="material-symbols-outlined text-8xl font-thin">dashboard_customize</span>
-                                    <p className="text-sm font-black uppercase tracking-widest italic">Choose an assignment to initialize workspace</p>
+                                    <span className="material-symbols-outlined text-6xl md:text-8xl font-thin">dashboard_customize</span>
+                                    <p className="text-xs md:text-sm font-black uppercase tracking-widest italic text-center">Choose an assignment to initialize workspace</p>
                                 </div>
                             ) : loading ? (
                                 <div className="flex-1 w-full flex flex-col items-center justify-center gap-4">
-                                    <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                                    <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
                                     <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] animate-pulse">Syncing Engine</p>
                                 </div>
                             ) : (
                                 filteredBoard.map((col, idx) => (
-                                    <div key={col.id} className="w-[320px] h-full flex flex-col relative">
+                                    <div key={col.id} className="w-[280px] md:w-[320px] h-full flex flex-col relative">
                                         <MandateColumn
                                             columnId={col.id}
                                             title={col.title}

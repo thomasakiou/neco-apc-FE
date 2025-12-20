@@ -70,7 +70,7 @@ const NCEECenters: React.FC = () => {
             center.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             center.state?.toLowerCase().includes(searchTerm.toLowerCase())
         );
-        
+
         const sorted = [...filtered].sort((a, b) => {
             if (!sortField) return 0;
             const aValue = a[sortField];
@@ -78,19 +78,19 @@ const NCEECenters: React.FC = () => {
             if (aValue === bValue) return 0;
             if (aValue === undefined || aValue === null) return 1;
             if (bValue === undefined || bValue === null) return -1;
-            
+
             const compareResult = aValue < bValue ? -1 : 1;
             return sortDirection === 'asc' ? compareResult : -compareResult;
         });
-        
+
         setFilteredCenters(sorted);
         setTotal(sorted.length);
-        
+
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
         setDisplayedCenters(sorted.slice(startIndex, endIndex));
     }, [searchTerm, centers, sortField, sortDirection, page, limit]);
-    
+
     const handleSort = (field: keyof NCEECenter) => {
         if (sortField === field) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -99,7 +99,7 @@ const NCEECenters: React.FC = () => {
             setSortDirection('asc');
         }
     };
-    
+
     useEffect(() => {
         setPage(1);
     }, [searchTerm]);
@@ -194,340 +194,340 @@ const NCEECenters: React.FC = () => {
                     </div>
                 </div>
             )}
-            <div className="p-8 max-w-7xl mx-auto bg-slate-50 dark:bg-[#101922] transition-colors duration-200 min-h-screen">
-            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-gray-800">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-500 tracking-tight">
-                        NCEE Centers {stateFilter && `- ${stateFilter}`}
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
-                        {stateFilter ? `NCEE centers in ${stateFilter}` : 'Manage NCEE examination centers'}
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => {
-                            const headers = ['name', 'code', 'numb_of_cand', 'state', 'within_capital', 'outside_capital', 'active'];
-                            const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
-                            const encodedUri = encodeURI(csvContent);
-                            const link = document.createElement("a");
-                            link.setAttribute("href", encodedUri);
-                            link.setAttribute("download", "ncee_centers_template.csv");
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">download</span>
-                        Template
-                    </button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            
-                            setUploading(true);
-                            uploadNCEECenters(file)
-                                .then(result => {
-                                    setAlertModal({
-                                        isOpen: true,
-                                        title: 'Upload Complete',
-                                        message: `Created: ${result.created_count}, Skipped: ${result.skipped_count}, Errors: ${result.error_count}`,
-                                        type: 'success'
-                                    });
-                                    fetchCenters();
-                                })
-                                .catch(error => {
-                                    setAlertModal({
-                                        isOpen: true,
-                                        title: 'Upload Failed',
-                                        message: 'Failed to upload NCEE centers.',
-                                        type: 'error'
-                                    });
-                                })
-                                .finally(() => {
-                                    setUploading(false);
-                                    if (fileInputRef.current) fileInputRef.current.value = '';
-                                });
-                        }}
-                        accept=".csv,.xlsx,.xls"
-                        className="hidden"
-                    />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">upload_file</span>
-                        Upload CSV
-                    </button>
-                    <button
-                        onClick={() => {
-                            const headers = ['Code', 'Name', 'No. of Candidates', 'State', 'Location', 'Status'];
-                            const rows = filteredCenters.map(center => [
-                                center.code || '',
-                                center.name,
-                                center.numb_of_cand,
-                                center.state || '',
-                                center.within_capital ? 'Within Capital' : center.outside_capital ? 'Outside Capital' : '',
-                                center.active ? 'Active' : 'Inactive'
-                            ]);
-                            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.join(',')).join('\n');
-                            const encodedUri = encodeURI(csvContent);
-                            const link = document.createElement("a");
-                            link.setAttribute("href", encodedUri);
-                            link.setAttribute("download", "ncee_centers_export.csv");
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">file_download</span>
-                        Export CSV
-                    </button>
-                    <button
-                        onClick={handleCreate}
-                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">add_circle</span>
-                        New Center
-                    </button>
-                </div>
-            </div>
-
-            <div className="bg-white dark:bg-[#121b25] rounded-2xl border border-slate-200/60 dark:border-gray-800 shadow-sm overflow-hidden transition-colors mt-6">
-                <div className="p-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/50 dark:bg-[#121b25] flex flex-col lg:flex-row justify-between items-center gap-4">
-                    <div className="flex flex-col md:flex-row gap-4 items-center w-full lg:w-auto">
-                    <div className="relative w-full lg:w-96 group">
-                        <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
-                        <input
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 shadow-sm"
-                            placeholder="Search centers..."
-                        />
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">Per page:</label>
-                            <select
-                                value={limit}
-                                onChange={(e) => {
-                                    setLimit(Number(e.target.value));
-                                    setPage(1);
-                                }}
-                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
-                        </div>
+            <div className="p-4 md:p-8 max-w-7xl mx-auto bg-slate-50 dark:bg-[#101922] transition-colors duration-200 min-h-screen">
+                <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-gray-800">
+                    <div className="flex flex-col gap-2">
+                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-500 tracking-tight">
+                            NCEE Centers {stateFilter && `- ${stateFilter}`}
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
+                            {stateFilter ? `NCEE centers in ${stateFilter}` : 'Manage NCEE examination centers'}
+                        </p>
                     </div>
-                    {selectedIds.size > 0 && (
+                    <div className="flex gap-3">
                         <button
                             onClick={() => {
-                                setAlertModal({
-                                    isOpen: true,
-                                    title: 'Delete Selected Centers',
-                                    message: `Are you sure you want to delete ${selectedIds.size} selected centers? This action cannot be undone.`,
-                                    type: 'warning',
-                                    onConfirm: async () => {
-                                        setLoading(true);
-                                        try {
-                                            await Promise.all(Array.from(selectedIds).map(id => deleteNCEECenter(id)));
-                                            setSelectedIds(new Set());
-                                            fetchCenters();
-                                            setAlertModal({
-                                                isOpen: true,
-                                                title: 'Success',
-                                                message: 'Selected centers deleted successfully.',
-                                                type: 'success'
-                                            });
-                                        } catch (error) {
-                                            setAlertModal({
-                                                isOpen: true,
-                                                title: 'Error',
-                                                message: 'Failed to delete some centers.',
-                                                type: 'error'
-                                            });
-                                        } finally {
-                                            setLoading(false);
-                                        }
-                                    }
-                                });
+                                const headers = ['name', 'code', 'numb_of_cand', 'state', 'within_capital', 'outside_capital', 'active'];
+                                const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
+                                const encodedUri = encodeURI(csvContent);
+                                const link = document.createElement("a");
+                                link.setAttribute("href", encodedUri);
+                                link.setAttribute("download", "ncee_centers_template.csv");
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"
                         >
-                            <span className="material-symbols-outlined text-lg">delete</span>
-                            Delete Selected ({selectedIds.size})
+                            <span className="material-symbols-outlined text-lg">download</span>
+                            Template
                         </button>
-                    )}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+
+                                setUploading(true);
+                                uploadNCEECenters(file)
+                                    .then(result => {
+                                        setAlertModal({
+                                            isOpen: true,
+                                            title: 'Upload Complete',
+                                            message: `Created: ${result.created_count}, Skipped: ${result.skipped_count}, Errors: ${result.error_count}`,
+                                            type: 'success'
+                                        });
+                                        fetchCenters();
+                                    })
+                                    .catch(error => {
+                                        setAlertModal({
+                                            isOpen: true,
+                                            title: 'Upload Failed',
+                                            message: 'Failed to upload NCEE centers.',
+                                            type: 'error'
+                                        });
+                                    })
+                                    .finally(() => {
+                                        setUploading(false);
+                                        if (fileInputRef.current) fileInputRef.current.value = '';
+                                    });
+                            }}
+                            accept=".csv,.xlsx,.xls"
+                            className="hidden"
+                        />
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-lg">upload_file</span>
+                            Upload CSV
+                        </button>
+                        <button
+                            onClick={() => {
+                                const headers = ['Code', 'Name', 'No. of Candidates', 'State', 'Location', 'Status'];
+                                const rows = filteredCenters.map(center => [
+                                    center.code || '',
+                                    center.name,
+                                    center.numb_of_cand,
+                                    center.state || '',
+                                    center.within_capital ? 'Within Capital' : center.outside_capital ? 'Outside Capital' : '',
+                                    center.active ? 'Active' : 'Inactive'
+                                ]);
+                                const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.join(',')).join('\n');
+                                const encodedUri = encodeURI(csvContent);
+                                const link = document.createElement("a");
+                                link.setAttribute("href", encodedUri);
+                                link.setAttribute("download", "ncee_centers_export.csv");
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-lg">file_download</span>
+                            Export CSV
+                        </button>
+                        <button
+                            onClick={handleCreate}
+                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-lg">add_circle</span>
+                            New Center
+                        </button>
+                    </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    {loading ? (
-                        <div className="p-20 flex justify-center items-center flex-col gap-3">
-                            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                            <span className="text-slate-400 font-medium text-xs">Loading centers...</span>
+                <div className="bg-white dark:bg-[#121b25] rounded-2xl border border-slate-200/60 dark:border-gray-800 shadow-sm overflow-hidden transition-colors mt-6">
+                    <div className="p-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/50 dark:bg-[#121b25] flex flex-col lg:flex-row justify-between items-center gap-4">
+                        <div className="flex flex-col md:flex-row gap-4 items-center w-full lg:w-auto">
+                            <div className="relative w-full lg:w-96 group">
+                                <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+                                <input
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 shadow-sm"
+                                    placeholder="Search centers..."
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">Per page:</label>
+                                <select
+                                    value={limit}
+                                    onChange={(e) => {
+                                        setLimit(Number(e.target.value));
+                                        setPage(1);
+                                    }}
+                                    className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
                         </div>
-                    ) : (
-                        <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-                            <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
-                                <tr>
-                                    <th className="p-4 w-10 text-center">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
-                                            checked={isAllSelected}
-                                            onChange={(e) => handleSelectAll(e.target.checked)}
-                                        />
-                                    </th>
-                                    <SortableHeader field="code" label="Code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-                                    <SortableHeader field="name" label="Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-                                    <SortableHeader field="numb_of_cand" label="No. of Candidates" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-                                    <SortableHeader field="state" label="State" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-                                    <th className="px-4 py-3">Location</th>
-                                    <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-                                    <th className="px-4 py-3 text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
-                                {displayedCenters.length === 0 ? (
+                        {selectedIds.size > 0 && (
+                            <button
+                                onClick={() => {
+                                    setAlertModal({
+                                        isOpen: true,
+                                        title: 'Delete Selected Centers',
+                                        message: `Are you sure you want to delete ${selectedIds.size} selected centers? This action cannot be undone.`,
+                                        type: 'warning',
+                                        onConfirm: async () => {
+                                            setLoading(true);
+                                            try {
+                                                await Promise.all(Array.from(selectedIds).map((id: string) => deleteNCEECenter(id)));
+                                                setSelectedIds(new Set());
+                                                fetchCenters();
+                                                setAlertModal({
+                                                    isOpen: true,
+                                                    title: 'Success',
+                                                    message: 'Selected centers deleted successfully.',
+                                                    type: 'success'
+                                                });
+                                            } catch (error) {
+                                                setAlertModal({
+                                                    isOpen: true,
+                                                    title: 'Error',
+                                                    message: 'Failed to delete some centers.',
+                                                    type: 'error'
+                                                });
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }
+                                    });
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                            >
+                                <span className="material-symbols-outlined text-lg">delete</span>
+                                Delete Selected ({selectedIds.size})
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        {loading ? (
+                            <div className="p-20 flex justify-center items-center flex-col gap-3">
+                                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                                <span className="text-slate-400 font-medium text-xs">Loading centers...</span>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                                <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
                                     <tr>
-                                        <td colSpan={8} className="p-10 text-center">
-                                            <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
-                                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-1">
-                                                    <span className="material-symbols-outlined text-2xl">inbox</span>
-                                                </div>
-                                                <p className="font-medium">No centers found</p>
-                                                <p className="text-xs">Try adjusting your search</p>
-                                            </div>
-                                        </td>
+                                        <th className="p-4 w-10 text-center">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
+                                                checked={isAllSelected}
+                                                onChange={(e) => handleSelectAll(e.target.checked)}
+                                            />
+                                        </th>
+                                        <SortableHeader field="code" label="Code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="name" label="Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="numb_of_cand" label="No. of Candidates" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="state" label="State" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <th className="px-4 py-3">Location</th>
+                                        <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
-                                ) : (
-                                    displayedCenters.map((center) => (
-                                        <tr key={center.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="p-4 text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
-                                                    checked={selectedIds.has(center.id)}
-                                                    onChange={(e) => handleSelectOne(center.id, e.target.checked)}
-                                                />
-                                            </td>
-                                            <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-200 text-sm">{center.code || '-'}</td>
-                                            <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-sm">{center.name}</td>
-                                            <td className="px-4 py-4 text-slate-600 dark:text-slate-400">{center.numb_of_cand}</td>
-                                            <td className="px-4 py-4 text-slate-600 dark:text-slate-400">{center.state || '-'}</td>
-                                            <td className="px-4 py-4">
-                                                {center.within_capital ? (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        Within Capital
-                                                    </span>
-                                                ) : center.outside_capital ? (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                                        Outside Capital
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-slate-400">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${center.active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}`}>
-                                                    {center.active ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-4">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => handleEdit(center)}
-                                                        className="flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
-                                                        title="Edit"
-                                                    >
-                                                        <span className="material-symbols-outlined text-lg">edit</span>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(center.id)}
-                                                        className="flex items-center justify-center w-8 h-8 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all"
-                                                        title="Delete"
-                                                    >
-                                                        <span className="material-symbols-outlined text-lg">delete</span>
-                                                    </button>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
+                                    {displayedCenters.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={8} className="p-10 text-center">
+                                                <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
+                                                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-1">
+                                                        <span className="material-symbols-outlined text-2xl">inbox</span>
+                                                    </div>
+                                                    <p className="font-medium">No centers found</p>
+                                                    <p className="text-xs">Try adjusting your search</p>
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-                
-                {/* Pagination */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-6 border-t border-slate-100 dark:border-gray-800">
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                        Showing <span className="text-slate-900 dark:text-slate-200 font-bold">{(page - 1) * limit + 1}</span> to <span className="text-slate-900 dark:text-slate-200 font-bold">{Math.min(page * limit, total)}</span> of <span className="text-slate-900 dark:text-slate-200 font-bold">{total}</span> results
-                    </p>
-                    <div className="flex gap-2">
-                        <button
-                            disabled={page === 1}
-                            onClick={() => setPage(1)}
-                            className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                            title="First Page"
-                        >
-                            <span className="material-symbols-outlined text-xl">first_page</span>
-                        </button>
-                        <button
-                            disabled={page === 1}
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                            <span className="material-symbols-outlined text-xl">chevron_left</span>
-                        </button>
-                        <span className="flex items-center px-4 text-sm font-bold text-slate-700 dark:text-slate-300">
-                            Page {page} of {Math.ceil(total / limit)}
-                        </span>
-                        <button
-                            disabled={page === Math.ceil(total / limit)}
-                            onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
-                            className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                            <span className="material-symbols-outlined text-xl">chevron_right</span>
-                        </button>
-                        <button
-                            disabled={page === Math.ceil(total / limit)}
-                            onClick={() => setPage(Math.ceil(total / limit))}
-                            className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                            title="Last Page"
-                        >
-                            <span className="material-symbols-outlined text-xl">last_page</span>
-                        </button>
+                                    ) : (
+                                        displayedCenters.map((center) => (
+                                            <tr key={center.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="p-4 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
+                                                        checked={selectedIds.has(center.id)}
+                                                        onChange={(e) => handleSelectOne(center.id, e.target.checked)}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-200 text-sm">{center.code || '-'}</td>
+                                                <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-sm">{center.name}</td>
+                                                <td className="px-4 py-4 text-slate-600 dark:text-slate-400">{center.numb_of_cand}</td>
+                                                <td className="px-4 py-4 text-slate-600 dark:text-slate-400">{center.state || '-'}</td>
+                                                <td className="px-4 py-4">
+                                                    {center.within_capital ? (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                            Within Capital
+                                                        </span>
+                                                    ) : center.outside_capital ? (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                            Outside Capital
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-400">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${center.active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}`}>
+                                                        {center.active ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => handleEdit(center)}
+                                                            className="flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
+                                                            title="Edit"
+                                                        >
+                                                            <span className="material-symbols-outlined text-lg">edit</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(center.id)}
+                                                            className="flex items-center justify-center w-8 h-8 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all"
+                                                            title="Delete"
+                                                        >
+                                                            <span className="material-symbols-outlined text-lg">delete</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-6 border-t border-slate-100 dark:border-gray-800">
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                            Showing <span className="text-slate-900 dark:text-slate-200 font-bold">{(page - 1) * limit + 1}</span> to <span className="text-slate-900 dark:text-slate-200 font-bold">{Math.min(page * limit, total)}</span> of <span className="text-slate-900 dark:text-slate-200 font-bold">{total}</span> results
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(1)}
+                                className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                                title="First Page"
+                            >
+                                <span className="material-symbols-outlined text-xl">first_page</span>
+                            </button>
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                            >
+                                <span className="material-symbols-outlined text-xl">chevron_left</span>
+                            </button>
+                            <span className="flex items-center px-4 text-sm font-bold text-slate-700 dark:text-slate-300">
+                                Page {page} of {Math.ceil(total / limit)}
+                            </span>
+                            <button
+                                disabled={page === Math.ceil(total / limit)}
+                                onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                            >
+                                <span className="material-symbols-outlined text-xl">chevron_right</span>
+                            </button>
+                            <button
+                                disabled={page === Math.ceil(total / limit)}
+                                onClick={() => setPage(Math.ceil(total / limit))}
+                                className="group flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                                title="Last Page"
+                            >
+                                <span className="material-symbols-outlined text-xl">last_page</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {isModalOpen && (
-                <NCEECenterModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    onSubmit={handleSubmit}
-                    initialData={editingCenter}
+                {isModalOpen && (
+                    <NCEECenterModal
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        onSubmit={handleSubmit}
+                        initialData={editingCenter}
+                    />
+                )}
+
+                <AlertModal
+                    isOpen={alertModal.isOpen}
+                    onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+                    title={alertModal.title}
+                    message={alertModal.message}
+                    type={alertModal.type}
+                    onConfirm={alertModal.onConfirm}
                 />
-            )}
-
-            <AlertModal
-                isOpen={alertModal.isOpen}
-                onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
-                title={alertModal.title}
-                message={alertModal.message}
-                type={alertModal.type}
-                onConfirm={alertModal.onConfirm}
-            />
-        </div>
+            </div>
         </>
     );
 };
