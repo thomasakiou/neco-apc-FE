@@ -1,6 +1,9 @@
 import { StateListResponse, StateCreate, StateUpdate, State, MarkingVenue, Custodian, School } from '../types/state';
 
-const API_BASE_URL = '/api/states';
+import { API_BASE_URL } from '../src/config';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+
+const API_URL = `${API_BASE_URL}/states`;
 
 let allStatesCache: State[] | null = null;
 export const clearStateCache = () => { allStatesCache = null; };
@@ -16,7 +19,9 @@ export const getStateList = async (page: number = 1, limit: number = 10, search:
         params.append('search', search);
     }
 
-    const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+    const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch state list');
     }
@@ -24,11 +29,9 @@ export const getStateList = async (page: number = 1, limit: number = 10, search:
 };
 
 export const createState = async (data: StateCreate): Promise<State> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -39,11 +42,9 @@ export const createState = async (data: StateCreate): Promise<State> => {
 };
 
 export const updateState = async (id: string, data: StateUpdate): Promise<State> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -54,8 +55,9 @@ export const updateState = async (id: string, data: StateUpdate): Promise<State>
 };
 
 export const deleteState = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) {
         throw new Error('Failed to delete state');
@@ -67,8 +69,9 @@ export const uploadStateCsv = async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: getAuthHeadersFormData(),
         body: formData,
     });
 
@@ -82,7 +85,9 @@ export const uploadStateCsv = async (file: File): Promise<any> => {
 
 export const getAllStates = async (): Promise<State[]> => {
     if (allStatesCache) return allStatesCache;
-    const response = await fetch(`${API_BASE_URL}?limit=10000`);
+    const response = await fetch(`${API_URL}?limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch all states');
     }
@@ -98,7 +103,9 @@ export const bulkDeleteStates = async (ids: string[]): Promise<void> => {
 
 // Related entities services
 export const getMarkingVenuesByState = async (stateName: string): Promise<MarkingVenue[]> => {
-    const response = await fetch(`/api/marking-venues?state=${encodeURIComponent(stateName)}&limit=10000`);
+    const response = await fetch(`${API_BASE_URL}/marking-venues?state=${encodeURIComponent(stateName)}&limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch marking venues');
     }
@@ -107,7 +114,9 @@ export const getMarkingVenuesByState = async (stateName: string): Promise<Markin
 };
 
 export const getCustodiansByState = async (stateId: string): Promise<Custodian[]> => {
-    const response = await fetch(`/api/custodians?state_id=${stateId}&limit=10000`);
+    const response = await fetch(`${API_BASE_URL}/custodians?state_id=${stateId}&limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch custodians');
     }
@@ -116,7 +125,9 @@ export const getCustodiansByState = async (stateId: string): Promise<Custodian[]
 };
 
 export const getSchoolsByState = async (stateId: string): Promise<School[]> => {
-    const response = await fetch(`/api/schools?state_id=${stateId}&limit=10000`);
+    const response = await fetch(`${API_BASE_URL}/schools?state_id=${stateId}&limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch schools');
     }
@@ -126,7 +137,9 @@ export const getSchoolsByState = async (stateId: string): Promise<School[]> => {
 
 // New state-specific custodian endpoints
 export const getSSCECustodiansByState = async (stateName: string): Promise<any[]> => {
-    const response = await fetch(`/api/states/${encodeURIComponent(stateName)}/ssce-custodians`);
+    const response = await fetch(`${API_URL}/${encodeURIComponent(stateName)}/ssce-custodians`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch SSCE custodians');
     }
@@ -134,7 +147,9 @@ export const getSSCECustodiansByState = async (stateName: string): Promise<any[]
 };
 
 export const getBECECustodiansByState = async (stateName: string): Promise<any[]> => {
-    const response = await fetch(`/api/states/${encodeURIComponent(stateName)}/bece-custodians`);
+    const response = await fetch(`${API_URL}/${encodeURIComponent(stateName)}/bece-custodians`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch BECE custodians');
     }
@@ -143,7 +158,9 @@ export const getBECECustodiansByState = async (stateName: string): Promise<any[]
 
 // Additional state-specific endpoints
 export const getMarkingVenuesByStateName = async (stateName: string): Promise<any[]> => {
-    const response = await fetch(`/api/states/${encodeURIComponent(stateName)}/marking-venues`);
+    const response = await fetch(`${API_URL}/${encodeURIComponent(stateName)}/marking-venues`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch marking venues');
     }
@@ -151,7 +168,9 @@ export const getMarkingVenuesByStateName = async (stateName: string): Promise<an
 };
 
 export const getSchoolsByStateName = async (stateName: string): Promise<any[]> => {
-    const response = await fetch(`/api/states/${encodeURIComponent(stateName)}/schools`);
+    const response = await fetch(`${API_URL}/${encodeURIComponent(stateName)}/schools`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch schools');
     }
@@ -159,7 +178,9 @@ export const getSchoolsByStateName = async (stateName: string): Promise<any[]> =
 };
 
 export const getNCEECentersByStateName = async (stateName: string): Promise<any[]> => {
-    const response = await fetch(`/api/states/${encodeURIComponent(stateName)}/ncee-centers`);
+    const response = await fetch(`${API_URL}/${encodeURIComponent(stateName)}/ncee-centers`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch NCEE centers');
     }

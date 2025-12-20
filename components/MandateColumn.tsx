@@ -78,7 +78,7 @@ export const MandateColumn = React.memo<MandateColumnProps>(({
             </div>
 
             {/* Drop Zone */}
-            <div className={`flex-1 overflow-y-auto p-3 pb-10 flex flex-col gap-2.5 custom-scrollbar ${isDropTarget ? 'bg-indigo-50/50 ring-2 ring-inset ring-indigo-500/20' : ''}`}>
+            <div className={`flex-1 min-h-0 overflow-y-auto p-3 pb-10 flex flex-col gap-2.5 custom-scrollbar ${isDropTarget ? 'bg-indigo-50/50 ring-2 ring-inset ring-indigo-500/20' : ''}`}>
                 {staffList.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3 py-10 opacity-40 grayscale">
                         <span className="material-symbols-outlined text-4xl">inventory_2</span>

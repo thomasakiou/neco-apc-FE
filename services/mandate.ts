@@ -1,6 +1,9 @@
 import { Mandate, MandateCreate, MandateUpdate, MandateListResponse, BulkUploadResponse } from '../types/mandate';
 
-const API_BASE_URL = '/api/mandates';
+import { API_BASE_URL } from '../src/config';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+
+const API_URL = `${API_BASE_URL}/mandates`;
 
 export const getMandateList = async (page: number = 1, limit: number = 10, search: string = ''): Promise<MandateListResponse> => {
     const skip = (page - 1) * limit;
@@ -13,7 +16,9 @@ export const getMandateList = async (page: number = 1, limit: number = 10, searc
         params.append('search', search);
     }
 
-    const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+    const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch mandates');
     return response.json();
 };
@@ -24,7 +29,9 @@ let mandateCache: Mandate[] | null = null;
 export const getAllMandates = async (): Promise<Mandate[]> => {
     if (mandateCache) return mandateCache;
 
-    const response = await fetch(`${API_BASE_URL}?limit=10000`);
+    const response = await fetch(`${API_URL}?limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch all mandates');
     const data = await response.json();
     mandateCache = data.items;
@@ -32,15 +39,17 @@ export const getAllMandates = async (): Promise<Mandate[]> => {
 };
 
 export const getMandateById = async (id: string): Promise<Mandate> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`);
+    const response = await fetch(`${API_URL}/${id}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch mandate');
     return response.json();
 };
 
 export const createMandate = async (data: MandateCreate): Promise<Mandate> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to create mandate');
@@ -49,9 +58,9 @@ export const createMandate = async (data: MandateCreate): Promise<Mandate> => {
 };
 
 export const updateMandate = async (id: string, data: MandateUpdate): Promise<Mandate> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update mandate');
@@ -60,8 +69,9 @@ export const updateMandate = async (id: string, data: MandateUpdate): Promise<Ma
 };
 
 export const deleteMandate = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete mandate');
     mandateCache = null; // Invalidate
@@ -76,8 +86,9 @@ export const uploadMandateCsv = async (file: File): Promise<BulkUploadResponse> 
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: getAuthHeadersFormData(),
         body: formData,
     });
 

@@ -1,6 +1,9 @@
 import { SchoolListResponse, SchoolCreate, SchoolUpdate, School } from '../types/school';
 
-const API_BASE_URL = '/api/schools';
+import { API_BASE_URL } from '../src/config';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+
+const API_URL = `${API_BASE_URL}/schools`;
 
 export const getSchoolList = async (page: number = 1, limit: number = 10, search: string = '', stateId?: string): Promise<SchoolListResponse> => {
     const skip = (page - 1) * limit;
@@ -15,7 +18,9 @@ export const getSchoolList = async (page: number = 1, limit: number = 10, search
         params.append('state_id', stateId);
     }
 
-    const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+    const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch school list');
     }
@@ -23,11 +28,9 @@ export const getSchoolList = async (page: number = 1, limit: number = 10, search
 };
 
 export const createSchool = async (data: SchoolCreate): Promise<School> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -37,11 +40,9 @@ export const createSchool = async (data: SchoolCreate): Promise<School> => {
 };
 
 export const updateSchool = async (id: string, data: SchoolUpdate): Promise<School> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -51,8 +52,9 @@ export const updateSchool = async (id: string, data: SchoolUpdate): Promise<Scho
 };
 
 export const deleteSchool = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) {
         throw new Error('Failed to delete school');
@@ -63,8 +65,9 @@ export const uploadSchoolCsv = async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: getAuthHeadersFormData(),
         body: formData,
     });
 
@@ -77,7 +80,9 @@ export const uploadSchoolCsv = async (file: File): Promise<any> => {
 }
 
 export const getAllSchools = async (): Promise<School[]> => {
-    const response = await fetch(`${API_BASE_URL}?limit=10000`);
+    const response = await fetch(`${API_URL}?limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch all schools');
     }

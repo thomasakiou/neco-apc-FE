@@ -93,6 +93,9 @@ const PersonalizedPost: React.FC = () => {
     }, []);
 
     const handleLocalMove = useCallback((staff: StaffMandateAssignment, targetColumnId: string) => {
+        if (!staff || !targetColumnId) return false;
+        if (staff.mandate_id === targetColumnId) return false;
+
         setBoardData(prev => {
             if (!prev) return prev;
             const newBoard = { ...prev, unassignedStaff: [...prev.unassignedStaff], mandateColumns: prev.mandateColumns.map(c => ({ ...c, staff: [...c.staff] })) };
@@ -125,6 +128,7 @@ const PersonalizedPost: React.FC = () => {
             setHasUnsavedChanges(true);
             return newBoard;
         });
+        return true;
     }, []);
 
     const handleBulkMove = (targetMandateId: string) => {
@@ -194,6 +198,18 @@ const PersonalizedPost: React.FC = () => {
         finally { setLoading(false); }
     };
 
+    const downloadCsvTemplate = () => {
+        const headers = ['StaffNo', 'MandateCode'];
+        const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "bulk_assignment_template.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     // --- Memoized Filtering ---
 
     const filteredPool = useMemo(() => {
@@ -216,7 +232,7 @@ const PersonalizedPost: React.FC = () => {
     }, [boardData?.mandateColumns, boardSearch]);
 
     return (
-        <div className="h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] overflow-hidden">
+        <div className="h-full flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] overflow-hidden">
             {/* Action Bar */}
             <header className="h-20 flex-shrink-0 bg-white dark:bg-[#1E293B] border-b border-slate-200 dark:border-slate-800 px-8 flex items-center justify-between shadow-sm z-30">
                 <div className="flex items-center gap-6">
@@ -234,7 +250,7 @@ const PersonalizedPost: React.FC = () => {
                         <select
                             value={selectedAssignmentId}
                             onChange={(e) => setSelectedAssignmentId(e.target.value)}
-                            className="h-10 px-4 rounded-xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:border-indigo-500 outline-none transition-all min-w-[240px]"
+                            className="h-10 px-4 rounded-xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-indigo-500 outline-none transition-all min-w-[240px]"
                         >
                             <option value="">Select Assignment...</option>
                             {assignments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -292,13 +308,13 @@ const PersonalizedPost: React.FC = () => {
                                 placeholder="Search pool..."
                                 value={poolSearch}
                                 onChange={(e) => setPoolSearch(e.target.value)}
-                                className="w-full h-11 pl-11 pr-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 ring-indigo-500/20 outline-none transition-all"
+                                className="w-full h-11 pl-11 pr-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 ring-indigo-500/20 outline-none transition-all"
                             />
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg group-focus-within:text-indigo-500 transition-colors">person_search</span>
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-hidden relative">
+                    <div className="flex-1 min-h-0 overflow-hidden relative">
                         <MandateColumn
                             columnId="unassigned"
                             title="Eligible Pool"
@@ -313,7 +329,7 @@ const PersonalizedPost: React.FC = () => {
                 </aside>
 
                 {/* Right Area: Board */}
-                <section className="flex-1 flex flex-col min-w-0 bg-[#F1F5F9]/30 dark:bg-transparent">
+                <section className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#F1F5F9]/30 dark:bg-transparent">
                     {/* View Controls */}
                     <div className="h-14 px-8 flex items-center justify-between flex-shrink-0 border-b border-slate-200/50 dark:border-slate-800/50">
                         <div className="flex items-center gap-8">
@@ -328,12 +344,19 @@ const PersonalizedPost: React.FC = () => {
                                     placeholder="Filter grid..."
                                     value={boardSearch}
                                     onChange={(e) => setBoardSearch(e.target.value)}
-                                    className="h-8 pl-6 bg-transparent border-none text-xs font-bold outline-none placeholder:text-slate-300"
+                                    className="h-8 pl-6 bg-transparent border-none text-xs font-bold text-slate-900 dark:text-white outline-none placeholder:text-slate-300"
                                 />
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={downloadCsvTemplate}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                            >
+                                <span className="material-symbols-outlined text-sm">download</span>
+                                Template
+                            </button>
                             <button onClick={() => setIsCsvModalOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                                 <span className="material-symbols-outlined text-sm">cloud_upload</span>
                                 Import CSV
@@ -344,7 +367,7 @@ const PersonalizedPost: React.FC = () => {
                     </div>
 
                     {/* Columns Grid */}
-                    <div className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
+                    <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
                         <div className="flex h-full p-8 gap-6 min-w-max">
                             {!selectedAssignmentId ? (
                                 <div className="flex-1 w-full flex flex-col items-center justify-center opacity-30 gap-4 grayscale">
@@ -398,8 +421,70 @@ const PersonalizedPost: React.FC = () => {
             <CsvUploadModal
                 isOpen={isCsvModalOpen}
                 onClose={() => setIsCsvModalOpen(false)}
-                onUpload={(data) => {
-                    showAlert('Feature Disabled', 'CSV assignment for redone board coming soon with batch integration.', 'warning');
+                staffPool={boardData ? [
+                    ...boardData.unassignedStaff,
+                    ...boardData.mandateColumns.flatMap(c => c.staff)
+                ] : []}
+                onUpload={(csvData) => {
+                    if (!boardData) return;
+
+                    let successCount = 0;
+                    let errorCount = 0;
+                    const errorDetails: string[] = [];
+                    const notFoundStaffNos: string[] = [];
+
+                    // 1. Create maps for faster lookup
+                    const staffMap = new Map<string, StaffMandateAssignment>();
+                    [...boardData.unassignedStaff, ...boardData.mandateColumns.flatMap(c => c.staff)].forEach(s => {
+                        staffMap.set(s.staff_no.toString().padStart(4, '0'), s);
+                    });
+
+                    const mandateMap = new Map<string, string>(); // code or title -> id
+                    boardData.mandateColumns.forEach(c => {
+                        mandateMap.set(c.code.toLowerCase(), c.id);
+                        mandateMap.set(c.title.toLowerCase(), c.id);
+                    });
+
+                    // 2. Process records
+                    csvData.forEach(record => {
+                        const staffNo = record.staffNo.toString().padStart(4, '0');
+                        const staff = staffMap.get(staffNo);
+                        const targetMandateId = record.mandateCode ? mandateMap.get(record.mandateCode.toLowerCase()) : null;
+
+                        if (!staff) {
+                            errorCount++;
+                            notFoundStaffNos.push(staffNo);
+                            return;
+                        }
+
+                        if (!targetMandateId) {
+                            errorCount++;
+                            errorDetails.push(`• Mandate ${record.mandateCode || 'NOT SPECIFIED'} not found on the board.`);
+                            return;
+                        }
+
+                        if (staff.mandate_id === targetMandateId) return;
+
+                        const moved = handleLocalMove(staff, targetMandateId);
+                        if (moved) successCount++;
+                        else errorCount++;
+                    });
+
+                    // 3. Format error summary
+                    if (notFoundStaffNos.length > 0) {
+                        errorDetails.unshift(`File Nos: ${notFoundStaffNos.join(', ')} are not in the eligible pool of staff for this assignment/mandate`);
+                    }
+
+                    if (successCount > 0) {
+                        const msg = `Successfully assigned ${successCount} staff members. Review and click "Commit Changes" to save.`;
+                        if (errorCount === 0) {
+                            showAlert('Import Complete', msg, 'success');
+                        } else {
+                            showAlert('Partial Success', `${msg}\n\n${errorDetails.join('\n')}`, 'warning');
+                        }
+                    } else if (errorCount > 0) {
+                        showAlert('Import Failed', errorDetails.join('\n'), 'error');
+                    }
                 }}
             />
 

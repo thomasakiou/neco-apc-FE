@@ -11,6 +11,7 @@ interface Notification {
 }
 
 interface NotificationContextType {
+    showNotification: (message: string, type: NotificationType, duration?: number) => void;
     show: (message: string, type: NotificationType, duration?: number) => void;
     success: (message: string, duration?: number) => void;
     error: (message: string, duration?: number) => void;
@@ -38,7 +39,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     const info = useCallback((message: string, duration?: number) => show(message, 'info', duration), [show]);
 
     return (
-        <NotificationContext.Provider value={{ show, success, error, warning, info }}>
+        <NotificationContext.Provider value={{ showNotification: show, show, success, error, warning, info }}>
             {children}
             {/* Toast Container */}
             <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none">

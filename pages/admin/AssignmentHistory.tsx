@@ -6,11 +6,13 @@ import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllStates } from '../../services/state';
+import { getAllNCEECenters } from '../../services/nceeCenter';
 import { APCRecord } from '../../types/apc';
 import { useNotification } from '../../context/NotificationContext';
 import { PostingResponse } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
+import { NCEECenter } from '../../types/nceeCenter';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -29,6 +31,7 @@ interface FlatPostingRow {
     state: string;
     count: number;
     year: string;
+    location: string;
     posted_for: any;
     to_be_posted: any;
 }
@@ -44,8 +47,30 @@ interface ReportField {
 const formatVenueName = (venue: string | null | undefined): string => {
     if (!venue) return '-';
     if (venue === 'Returned') return venue;
-    const parts = venue.split('-').map(p => p.trim());
-    return parts.length > 0 ? parts[parts.length - 1] : venue;
+
+    // Handle Pipe separator (often Format: (CODE) | VENUE | STATE or VENUE | STATE)
+    if (venue.includes('|')) {
+        const parts = venue.split('|').map(p => p.trim()).filter(Boolean);
+        if (parts.length === 3) return parts[1]; // (CODE) | VENUE | STATE
+        if (parts.length === 2) return parts[0]; // VENUE | STATE
+        return parts[0];
+    }
+
+    // Handle Dash separator (often Format: (CODE) - VENUE)
+    if (venue.includes(' - ')) {
+        const parts = venue.split(' - ').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2 && parts[0].startsWith('(')) return parts[1];
+        return parts[parts.length - 1];
+    }
+
+    // Fallback: Handle (CODE) NAME (no separator)
+    if (venue.startsWith('(') && venue.includes(')')) {
+        const closedBracketIdx = venue.indexOf(')');
+        const rest = venue.substring(closedBracketIdx + 1).trim();
+        if (rest) return rest;
+    }
+
+    return venue;
 };
 
 const REPORT_FIELDS: ReportField[] = [
@@ -58,8 +83,9 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'mandate', label: 'MANDATE', accessor: r => r.mandate, default: true, pdfWidth: 40 },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => r.assignment, default: true, pdfWidth: 40 },
     { id: 'venue', label: 'VENUE', accessor: r => formatVenueName(r.venue), default: true, pdfWidth: 40 },
-    { id: 'count', label: 'NIGHTS', accessor: r => r.count, default: false, pdfWidth: 20 },
+    { id: 'count', label: 'NO. OF NIGHTS', accessor: r => r.count || 0, default: true, pdfWidth: 20 },
     { id: 'year', label: 'YEAR', accessor: r => r.year, default: false, pdfWidth: 20 },
+    { id: 'location', label: 'LOCATION', accessor: r => r.location, default: false, pdfWidth: 40 },
     { id: 'state', label: 'STATE', accessor: r => r.state, default: false, pdfWidth: 30 },
     { id: 'posting', label: 'POSTING', accessor: r => r.posting, default: false, pdfWidth: 30 }
 ];
@@ -92,14 +118,19 @@ const GeneratePage: React.FC = () => {
     const [reportTemplate, setReportTemplate] = useState('SSCE');
 
     // Dynamic Fields
-    const [selectedFieldIds, setSelectedFieldIds] = useState<Set<string>>(
-        new Set(REPORT_FIELDS.filter(f => f.default).map(f => f.id))
+    const [orderedFieldIds, setOrderedFieldIds] = useState<string[]>(
+        REPORT_FIELDS.filter(f => f.default).map(f => f.id)
     );
     const [isConfigOpen, setIsConfigOpen] = useState(false);
+    const [sortBy, setSortBy] = useState<string>(''); // empty means template default
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-    const activeFields = useMemo(() =>
-        REPORT_FIELDS.filter(f => selectedFieldIds.has(f.id)),
-        [selectedFieldIds]);
+    const activeFields = useMemo(() => {
+        const fieldMap = new Map(REPORT_FIELDS.map(f => [f.id, f]));
+        return orderedFieldIds
+            .map(id => fieldMap.get(id))
+            .filter((f): f is ReportField => !!f);
+    }, [orderedFieldIds]);
 
     useEffect(() => {
         fetchInitialData();
@@ -108,19 +139,20 @@ const GeneratePage: React.FC = () => {
     const fetchInitialData = async () => {
         try {
             setLoading(true);
-            const [postingsData, assignmentsData, mandatesData, activeAPC, statesData] = await Promise.all([
+            const [postingsData, assignmentsData, mandatesData, activeAPC, statesData, nceeCenters] = await Promise.all([
                 getAllPostingRecords(),
                 getAllAssignments(),
                 getAllMandates(),
                 getAllAPCRecords(true),
-                getAllStates()
+                getAllStates(),
+                getAllNCEECenters()
             ]);
 
             const activeFileNos = new Set(activeAPC.map(a => a.file_no));
             const activePostings = postingsData.filter(p => activeFileNos.has(p.file_no));
 
             // FLATTEN DATA
-            const flattened = flattenPostings(activePostings, statesData);
+            const flattened = flattenPostings(activePostings, statesData, nceeCenters);
 
             setAllFlatRows(flattened);
             setAssignments(assignmentsData);
@@ -160,9 +192,28 @@ const GeneratePage: React.FC = () => {
     const total = filteredFlatRows.length;
 
     const paginatedRows = useMemo(() => {
+        const sortField = sortBy || (reportTemplate === 'ACCREDITATION' ? 'state' : 'state');
+        const sortDir = sortOrder === 'asc' ? 1 : -1;
+
+        const sorted = [...filteredFlatRows].sort((a, b) => {
+            const valA = (a as any)[sortField]?.toString().trim() || '';
+            const valB = (b as any)[sortField]?.toString().trim() || '';
+            const comp = valA.localeCompare(valB, undefined, { sensitivity: 'base', numeric: true });
+
+            if (comp !== 0) return comp * sortDir;
+
+            // Secondary sort by venue if primary is state
+            if (sortField === 'state') {
+                const venueA = a.venue || '';
+                const venueB = b.venue || '';
+                return venueA.localeCompare(venueB) * sortDir;
+            }
+            return 0;
+        });
+
         const startIndex = (page - 1) * limit;
-        return filteredFlatRows.slice(startIndex, startIndex + limit);
-    }, [filteredFlatRows, page, limit]);
+        return sorted.slice(startIndex, startIndex + limit);
+    }, [filteredFlatRows, page, limit, sortBy, sortOrder, reportTemplate]);
 
     // Check 'page' validity when filtered count changes
     useEffect(() => {
@@ -170,9 +221,28 @@ const GeneratePage: React.FC = () => {
         if (page > maxPage) setPage(maxPage);
     }, [total, limit]);
 
-    const flattenPostings = (list: PostingResponse[], stateList: any[] = []): FlatPostingRow[] => {
+    const flattenPostings = (list: PostingResponse[], stateList: any[] = [], nceeList: NCEECenter[] = []): FlatPostingRow[] => {
         const result: FlatPostingRow[] = [];
-        const stateNames = new Set(stateList.map(s => s.name.toUpperCase()));
+        const normalize = (name: string) => name.toUpperCase().replace(/[-\s]/g, '');
+        const stateMap = new Map<string, string>();
+        stateList.forEach(s => stateMap.set(normalize(s.name), s.name));
+
+        const nceeMap = new Map<string, string>();
+        nceeList.forEach(c => {
+            const label = c.within_capital ? 'Within Capital' : c.outside_capital ? 'Outside Capital' : '-';
+            if (c.name) nceeMap.set(normalize(c.name), label);
+            if (c.code) nceeMap.set(normalize(c.code), label);
+        });
+
+        const extractCode = (text: string) => {
+            const match = text.match(/\((.*?)\)/);
+            return match ? normalize(match[1]) : null;
+        };
+
+        const cleanName = (text: string) => {
+            return normalize(text.replace(/\(.*?\)/g, '').split('|')[0].split('-')[0].trim());
+        };
+
         list.forEach(p => {
             // Determine the max length among the arrays to iterate
             const assigns = p.assignments || [];
@@ -193,43 +263,42 @@ const GeneratePage: React.FC = () => {
                 let state = '';
                 let posting = vName;
 
-                if (vName.includes(' | ')) {
-                    const parts = vName.split(' | ').map(p => p.trim());
+                if (vName.includes('|')) {
+                    const parts = vName.split('|').map(p => p.trim());
                     // Format: (CODE) | POSTING | STATE
                     if (parts.length === 3) {
                         posting = parts[1];
-                        state = parts[2];
+                        state = stateMap.get(normalize(parts[2])) || parts[2];
                     } else if (parts.length === 2) {
                         posting = parts[0];
-                        state = parts[1];
+                        state = stateMap.get(normalize(parts[1])) || parts[1];
                     }
                 } else if (vName.includes(' - ')) {
                     const parts = vName.split(' - ').map(p => p.trim());
                     if (parts.length === 3) {
                         posting = parts[1];
-                        state = parts[2];
+                        state = stateMap.get(normalize(parts[2])) || parts[2];
                     } else if (parts.length === 2) {
                         if (parts[0].startsWith('(')) {
                             // Format: (CODE) - NAME
                             // Check if NAME is a state
                             const possibleName = parts[1];
-                            if (stateNames.has(possibleName.toUpperCase())) {
+                            const matchedState = stateMap.get(normalize(possibleName));
+                            if (matchedState) {
                                 posting = possibleName;
-                                state = possibleName;
+                                state = matchedState;
                             } else {
                                 posting = possibleName;
                                 state = '';
                             }
                         } else {
                             posting = parts[0];
-                            state = parts[1];
+                            state = stateMap.get(normalize(parts[1])) || parts[1];
                         }
                     }
                 } else {
                     // Fallback for raw names
-                    if (stateNames.has(vName.toUpperCase())) {
-                        state = vName;
-                    }
+                    state = stateMap.get(normalize(vName)) || '';
                 }
 
                 result.push({
@@ -247,6 +316,12 @@ const GeneratePage: React.FC = () => {
                     state: state || '-',
                     count: p.count || 0,
                     year: p.year || '-',
+                    location: nceeMap.get(normalize(vName)) ||
+                        nceeMap.get(normalize(posting)) ||
+                        (extractCode(vName) ? nceeMap.get(extractCode(vName)!) : null) ||
+                        nceeMap.get(cleanName(vName)) ||
+                        nceeMap.get(cleanName(posting)) ||
+                        '-',
                     posted_for: p.posted_for || 0,
                     to_be_posted: p.to_be_posted || 0
                 });
@@ -444,8 +519,22 @@ const GeneratePage: React.FC = () => {
                 const accreditationColumns = activeFields.map(f => f.label);
                 if (!accreditationColumns.includes("S/N")) accreditationColumns.unshift("S/N");
 
+                // --- Sort within and across states ---
+                const sortField = sortBy || 'state';
+                const sortDir = sortOrder === 'asc' ? 1 : -1;
+
                 for (const state of sortedStates) {
-                    const stateRows = groupedByState[state].map((post, index) => {
+                    const stateRows = groupedByState[state].sort((a, b) => {
+                        // If no custom sort, further sort by venue within group
+                        if (!sortBy) {
+                            const venueA = a.venue || '';
+                            const venueB = b.venue || '';
+                            return venueA.localeCompare(venueB) * sortDir;
+                        }
+                        const valA = (a as any)[sortBy] || '';
+                        const valB = (b as any)[sortBy] || '';
+                        return (valA.toString().localeCompare(valB.toString())) * sortDir;
+                    }).map((post, index) => {
                         const apc = apcMap.get(post.file_no);
                         const rowData = activeFields.map(f => {
                             if (f.id === 'qualification') {
@@ -456,9 +545,9 @@ const GeneratePage: React.FC = () => {
                         return [index + 1, ...rowData];
                     });
 
-                    // Check space for Title + Table Header (approx 20 + 20)
-                    // If near bottom, add page
-                    if (currentY > height - 40) {
+                    // Check space for Title + Table Header + at least one row (approx 20 + 20 + 20)
+                    // If near bottom, add page to keep title with table
+                    if (currentY > height - 60) {
                         doc.addPage();
                         currentY = 55;
                     }
@@ -489,6 +578,7 @@ const GeneratePage: React.FC = () => {
                         bodyStyles: { fontStyle: 'bold' },
                         headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
                         columnStyles: colStyles,
+                        rowPageBreak: 'avoid',
                         didDrawPage: (data) => {
                             // Use the shared didDrawPage logic, but we need to pass it here.
                             // Duplicating the function body for simplicity or defining it outside loop.
@@ -507,11 +597,23 @@ const GeneratePage: React.FC = () => {
                 // SSCE / NCEE (Standard Single Table)
                 const tableColumn = ["S/N", ...activeFields.map(f => f.label)];
 
-                // Sort by State ascending
+                const sortField = sortBy || 'state';
+                const sortDir = sortOrder === 'asc' ? 1 : -1;
+
                 const sortedRows = [...filteredFlatRows].sort((a, b) => {
-                    const stateA = a.state || '';
-                    const stateB = b.state || '';
-                    return stateA.localeCompare(stateB);
+                    const valA = (a as any)[sortField]?.toString().trim() || '';
+                    const valB = (b as any)[sortField]?.toString().trim() || '';
+
+                    // Specific behavior for NCEE/SSCE default: if sorting by state, also sub-sort by venue
+                    if (!sortBy && sortField === 'state') {
+                        const stateComp = valA.localeCompare(valB, undefined, { sensitivity: 'base', numeric: true });
+                        if (stateComp !== 0) return stateComp * sortDir;
+                        const venueA = a.venue || '';
+                        const venueB = b.venue || '';
+                        return venueA.localeCompare(venueB) * sortDir;
+                    }
+
+                    return valA.localeCompare(valB, undefined, { sensitivity: 'base', numeric: true }) * sortDir;
                 });
 
                 const tableRows = sortedRows.map((post, index) => {
@@ -540,6 +642,7 @@ const GeneratePage: React.FC = () => {
                     headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
                     columnStyles: colStyles,
                     alternateRowStyles: { fillColor: [240, 253, 244] },
+                    rowPageBreak: 'avoid',
                     didDrawPage: (data) => drawPageContent(data)
                 });
             }
@@ -555,7 +658,7 @@ const GeneratePage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-y-auto">
+        <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
             {/* Header */}
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -611,44 +714,99 @@ const GeneratePage: React.FC = () => {
                             </h3>
                             <div className="flex gap-2">
                                 <button
-                                    onClick={() => setSelectedFieldIds(new Set(REPORT_FIELDS.map(f => f.id)))}
+                                    onClick={() => setOrderedFieldIds(REPORT_FIELDS.map(f => f.id))}
                                     className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase"
                                 >
                                     Select All
                                 </button>
                                 <span className="text-slate-300">|</span>
                                 <button
-                                    onClick={() => setSelectedFieldIds(new Set(REPORT_FIELDS.filter(f => f.default).map(f => f.id)))}
+                                    onClick={() => setOrderedFieldIds(REPORT_FIELDS.filter(f => f.default).map(f => f.id))}
                                     className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase"
                                 >
                                     Reset to Default
                                 </button>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {REPORT_FIELDS.map(field => (
-                                <label key={field.id} className="flex items-center gap-3 cursor-pointer group">
-                                    <div className="relative flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            className="peer hidden"
-                                            checked={selectedFieldIds.has(field.id)}
-                                            onChange={(e) => {
-                                                const next = new Set(selectedFieldIds);
-                                                if (e.target.checked) next.add(field.id);
-                                                else if (next.size > 1) next.delete(field.id);
-                                                setSelectedFieldIds(next);
-                                            }}
-                                        />
-                                        <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all flex items-center justify-center">
-                                            <span className="material-symbols-outlined text-white text-sm scale-0 peer-checked:scale-100 transition-transform">check</span>
+                        <div className="space-y-6">
+                            {/* Active Columns (Ordered) */}
+                            <div>
+                                <label className="text-[10px] font-black text-indigo-400 uppercase mb-3 block tracking-widest">Active Columns (Drag or Move to Reorder)</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {activeFields.map((field, orderIdx) => (
+                                        <div
+                                            key={field.id}
+                                            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50 dark:border-indigo-900/50 dark:bg-indigo-900/20 shadow-sm animate-in fade-in zoom-in duration-200"
+                                        >
+                                            <button
+                                                onClick={() => {
+                                                    if (orderedFieldIds.length > 1) {
+                                                        setOrderedFieldIds(prev => prev.filter(id => id !== field.id));
+                                                    }
+                                                }}
+                                                className="w-6 h-6 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors"
+                                                title="Remove Column"
+                                            >
+                                                <span className="material-symbols-outlined text-sm font-bold">check</span>
+                                            </button>
+
+                                            <span className="text-xs font-bold text-indigo-900 dark:text-indigo-100">
+                                                {field.label}
+                                            </span>
+
+                                            <div className="flex gap-0.5 ml-1 border-l border-indigo-200 dark:border-indigo-900/50 pl-1">
+                                                <button
+                                                    disabled={orderIdx === 0}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const next = [...orderedFieldIds];
+                                                        [next[orderIdx - 1], next[orderIdx]] = [next[orderIdx], next[orderIdx - 1]];
+                                                        setOrderedFieldIds(next);
+                                                    }}
+                                                    className="w-5 h-5 flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded disabled:opacity-20 text-indigo-600 dark:text-indigo-400"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                                                </button>
+                                                <button
+                                                    disabled={orderIdx === orderedFieldIds.length - 1}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const next = [...orderedFieldIds];
+                                                        [next[orderIdx], next[orderIdx + 1]] = [next[orderIdx + 1], next[orderIdx]];
+                                                        setOrderedFieldIds(next);
+                                                    }}
+                                                    className="w-5 h-5 flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded disabled:opacity-20 text-indigo-600 dark:text-indigo-400"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                                                </button>
+                                            </div>
                                         </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Available Columns */}
+                            {orderedFieldIds.length < REPORT_FIELDS.length && (
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase mb-3 block tracking-widest">Available Columns</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {REPORT_FIELDS.filter(f => !orderedFieldIds.includes(f.id)).map(field => (
+                                            <button
+                                                key={field.id}
+                                                onClick={() => setOrderedFieldIds(prev => [...prev, field.id])}
+                                                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:border-indigo-300 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-all group"
+                                            >
+                                                <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-500 flex items-center justify-center transition-colors">
+                                                    <span className="material-symbols-outlined text-sm font-bold">add</span>
+                                                </div>
+                                                <span className="text-xs font-bold text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                                                    {field.label}
+                                                </span>
+                                            </button>
+                                        ))}
                                     </div>
-                                    <span className={`text-xs font-bold transition-colors ${selectedFieldIds.has(field.id) ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-400 group-hover:text-slate-600'}`}>
-                                        {field.label}
-                                    </span>
-                                </label>
-                            ))}
+                                </div>
+                            )}
                         </div>
                         <div className="mt-4 pt-4 border-t border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2 text-[10px] text-indigo-700/60 dark:text-indigo-400/60 italic">
                             <span className="material-symbols-outlined text-sm">info</span>
@@ -748,6 +906,34 @@ const GeneratePage: React.FC = () => {
                             <option value="">All Mandates</option>
                             {mandates.map(m => <option key={m.id} value={m.mandate}>{m.mandate}</option>)}
                         </select>
+                    </div>
+                </div>
+
+                {/* Sorting Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Sort By</label>
+                        <div className="flex gap-2">
+                            <select
+                                className="flex-1 h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                            >
+                                <option value="">Template Default</option>
+                                {REPORT_FIELDS.map(f => (
+                                    <option key={f.id} value={f.id}>{f.label}</option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                                className="h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-all"
+                                title={`Currently ${sortOrder.toUpperCase()}`}
+                            >
+                                <span className="material-symbols-outlined text-xl">
+                                    {sortOrder === 'asc' ? 'south' : 'north'}
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 

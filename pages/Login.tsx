@@ -1,15 +1,44 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+  const { showNotification } = useNotification();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const from = (location.state as any)?.from?.pathname || '/admin/dashboard';
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username || !password) {
+      showNotification('Please enter both username and password', 'error');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await login(username, password);
+      showNotification('Login successful', 'success');
+      navigate(from, { replace: true });
+    } catch (error: any) {
+      showNotification(error.message || 'Login failed', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="relative flex h-screen w-full flex-col bg-background-light overflow-hidden">
       <div className="flex h-full w-full">
         {/* Left Side - Form */}
         <div className="flex w-full flex-col items-center justify-center lg:w-1/2 bg-white z-10">
-          <div className="flex w-full max-w-md flex-col items-start gap-8 p-8">
+          <form onSubmit={handleLogin} className="flex w-full max-w-md flex-col items-start gap-8 p-8">
             <div className="flex flex-col items-start gap-3 self-stretch">
               <div className="flex items-center gap-3">
                 <div className="flex size-12 items-center justify-center rounded-lg bg-primary text-white">
@@ -23,10 +52,14 @@ const Login: React.FC = () => {
 
             <div className="flex w-full flex-col items-stretch gap-4">
               <label className="flex flex-col min-w-40 flex-1">
-                <p className="text-slate-900 text-base font-medium leading-normal pb-2">Staff Number / Username</p>
+                <p className="text-slate-900 text-base font-medium leading-normal pb-2">Username</p>
                 <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 border border-slate-300 bg-white focus:border-primary focus:ring-primary h-14 placeholder:text-slate-400 p-[15px] text-base"
-                  placeholder="Enter your staff number or username"
+                  placeholder="Enter your username"
+                  disabled={isLoading}
                 />
               </label>
               <label className="flex flex-col min-w-40 flex-1">
@@ -36,34 +69,35 @@ const Login: React.FC = () => {
                     className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 border border-slate-300 bg-white focus:border-primary focus:ring-primary h-14 placeholder:text-slate-400 p-[15px] pr-12 text-base"
                     placeholder="Enter your password"
                     type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
                   />
-                  <button className="absolute right-0 top-0 h-full px-4 text-slate-400 hover:text-slate-600">
-                    <span className="material-symbols-outlined">visibility</span>
-                  </button>
                 </div>
               </label>
-              <a className="text-sm font-medium leading-normal self-end text-primary hover:text-primary-hover underline" href="#">Forgot Password?</a>
             </div>
 
             <div className="flex w-full flex-col gap-3 pt-2">
               <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold hover:bg-primary-hover transition-colors shadow-sm"
+                type="submit"
+                disabled={isLoading}
+                className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Login as Admin
-              </button>
-              <button
-                onClick={() => navigate('/staff/dashboard')}
-                className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 transition-colors"
-              >
-                Login as Staff
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Signing in...</span>
+                  </div>
+                ) : (
+                  'Sign In'
+                )}
               </button>
             </div>
 
             <div className="w-full text-center">
               <p className="text-xs text-slate-500">© 2024 NECO. All rights reserved.</p>
             </div>
-          </div>
+          </form>
         </div>
 
         {/* Right Side - Image */}

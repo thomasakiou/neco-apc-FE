@@ -1,6 +1,7 @@
 import { Assignment, AssignmentCreate, AssignmentUpdate, AssignmentListResponse, AssignmentBulkUploadResponse } from '../types/assignment';
 
 import { API_BASE_URL as BASE_URL } from '../src/config';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const API_URL = `${BASE_URL}/assignments`;
 
@@ -11,7 +12,9 @@ export const getAssignments = async (skip = 0, limit = 100, search = ''): Promis
     });
     if (search) params.append('search', search);
 
-    const response = await fetch(`${API_URL}?${params.toString()}`);
+    const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch assignments');
     return response.json();
 };
@@ -22,7 +25,9 @@ let assignmentCache: Assignment[] | null = null;
 export const getAllAssignments = async (): Promise<Assignment[]> => {
     if (assignmentCache) return assignmentCache;
 
-    const response = await fetch(`${API_URL}?skip=0&limit=10000`);
+    const response = await fetch(`${API_URL}?skip=0&limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch all assignments');
     const data: AssignmentListResponse = await response.json();
 
@@ -34,7 +39,9 @@ export const getMandatesByAssignment = async (assignmentObj: any): Promise<any[]
     if (!assignmentObj.mandates || assignmentObj.mandates.length === 0) {
         return [];
     }
-    const response = await fetch(`/api/mandates?limit=10000`);
+    const response = await fetch(`/api/mandates?limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch mandates');
     const data = await response.json();
 
@@ -47,9 +54,7 @@ export const getMandatesByAssignment = async (assignmentObj: any): Promise<any[]
 export const createAssignment = async (data: AssignmentCreate): Promise<Assignment> => {
     const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -64,9 +69,7 @@ export const updateAssignment = async (id: string, data: AssignmentUpdate): Prom
     console.log('Updating assignment with data:', data);
     const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -81,6 +84,7 @@ export const updateAssignment = async (id: string, data: AssignmentUpdate): Prom
 export const deleteAssignment = async (id: string): Promise<void> => {
     const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete assignment');
     assignmentCache = null; // Invalidate
@@ -89,6 +93,7 @@ export const deleteAssignment = async (id: string): Promise<void> => {
 export const deleteAssignments = async (): Promise<void> => {
     const response = await fetch(`${API_URL}/all`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete all assignments');
     assignmentCache = null; // Invalidate
@@ -100,6 +105,7 @@ export const uploadAssignments = async (file: File): Promise<AssignmentBulkUploa
 
     const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: getAuthHeadersFormData(),
         body: formData,
     });
 

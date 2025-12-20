@@ -1,6 +1,9 @@
 import { StationListResponse, StationCreate, StationUpdate, Station } from '../types/station';
 
-const API_BASE_URL = '/api/stations';
+import { API_BASE_URL } from '../src/config';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+
+const API_URL = `${API_BASE_URL}/stations`;
 
 export const getStationList = async (page: number = 1, limit: number = 10, search: string = ''): Promise<StationListResponse> => {
     const skip = (page - 1) * limit;
@@ -12,7 +15,9 @@ export const getStationList = async (page: number = 1, limit: number = 10, searc
         params.append('search', search);
     }
 
-    const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+    const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch station list');
     }
@@ -20,11 +25,9 @@ export const getStationList = async (page: number = 1, limit: number = 10, searc
 };
 
 export const createStation = async (data: StationCreate): Promise<Station> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -34,11 +37,9 @@ export const createStation = async (data: StationCreate): Promise<Station> => {
 };
 
 export const updateStation = async (id: string, data: StationUpdate): Promise<Station> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -48,8 +49,9 @@ export const updateStation = async (id: string, data: StationUpdate): Promise<St
 };
 
 export const deleteStation = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) {
         throw new Error('Failed to delete station');
@@ -60,8 +62,9 @@ export const uploadStationCsv = async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: getAuthHeadersFormData(),
         body: formData,
     });
 
@@ -74,7 +77,9 @@ export const uploadStationCsv = async (file: File): Promise<any> => {
 }
 
 export const getAllStations = async (): Promise<Station[]> => {
-    const response = await fetch(`${API_BASE_URL}?limit=10000`);
+    const response = await fetch(`${API_URL}?limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch all stations');
     }

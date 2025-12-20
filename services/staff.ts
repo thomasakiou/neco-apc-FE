@@ -1,6 +1,9 @@
 import { StaffListResponse, StaffCreate, StaffUpdate, Staff } from '../types/staff';
 
-const API_BASE_URL = '/api/staff';
+import { API_BASE_URL } from '../src/config';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+
+const API_URL = `${API_BASE_URL}/staff`;
 
 export const getStaffList = async (page: number = 1, limit: number = 10, search: string = ''): Promise<StaffListResponse> => {
     const skip = (page - 1) * limit;
@@ -12,7 +15,9 @@ export const getStaffList = async (page: number = 1, limit: number = 10, search:
         params.append('search', search);
     }
 
-    const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+    const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch staff list');
     }
@@ -20,11 +25,9 @@ export const getStaffList = async (page: number = 1, limit: number = 10, search:
 };
 
 export const createStaff = async (data: StaffCreate): Promise<Staff> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -34,11 +37,9 @@ export const createStaff = async (data: StaffCreate): Promise<Staff> => {
 };
 
 export const updateStaff = async (id: string, data: StaffUpdate): Promise<Staff> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -48,8 +49,9 @@ export const updateStaff = async (id: string, data: StaffUpdate): Promise<Staff>
 };
 
 export const deleteStaff = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) {
         throw new Error('Failed to delete staff');
@@ -60,8 +62,9 @@ export const uploadStaffCsv = async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: getAuthHeadersFormData(),
         body: formData,
     });
 
@@ -74,7 +77,9 @@ export const uploadStaffCsv = async (file: File): Promise<any> => {
 }
 
 export const getAllStaff = async (onlyActive: boolean = false): Promise<Staff[]> => {
-    const response = await fetch(`${API_BASE_URL}?limit=10000`);
+    const response = await fetch(`${API_URL}?limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch all staff');
     }
@@ -87,11 +92,9 @@ export const getAllStaff = async (onlyActive: boolean = false): Promise<Staff[]>
 };
 
 export const bulkDeleteStaff = async (ids: string[]): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/bulk-delete`, {
+    const response = await fetch(`${API_URL}/bulk-delete`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ ids }),
     });
     if (!response.ok) {

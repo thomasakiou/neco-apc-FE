@@ -1,6 +1,9 @@
 import { MarkingVenueListResponse, MarkingVenueCreate, MarkingVenueUpdate, MarkingVenue } from '../types/markingVenue';
 
-const API_BASE_URL = '/api/marking-venues';
+import { API_BASE_URL } from '../src/config';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+
+const API_URL = `${API_BASE_URL}/marking-venues`;
 
 export const getMarkingVenueList = async (page: number = 1, limit: number = 10, search: string = '', state?: string): Promise<MarkingVenueListResponse> => {
     const skip = (page - 1) * limit;
@@ -15,7 +18,9 @@ export const getMarkingVenueList = async (page: number = 1, limit: number = 10, 
         params.append('state', state);
     }
 
-    const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+    const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch marking venue list');
     }
@@ -26,11 +31,9 @@ export const getMarkingVenueList = async (page: number = 1, limit: number = 10, 
 let venueCache: MarkingVenue[] | null = null;
 
 export const createMarkingVenue = async (data: MarkingVenueCreate): Promise<MarkingVenue> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -41,11 +44,9 @@ export const createMarkingVenue = async (data: MarkingVenueCreate): Promise<Mark
 };
 
 export const updateMarkingVenue = async (id: string, data: MarkingVenueUpdate): Promise<MarkingVenue> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -56,8 +57,9 @@ export const updateMarkingVenue = async (id: string, data: MarkingVenueUpdate): 
 };
 
 export const deleteMarkingVenue = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
     });
     if (!response.ok) {
         throw new Error('Failed to delete marking venue');
@@ -69,8 +71,9 @@ export const uploadMarkingVenueCsv = async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
+        headers: getAuthHeadersFormData(),
         body: formData,
     });
 
@@ -86,7 +89,9 @@ export const uploadMarkingVenueCsv = async (file: File): Promise<any> => {
 export const getAllMarkingVenues = async (): Promise<MarkingVenue[]> => {
     if (venueCache) return venueCache;
 
-    const response = await fetch(`${API_BASE_URL}?limit=10000`);
+    const response = await fetch(`${API_URL}?limit=10000`, {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch all marking venues');
     }

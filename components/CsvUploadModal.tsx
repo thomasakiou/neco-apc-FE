@@ -5,9 +5,10 @@ interface CsvUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     onUpload: (data: CSVPostingData[]) => void;
+    staffPool?: any[];
 }
 
-const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUpload }) => {
+const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUpload, staffPool = [] }) => {
     const [dragging, setDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [previewData, setPreviewData] = useState<CSVPostingData[]>([]);
@@ -49,10 +50,22 @@ const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUplo
         setParsing(true);
         setError(null);
         try {
-            const data = await parseAssignmentCSV(f);
+            let data = await parseAssignmentCSV(f);
             if (data.length === 0) {
                 setError('No valid data found in CSV. Please check headers (StaffNo - MandateCode is optional).');
             } else {
+                // Enrich preview with pool data if name/station missing
+                if (staffPool.length > 0) {
+                    const poolMap = new Map(staffPool.map(s => [s.staff_no.toString().padStart(4, '0'), s]));
+                    data = data.map(record => {
+                        const staff = poolMap.get(record.staffNo);
+                        return {
+                            ...record,
+                            name: record.name || staff?.staff_name || '',
+                            station: record.station || staff?.current_station || ''
+                        };
+                    });
+                }
                 setPreviewData(data);
             }
         } catch (err) {
@@ -157,7 +170,7 @@ const CsvUploadModal: React.FC<CsvUploadModalProps> = ({ isOpen, onClose, onUplo
                                                     <td className="py-1 font-mono">{row.staffNo}</td>
                                                     <td className="py-1 truncate max-w-[100px]">{row.name}</td>
                                                     <td className="py-1">{row.station}</td>
-                                                    <td className="py-1">{row.mandate}</td>
+                                                    <td className="py-1">{row.mandateCode}</td>
                                                 </tr>
                                             ))}
                                             {previewData.length > 5 && (

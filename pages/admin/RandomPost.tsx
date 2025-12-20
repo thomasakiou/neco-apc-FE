@@ -527,7 +527,7 @@ const RandomPost: React.FC = () => {
 
     if (previewMode) {
         return (
-            <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-y-auto w-full max-w-7xl mx-auto">
+            <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 w-full max-w-7xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold">Generated Preview ({generatedPostings.length})</h2>
                     <div className="flex gap-3">
@@ -561,6 +561,7 @@ const RandomPost: React.FC = () => {
                                     <th className="p-3">Venue</th>
                                     <th className="p-3">State</th>
                                     <th className="p-3">Zone</th>
+                                    <th className="p-3">Nights</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-base">
@@ -577,6 +578,7 @@ const RandomPost: React.FC = () => {
                                                 {(p as any).zone || 'N/A'}
                                             </span>
                                         </td>
+                                        <td className="p-3 font-bold text-slate-600 dark:text-slate-400">{p.count || 0}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -588,7 +590,7 @@ const RandomPost: React.FC = () => {
     }
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-y-auto">
+        <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-6 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm">
@@ -610,7 +612,7 @@ const RandomPost: React.FC = () => {
                         <div>
                             <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Assignment</label>
                             <select
-                                className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700"
+                                className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
                                 value={selectedAssignment}
                                 onChange={e => {
                                     setSelectedAssignment(e.target.value);
@@ -626,7 +628,7 @@ const RandomPost: React.FC = () => {
                         <div>
                             <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Mandate</label>
                             <select
-                                className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700"
+                                className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
                                 value={selectedMandate}
                                 onChange={e => setSelectedMandate(e.target.value)}
                                 disabled={!selectedAssignment}
@@ -654,7 +656,7 @@ const RandomPost: React.FC = () => {
                             </div>
                             <div className="flex gap-2 min-w-0">
                                 <select
-                                    className="flex-1 w-full min-w-0 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50 text-ellipsis"
+                                    className="flex-1 w-full min-w-0 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50 text-ellipsis text-slate-900 dark:text-white"
                                     value={selectedVenue}
                                     onChange={e => setSelectedVenue(e.target.value)}
                                     disabled={isAllVenues}

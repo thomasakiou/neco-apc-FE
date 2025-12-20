@@ -2,18 +2,10 @@ import { PostingCreate, PostingListResponse, PostingResponse, PostingUpdate, Bul
 
 import { API_BASE_URL } from '../src/config';
 
+import { getAuthHeaders } from './apiUtils';
+
 const API_URL = `${API_BASE_URL}/posting`;
 const BASE_URL = API_URL;
-
-const getAuthHeader = () => {
-    const token = localStorage.getItem('token');
-    return token ? {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-    } : {
-        'Content-Type': 'application/json'
-    };
-};
 
 // Cache for Posting Records
 let postingCache: PostingResponse[] | null = null;
@@ -25,7 +17,7 @@ export const getAllPostings = async (skip: number = 0, limit: number = 100): Pro
     });
 
     const response = await fetch(`${BASE_URL}?${params.toString()}`, {
-        headers: getAuthHeader() as HeadersInit
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) throw new Error('Failed to fetch postings');
@@ -40,7 +32,7 @@ export const getAllPostingRecords = async (force: boolean = false): Promise<Post
     }
 
     const response = await fetch(`${BASE_URL}?skip=0&limit=100000`, {
-        headers: getAuthHeader() as HeadersInit
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) throw new Error('Failed to fetch all posting records');
@@ -55,7 +47,7 @@ export const getAllPostingRecords = async (force: boolean = false): Promise<Post
 export const createPosting = async (data: PostingCreate): Promise<PostingResponse> => {
     const response = await fetch(BASE_URL, {
         method: 'POST',
-        headers: getAuthHeader() as HeadersInit,
+        headers: getAuthHeaders(),
         body: JSON.stringify(data)
     });
 
@@ -68,7 +60,7 @@ export const createPosting = async (data: PostingCreate): Promise<PostingRespons
 export const updatePosting = async (id: string, data: PostingUpdate): Promise<PostingResponse> => {
     const response = await fetch(`${BASE_URL}/${id}`, {
         method: 'PUT',
-        headers: getAuthHeader() as HeadersInit,
+        headers: getAuthHeaders(),
         body: JSON.stringify(data)
     });
 
@@ -81,7 +73,7 @@ export const updatePosting = async (id: string, data: PostingUpdate): Promise<Po
 export const deletePosting = async (id: string): Promise<any> => {
     const response = await fetch(`${BASE_URL}/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeader() as HeadersInit
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) throw new Error('Failed to delete posting');
@@ -93,7 +85,7 @@ export const deletePosting = async (id: string): Promise<any> => {
 export const bulkDeletePostings = async (ids: string[]): Promise<any> => {
     const response = await fetch(`${BASE_URL}/bulk-delete`, {
         method: 'POST',
-        headers: getAuthHeader() as HeadersInit,
+        headers: getAuthHeaders(),
         body: JSON.stringify({ ids })
     });
 
@@ -106,7 +98,7 @@ export const bulkDeletePostings = async (ids: string[]): Promise<any> => {
 export const deleteAllPostings = async (): Promise<any> => {
     const response = await fetch(`${BASE_URL}/all`, {
         method: 'DELETE',
-        headers: getAuthHeader() as HeadersInit
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) throw new Error('Failed to delete all postings');
@@ -118,7 +110,7 @@ export const deleteAllPostings = async (): Promise<any> => {
 export const bulkCreatePostings = async (data: BulkPostingCreateRequest): Promise<BulkUploadResponse> => {
     const response = await fetch(`${BASE_URL}/bulk`, {
         method: 'POST',
-        headers: getAuthHeader() as HeadersInit,
+        headers: getAuthHeaders(),
         body: JSON.stringify(data)
     });
 
