@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { PasswordChangeModal } from './PasswordChangeModal';
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
@@ -9,6 +10,7 @@ const AdminLayout: React.FC = () => {
   const isActive = (path: string) => location.pathname.includes(path);
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
 
   // Close mobile menu on navigation
   React.useEffect(() => {
@@ -130,6 +132,14 @@ const AdminLayout: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setIsPasswordModalOpen(true)}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-colors w-full text-left"
+          >
+            <span className="material-symbols-outlined text-xl">lock_reset</span>
+            <p className="text-sm font-medium leading-normal">Change Password</p>
+          </button>
+
+          <button
             onClick={logout}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors w-full text-left"
           >
@@ -138,6 +148,10 @@ const AdminLayout: React.FC = () => {
           </button>
         </div>
       </aside>
+
+      {isPasswordModalOpen && (
+        <PasswordChangeModal onClose={() => setIsPasswordModalOpen(false)} />
+      )}
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 overflow-y-auto w-full">

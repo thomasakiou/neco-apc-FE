@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { listUsers, createUser, getAuditLogs } from '../../services/user';
+import { downloadDatabaseBackup } from '../../services/database';
 import { changePassword } from '../../services/auth';
 import { UserResponse, UserCreate, UserRole } from '../../types/auth';
 import { AuditLogResponse } from '../../types/audit';
@@ -20,12 +21,11 @@ const TabButton = ({ active, onClick, label, icon }: { active: boolean, onClick:
 const Configuration: React.FC = () => {
     const { isSuperAdmin, moduleLocks, toggleModuleLock, user: currentUser } = useAuth();
     const { showNotification } = useNotification();
-    const [activeTab, setActiveTab] = useState<'users' | 'modules' | 'audit'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'modules' | 'audit' | 'database'>('users');
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLogResponse[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     useEffect(() => {
         if (activeTab === 'users') fetchUsers();
@@ -63,6 +63,18 @@ const Configuration: React.FC = () => {
         showNotification(`${moduleName.toUpperCase()} module ${moduleLocks[moduleName] ? 'unlocked' : 'locked'} successfully`, 'success');
     };
 
+    const handleDownloadBackup = async () => {
+        setIsLoading(true);
+        try {
+            await downloadDatabaseBackup();
+            showNotification('Database backup initiated successfully', 'success');
+        } catch (error: any) {
+            showNotification(error.message || 'Failed to download backup', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     if (!isSuperAdmin) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
@@ -89,6 +101,7 @@ const Configuration: React.FC = () => {
                     <div className="flex bg-slate-100/50 dark:bg-white/5 p-1 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-inner">
                         <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} label="Users" icon="group" />
                         <TabButton active={activeTab === 'modules'} onClick={() => setActiveTab('modules')} label="Modules" icon="lock_open" />
+                        <TabButton active={activeTab === 'database'} onClick={() => setActiveTab('database')} label="Database" icon="database" />
                         <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} label="Audit" icon="history" />
                     </div>
 
@@ -254,6 +267,63 @@ const Configuration: React.FC = () => {
                                 </div>
                             )}
 
+                            {activeTab === 'database' && (
+                                <div className="flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="bg-slate-50/50 dark:bg-white/5 p-8 rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col md:flex-row items-center gap-8 shadow-inner">
+                                        <div className="size-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
+                                            <span className="material-symbols-outlined text-4xl">database</span>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-2xl font-black text-slate-900 dark:text-white">Database Maintenance</h2>
+                                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                                                Manage system data integrity and backups. Regularly downloading backups ensures that you can recover your data in case of unforeseen system failure.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="bg-white dark:bg-white/5 p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/10 flex flex-col justify-between items-start gap-6 hover:shadow-xl transition-all duration-300">
+                                            <div className="flex flex-col gap-2">
+                                                <div className="size-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-2">
+                                                    <span className="material-symbols-outlined text-2xl">download_for_offline</span>
+                                                </div>
+                                                <h3 className="text-xl font-black text-slate-900 dark:text-white">Full System Dump</h3>
+                                                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                    Generates a complete SQL snapshot of all tables, including APCIC records, staff disposition list, and configuration settings.
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={handleDownloadBackup}
+                                                disabled={isLoading}
+                                                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+                                            >
+                                                {isLoading ? (
+                                                    <span className="material-symbols-outlined animate-spin">refresh</span>
+                                                ) : (
+                                                    <span className="material-symbols-outlined">backup</span>
+                                                )}
+                                                Generate & Download .SQL
+                                            </button>
+                                        </div>
+
+                                        <div className="bg-slate-50/50 dark:bg-white/5 p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/10 flex flex-col gap-6 opacity-60">
+                                            <div className="flex flex-col gap-2">
+                                                <div className="size-12 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center mb-2">
+                                                    <span className="material-symbols-outlined text-2xl">lock_reset</span>
+                                                </div>
+                                                <h3 className="text-xl font-black text-slate-900 dark:text-white">Factory Reset</h3>
+                                                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                    WIPE all postings and reset APC statuses to default. Use only for end-of-year maintenance.
+                                                </p>
+                                            </div>
+                                            <button disabled className="w-full py-4 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-2xl text-slate-400 font-bold text-xs uppercase cursor-not-allowed">
+                                                Feature Restricted
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {activeTab === 'audit' && (
                                 <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="flex justify-between items-center bg-slate-50/50 dark:bg-white/5 p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-inner">
@@ -328,11 +398,6 @@ const Configuration: React.FC = () => {
                 />
             )}
 
-            {isPasswordModalOpen && (
-                <PasswordChangeModal
-                    onClose={() => setIsPasswordModalOpen(false)}
-                />
-            )}
         </div>
     );
 };
@@ -400,52 +465,79 @@ function UserCreateModal({ onClose, onSuccess }: { onClose: () => void, onSucces
                 <div className="relative p-10 flex flex-col gap-8">
                     <div className="flex justify-between items-center">
                         <div>
-                            <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Access Provision</h3>
-                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">Register administrative credential</p>
+                            <h2 className="text-2xl font-black text-slate-900 dark:text-white">New Administrator</h2>
+                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Register a system access profile</p>
                         </div>
-                        <button onClick={onClose} className="size-12 flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 hover:bg-rose-500 hover:text-white transition-all active:scale-95">
+                        <button onClick={onClose} className="size-10 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all flex items-center justify-center active:scale-90">
                             <span className="material-symbols-outlined">close</span>
                         </button>
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                        <InputField label="Full Operational Name" value={formData.full_name} onChange={v => setFormData({ ...formData, full_name: v })} placeholder="e.g. John Doe" required icon="badge" />
-                        <InputField label="Email Authorization" type="email" value={formData.email} onChange={v => setFormData({ ...formData, email: v })} placeholder="john@neco.gov.ng" required icon="alternate_email" />
-                        <InputField label="Secure Password" type="password" value={formData.password || ''} onChange={v => setFormData({ ...formData, password: v })} placeholder="••••••••" required icon="key" />
+                        <InputField
+                            label="Full Legal Name"
+                            icon="person"
+                            placeholder="e.g. John Doe"
+                            value={formData.full_name}
+                            onChange={(v) => setFormData({ ...formData, full_name: v })}
+                            required
+                        />
+                        <InputField
+                            label="Email Address"
+                            icon="mail"
+                            type="email"
+                            placeholder="admin@neco.gov.ng"
+                            value={formData.email}
+                            onChange={(v) => setFormData({ ...formData, email: v })}
+                            required
+                        />
+                        <InputField
+                            label="Initial Access Password"
+                            icon="key"
+                            type="password"
+                            placeholder="Set complex password"
+                            value={formData.password}
+                            onChange={(v) => setFormData({ ...formData, password: v })}
+                            required
+                        />
 
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="flex flex-col gap-2.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Security Role</label>
-                                <select
-                                    value={formData.role}
-                                    onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })}
-                                    className="w-full h-14 bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-[1.25rem] px-5 text-sm font-bold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none dark:text-white transition-all"
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Assign Permission Role</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, role: 'user' })}
+                                    className={`p-4 rounded-2xl border transition-all text-left flex flex-col gap-1 ${formData.role === 'user' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-500' : 'bg-slate-50 dark:bg-white/5 border-slate-200/50 dark:border-white/5 text-slate-400'}`}
                                 >
-                                    <option value="user">Standard User</option>
-                                    <option value="super_admin">Super Admin</option>
-                                </select>
-                            </div>
-
-                            <div className="flex flex-col gap-2.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Initial Status</label>
-                                <div
-                                    onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
-                                    className={`h-14 flex items-center gap-3 px-5 rounded-[1.25rem] border cursor-pointer transition-all ${formData.is_active ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-rose-500/5 border-rose-500/20 text-rose-500'}`}
+                                    <span className="text-xs font-black uppercase">Standard Admin</span>
+                                    <span className="text-[9px] font-medium leading-tight opacity-70">Operate system modules</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, role: 'super_admin' })}
+                                    className={`p-4 rounded-2xl border transition-all text-left flex flex-col gap-1 ${formData.role === 'super_admin' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-500' : 'bg-slate-50 dark:bg-white/5 border-slate-200/50 dark:border-white/5 text-slate-400'}`}
                                 >
-                                    <span className="material-symbols-outlined text-xl">{formData.is_active ? 'check_circle' : 'cancel'}</span>
-                                    <span className="text-xs font-black uppercase tracking-wider">{formData.is_active ? 'Active' : 'Inactive'}</span>
-                                </div>
+                                    <span className="text-xs font-black uppercase">Super Admin</span>
+                                    <span className="text-[9px] font-medium leading-tight opacity-70">Full system control</span>
+                                </button>
                             </div>
                         </div>
 
-                        <div className="flex gap-4 mt-4">
-                            <button type="button" onClick={onClose} className="flex-1 py-4 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95">Discard</button>
+                        <div className="pt-4 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-500 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                            >
+                                Cancel
+                            </button>
                             <button
                                 type="submit"
                                 disabled={isSaving}
-                                className="flex-[1.5] py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-emerald-500/40 transition-all active:scale-95 disabled:opacity-50"
+                                className="flex-[1.5] px-6 py-4 bg-slate-900 dark:bg-emerald-600 text-white rounded-2xl font-black text-sm hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                                {isSaving ? 'Synchronizing...' : 'Authorize Provision'}
+                                {isSaving ? <span className="material-symbols-outlined animate-spin">refresh</span> : <span className="material-symbols-outlined">how_to_reg</span>}
+                                Complete Registration
                             </button>
                         </div>
                     </form>
@@ -457,90 +549,22 @@ function UserCreateModal({ onClose, onSuccess }: { onClose: () => void, onSucces
 
 function InputField({ label, value, onChange, type = 'text', placeholder, required = false, icon }: { label: string, value: string, onChange: (v: string) => void, type?: string, placeholder?: string, required?: boolean, icon: string }) {
     return (
-        <div className="flex flex-col gap-2.5 group">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1 group-focus-within:text-teal-500 transition-colors">{label}</label>
-            <div className="relative">
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 dark:text-white/20 group-focus-within:text-teal-500 transition-colors">{icon}</span>
+        <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{label}</label>
+            <div className="relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 group-focus-within:text-indigo-500 transition-colors">{icon}</span>
                 <input
                     type={type}
                     value={value}
-                    onChange={e => onChange(e.target.value)}
+                    onChange={(e) => onChange(e.target.value)}
                     placeholder={placeholder}
                     required={required}
-                    className="w-full h-14 bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-[1.25rem] pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none dark:text-white transition-all placeholder:text-slate-300 dark:placeholder:text-white/10"
+                    className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl text-slate-900 dark:text-white text-sm font-bold focus:bg-white dark:focus:bg-white/10 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                 />
             </div>
         </div>
     );
 }
 
-function PasswordChangeModal({ onClose }: { onClose: () => void }) {
-    const { showNotification } = useNotification();
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (newPassword !== confirmPassword) {
-            showNotification('New passwords do not match', 'error');
-            return;
-        }
-        if (newPassword.length < 8) {
-            showNotification('Password must be at least 8 characters long', 'error');
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            await changePassword(currentPassword, newPassword);
-            showNotification('Password changed successfully', 'success');
-            onClose();
-        } catch (error: any) {
-            showNotification(error.message, 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}></div>
-            <div className="relative bg-white dark:bg-[#1e293b] rounded-[3rem] shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-white/10 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
-                <div className="absolute top-0 right-0 size-64 bg-indigo-500/5 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
-
-                <div className="relative p-10 flex flex-col gap-8">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Modify Credentials</h3>
-                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">Update security key</p>
-                        </div>
-                        <button onClick={onClose} className="size-12 flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 hover:bg-rose-500 hover:text-white transition-all active:scale-95">
-                            <span className="material-symbols-outlined">close</span>
-                        </button>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                        <InputField label="Current Security Key" type="password" value={currentPassword} onChange={setCurrentPassword} placeholder="••••••••" required icon="lock" />
-                        <InputField label="New Security Key" type="password" value={newPassword} onChange={setNewPassword} placeholder="••••••••" required icon="key" />
-                        <InputField label="Confirm New Key" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" required icon="key_visualizer" />
-
-                        <div className="flex gap-4 mt-4">
-                            <button type="button" onClick={onClose} className="flex-1 py-4 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95">Cancel</button>
-                            <button
-                                type="submit"
-                                disabled={isSaving}
-                                className="flex-[1.5] py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-indigo-500/40 transition-all active:scale-95 disabled:opacity-50"
-                            >
-                                {isSaving ? 'Updating...' : 'Save New Key'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 export default Configuration;
