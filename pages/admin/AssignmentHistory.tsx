@@ -3,15 +3,11 @@ import { useDebounce } from '../../hooks/useDebounce';
 import * as XLSX from 'xlsx';
 import { getAllPostingRecords } from '../../services/posting';
 import { getAllAPCRecords } from '../../services/apc';
-import { getAllAssignments } from '../../services/assignment';
-import { getAllMandates } from '../../services/mandate';
 import { getAllStates } from '../../services/state';
 import { getAllNCEECenters } from '../../services/nceeCenter';
 import { APCRecord } from '../../types/apc';
 import { useNotification } from '../../context/NotificationContext';
 import { PostingResponse } from '../../types/posting';
-import { Assignment } from '../../types/assignment';
-import { Mandate } from '../../types/mandate';
 import { NCEECenter } from '../../types/nceeCenter';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -94,14 +90,9 @@ const GeneratePage: React.FC = () => {
     const { success, error } = useNotification();
     const [loading, setLoading] = useState(true);
 
-    // Filters
-    const [assignments, setAssignments] = useState<Assignment[]>([]);
-
-    const [mandates, setMandates] = useState<Mandate[]>([]);
     const [states, setStates] = useState<any[]>([]);
     const [apcRecords, setApcRecords] = useState<APCRecord[]>([]);
 
-    const [filterAssignment, setFilterAssignment] = useState('');
     const [filterMandate, setFilterMandate] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -139,10 +130,8 @@ const GeneratePage: React.FC = () => {
     const fetchInitialData = async () => {
         try {
             setLoading(true);
-            const [postingsData, assignmentsData, mandatesData, activeAPC, statesData, nceeCenters] = await Promise.all([
+            const [postingsData, activeAPC, statesData, nceeCenters] = await Promise.all([
                 getAllPostingRecords(),
-                getAllAssignments(),
-                getAllMandates(),
                 getAllAPCRecords(true),
                 getAllStates(),
                 getAllNCEECenters()
@@ -155,8 +144,6 @@ const GeneratePage: React.FC = () => {
             const flattened = flattenPostings(activePostings, statesData, nceeCenters);
 
             setAllFlatRows(flattened);
-            setAssignments(assignmentsData);
-            setMandates(mandatesData);
             setStates(statesData);
             setApcRecords(activeAPC);
         } catch (error) {
@@ -165,6 +152,11 @@ const GeneratePage: React.FC = () => {
             setLoading(false);
         }
     };
+
+    const uniqueMandates = useMemo(() => {
+        const set = new Set(allFlatRows.map(r => r.mandate).filter(Boolean));
+        return Array.from(set).sort();
+    }, [allFlatRows]);
 
     const filteredFlatRows = useMemo(() => {
         let result = allFlatRows;
@@ -178,16 +170,13 @@ const GeneratePage: React.FC = () => {
             );
         }
 
-        if (filterAssignment) {
-            result = result.filter(r => r.assignment === filterAssignment);
-        }
 
         if (filterMandate) {
             result = result.filter(r => r.mandate === filterMandate);
         }
 
         return result;
-    }, [allFlatRows, debouncedSearchQuery, filterAssignment, filterMandate]);
+    }, [allFlatRows, debouncedSearchQuery, filterMandate]);
 
     const total = filteredFlatRows.length;
 
@@ -884,18 +873,7 @@ const GeneratePage: React.FC = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="relative">
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Assignment</label>
-                        <select
-                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
-                            value={filterAssignment}
-                            onChange={(e) => setFilterAssignment(e.target.value)}
-                        >
-                            <option value="">All Assignments</option>
-                            {assignments.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-                        </select>
-                    </div>
+                <div className="grid grid-cols-1 gap-4">
                     <div className="relative">
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Mandate</label>
                         <select
@@ -904,7 +882,7 @@ const GeneratePage: React.FC = () => {
                             onChange={(e) => setFilterMandate(e.target.value)}
                         >
                             <option value="">All Mandates</option>
-                            {mandates.map(m => <option key={m.id} value={m.mandate}>{m.mandate}</option>)}
+                            {uniqueMandates.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
                 </div>

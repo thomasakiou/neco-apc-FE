@@ -4,11 +4,9 @@ import * as XLSX from 'xlsx';
 import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings } from '../../services/posting';
 import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
-import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
 import { PostingResponse, PostingCreate } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
-import { Mandate } from '../../types/mandate';
 import { MarkingVenue } from '../../types/markingVenue';
 import { useNotification } from '../../context/NotificationContext';
 import SearchableSelect from '../../components/SearchableSelect';
@@ -182,7 +180,6 @@ const AnnualPostings: React.FC = () => {
 
   // Filter Options
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [mandates, setMandates] = useState<Mandate[]>([]);
   const [venues, setVenues] = useState<MarkingVenue[]>([]);
 
   // Search States
@@ -213,10 +210,9 @@ const AnnualPostings: React.FC = () => {
   const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
-      const [postingsData, assignmentsData, mandatesData, venuesData, activeAPC] = await Promise.all([
+      const [postingsData, assignmentsData, venuesData, activeAPC] = await Promise.all([
         getAllPostingRecords(true),
         getAllAssignments(true),
-        getAllMandates(true),
         getAllMarkingVenues(true),
         getAllAPCRecords(true, true) // Get only active staff
       ]);
@@ -226,14 +222,13 @@ const AnnualPostings: React.FC = () => {
 
       setPostings(activePostings);
       setAssignments(assignmentsData);
-      setMandates(mandatesData);
       setVenues(venuesData);
     } catch (error) {
       console.error("Failed to fetch initial data", error);
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setPostings, setAssignments, setMandates, setVenues]);
+  }, [setLoading, setPostings, setAssignments, setVenues]);
 
   useEffect(() => {
     fetchInitialData();
@@ -275,6 +270,17 @@ const AnnualPostings: React.FC = () => {
       </div>
     );
   };
+
+  const uniqueMandates = useMemo(() => {
+    const mandateSet = new Set<string>();
+    postings.forEach(p => {
+      p.mandates?.forEach(m => {
+        const mName = typeof m === 'string' ? m : m.mandate || m.code;
+        if (mName) mandateSet.add(mName);
+      });
+    });
+    return Array.from(mandateSet).sort();
+  }, [postings]);
 
   const filteredPostings = useMemo(() => {
     let result = postings;
@@ -825,7 +831,7 @@ const AnnualPostings: React.FC = () => {
                 onChange={(e) => setFilterMandate(e.target.value)}
               >
                 <option value="">All Mandates</option>
-                {mandates.map(m => <option key={m.id} value={m.mandate}>{m.mandate}</option>)}
+                {uniqueMandates.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
               <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
                 <span className="material-symbols-outlined text-lg">expand_more</span>

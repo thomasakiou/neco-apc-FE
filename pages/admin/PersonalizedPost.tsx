@@ -234,7 +234,7 @@ const PersonalizedPost: React.FC = () => {
     }, [boardData?.mandateColumns, boardSearch]);
 
     return (
-        <div className="h-full flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] overflow-hidden">
+        <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A]">
             {/* Action Bar */}
             <header className="min-h-20 py-4 flex-shrink-0 bg-white dark:bg-[#1E293B] border-b border-slate-200 dark:border-slate-800 px-4 md:px-10 flex flex-col lg:flex-row items-start lg:items-center justify-between shadow-sm z-30 gap-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 lg:gap-6 w-full lg:w-auto">
@@ -297,10 +297,10 @@ const PersonalizedPost: React.FC = () => {
             </header>
 
             {/* Main Area */}
-            <main className="flex-1 overflow-hidden workspace-grid">
+            <main className="flex-1 workspace-grid">
                 {/* Left Drawer: Staff Pool */}
                 <aside className="border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] flex flex-col z-20 shadow-2xl shadow-black/5">
-                    <div className="p-5 border-b border-slate-100 dark:border-slate-800/50">
+                    <div className="p-5 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Staff Pool</h2>
                             <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500">{filteredPool.length} Ready</span>
@@ -317,22 +317,24 @@ const PersonalizedPost: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-hidden relative">
-                        <MandateColumn
-                            columnId="unassigned"
-                            title="Eligible Pool"
-                            subtitle="All qualified candidates"
-                            staffList={filteredPool}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={handleDrop}
-                            selectedStaffIds={selectedStaffIds}
-                            onToggleSelect={onToggleSelect}
-                        />
+                    <div className="flex-1 min-h-0 relative">
+                        <div className="h-[600px] lg:h-[650px] xl:h-[700px]">
+                            <MandateColumn
+                                columnId="unassigned"
+                                title="Eligible Pool"
+                                subtitle="All qualified candidates"
+                                staffList={filteredPool}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={handleDrop}
+                                selectedStaffIds={selectedStaffIds}
+                                onToggleSelect={onToggleSelect}
+                            />
+                        </div>
                     </div>
                 </aside>
 
                 {/* Right Area: Board */}
-                <section className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#F1F5F9]/30 dark:bg-transparent overflow-hidden">
+                <section className="flex-1 flex flex-col min-w-0 bg-[#F1F5F9]/30 dark:bg-transparent">
                     {/* View Controls */}
                     <div className="h-auto py-3 md:h-14 px-4 md:px-8 flex flex-col md:flex-row items-start md:items-center justify-between flex-shrink-0 border-b border-slate-200/50 dark:border-slate-800/50 gap-4">
                         <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto overflow-x-auto no-scrollbar">
@@ -371,8 +373,8 @@ const PersonalizedPost: React.FC = () => {
                     </div>
 
                     {/* Columns Grid */}
-                    <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
-                        <div className="flex h-full p-4 md:p-8 gap-4 md:gap-6 min-w-max">
+                    <div className="flex-1 overflow-x-auto custom-scrollbar">
+                        <div className="flex p-4 md:p-8 gap-4 md:gap-6 min-w-max">
                             {!selectedAssignmentId ? (
                                 <div className="flex-1 w-full flex flex-col items-center justify-center opacity-30 gap-4 grayscale">
                                     <span className="material-symbols-outlined text-6xl md:text-8xl font-thin">dashboard_customize</span>
@@ -385,7 +387,7 @@ const PersonalizedPost: React.FC = () => {
                                 </div>
                             ) : (
                                 filteredBoard.map((col, idx) => (
-                                    <div key={col.id} className="w-[280px] md:w-[320px] h-full flex flex-col relative">
+                                    <div key={col.id} className="w-[280px] md:w-[320px] flex flex-col relative h-[600px] lg:h-[650px] xl:h-[700px]">
                                         <MandateColumn
                                             columnId={col.id}
                                             title={col.title}
