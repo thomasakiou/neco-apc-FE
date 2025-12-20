@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { getSchoolList, deleteSchool, createSchool, updateSchool, uploadSchoolCsv, getAllSchools, bulkDeleteSchools } from '../../services/school';
 import { School, SchoolCreate } from '../../types/school';
 import { getAllStates } from '../../services/state';
@@ -7,48 +8,66 @@ import SchoolModal from './SchoolModal';
 import AlertModal from '../../components/AlertModal';
 
 const SchoolManagement: React.FC = () => {
-    const [schoolList, setSchoolList] = useState<School[]>([]);
-    const [allSchools, setAllSchools] = useState<School[]>([]);
     const [states, setStates] = useState<State[]>([]);
     const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [sortField, setSortField] = useState<keyof School | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [allSchools, setAllSchools] = useState<School[]>([]);
     const [selectedState, setSelectedState] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    const hasActiveFilters = selectedState !== 'All';
+    const filteredSchools = useMemo(() => {
+        let result = allSchools;
 
-    const filteredSchools = schoolList.filter(school => {
-        const matchesState = selectedState === 'All' || school.state_id === selectedState;
-        return matchesState;
-    });
-
-    const sortedSchools = [...filteredSchools].sort((a, b) => {
-        if (!sortField) return 0;
-
-        const aValue = a[sortField];
-        const bValue = b[sortField];
-
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-            const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
-            return sortDirection === 'asc' ? comparison : -comparison;
+        // Search Filter
+        if (debouncedSearchTerm) {
+            const lowerTerm = debouncedSearchTerm.toLowerCase().trim();
+            result = result.filter(school =>
+                school.name?.toLowerCase().includes(lowerTerm) ||
+                school.code?.toLowerCase().includes(lowerTerm)
+            );
         }
 
-        const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-        return sortDirection === 'asc' ? comparison : -comparison;
-    });
+        // State Filter
+        if (selectedState !== 'All') {
+            result = result.filter(school => school.state_id === selectedState);
+        }
 
-    const allFilteredSchools = allSchools.filter(school => {
-        const matchesState = selectedState === 'All' || school.state_id === selectedState;
-        return matchesState;
-    });
+        // SORT LOGIC
+        if (sortField) {
+            result = [...result].sort((a, b) => {
+                const aValue = a[sortField];
+                const bValue = b[sortField];
+
+                if (aValue === null || aValue === undefined) return 1;
+                if (bValue === null || bValue === undefined) return -1;
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                }
+
+                const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return result;
+    }, [allSchools, debouncedSearchTerm, selectedState, sortField, sortDirection]);
+
+    const total = filteredSchools.length;
+
+    const paginatedSchools = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredSchools.slice(startIndex, startIndex + limit);
+    }, [filteredSchools, page, limit]);
+
+    // For bulk actions selection
+    const allFilteredSchools = filteredSchools;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchool, setEditingSchool] = useState<School | null>(null);
@@ -86,7 +105,6 @@ const SchoolManagement: React.FC = () => {
                     errorData: response.errors || []
                 }
             });
-            fetchData();
             fetchAllSchools();
         } catch (error: any) {
             console.error('Upload failed:', error);
@@ -106,47 +124,19 @@ const SchoolManagement: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchTerm]);
+    }, [debouncedSearchTerm, selectedState]);
 
-    useEffect(() => {
-        setPage(1);
-    }, [selectedState]);
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            if (hasActiveFilters) {
-                const allData = await getAllSchools();
-                const filtered = allData.filter(school => {
-                    const matchesSearch = !searchTerm ||
-                        school.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        school.code?.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesState = selectedState === 'All' || school.state_id === selectedState;
-                    return matchesSearch && matchesState;
-                });
-
-                const startIndex = (page - 1) * limit;
-                const endIndex = startIndex + limit;
-                setSchoolList(filtered.slice(startIndex, endIndex));
-                setTotal(filtered.length);
-            } else {
-                const response = await getSchoolList(page, limit, searchTerm);
-                setSchoolList(response.items);
-                setTotal(response.total);
-            }
-        } catch (error) {
-            console.error('Error fetching schools:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const fetchAllSchools = async () => {
+        setLoading(true);
         try {
             const data = await getAllSchools();
             setAllSchools(data);
         } catch (error) {
             console.error('Error fetching all schools:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -159,9 +149,7 @@ const SchoolManagement: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [page, searchTerm, limit, selectedState]);
+
 
     useEffect(() => {
         fetchAllSchools();
@@ -177,7 +165,6 @@ const SchoolManagement: React.FC = () => {
             onConfirm: async () => {
                 try {
                     await deleteSchool(id);
-                    fetchData();
                     fetchAllSchools();
                     setAlertModal({
                         isOpen: true,
@@ -215,7 +202,6 @@ const SchoolManagement: React.FC = () => {
             } else {
                 await createSchool(data);
             }
-            fetchData();
             fetchAllSchools();
             setIsModalOpen(false);
         } catch (error) {
@@ -293,7 +279,6 @@ const SchoolManagement: React.FC = () => {
                 try {
                     await bulkDeleteSchools(Array.from(selectedIds));
                     setSelectedIds(new Set());
-                    fetchData();
                     fetchAllSchools();
                     setAlertModal({
                         isOpen: true,
@@ -467,7 +452,7 @@ const SchoolManagement: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
-                                    {filteredSchools.length === 0 ? (
+                                    {paginatedSchools.length === 0 ? (
                                         <tr>
                                             <td colSpan={8} className="p-10 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
@@ -480,7 +465,7 @@ const SchoolManagement: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        sortedSchools.map((school) => (
+                                        paginatedSchools.map((school) => (
                                             <SchoolRow
                                                 key={school.id}
                                                 school={school}

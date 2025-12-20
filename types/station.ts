@@ -2,6 +2,7 @@ export interface Station {
     id: string;
     station_code: string;
     station: string;
+    zone?: string | null;
     active: boolean;
     created_at?: string;
     updated_at?: string;
@@ -19,6 +20,7 @@ export interface StationListResponse {
 export interface StationCreate {
     station_code: string;
     station: string;
+    zone?: string | null;
     active?: boolean;
 }
 

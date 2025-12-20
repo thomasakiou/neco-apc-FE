@@ -18,10 +18,16 @@ export const getMandateList = async (page: number = 1, limit: number = 10, searc
     return response.json();
 };
 
+// Cache
+let mandateCache: Mandate[] | null = null;
+
 export const getAllMandates = async (): Promise<Mandate[]> => {
+    if (mandateCache) return mandateCache;
+
     const response = await fetch(`${API_BASE_URL}?limit=10000`);
     if (!response.ok) throw new Error('Failed to fetch all mandates');
     const data = await response.json();
+    mandateCache = data.items;
     return data.items;
 };
 
@@ -38,6 +44,7 @@ export const createMandate = async (data: MandateCreate): Promise<Mandate> => {
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to create mandate');
+    mandateCache = null; // Invalidate
     return response.json();
 };
 
@@ -48,6 +55,7 @@ export const updateMandate = async (id: string, data: MandateUpdate): Promise<Ma
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update mandate');
+    mandateCache = null; // Invalidate
     return response.json();
 };
 
@@ -56,10 +64,12 @@ export const deleteMandate = async (id: string): Promise<void> => {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete mandate');
+    mandateCache = null; // Invalidate
 };
 
 export const bulkDeleteMandates = async (ids: string[]): Promise<void> => {
     await Promise.all(ids.map(id => deleteMandate(id)));
+    mandateCache = null; // Invalidate
 };
 
 export const uploadMandateCsv = async (file: File): Promise<BulkUploadResponse> => {
@@ -72,5 +82,6 @@ export const uploadMandateCsv = async (file: File): Promise<BulkUploadResponse> 
     });
 
     if (!response.ok) throw new Error('Failed to upload CSV');
+    mandateCache = null; // Invalidate
     return response.json();
 };

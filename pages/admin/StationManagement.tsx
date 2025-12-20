@@ -1,62 +1,84 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { getStationList, deleteStation, createStation, updateStation, uploadStationCsv, getAllStations, bulkDeleteStations } from '../../services/station';
 import { Station, StationCreate } from '../../types/station';
 import StationModal from './StationModal';
 import AlertModal from '../../components/AlertModal';
 
 const StationManagement: React.FC = () => {
-    const [stationList, setStationList] = useState<Station[]>([]);
-    const [allStations, setAllStations] = useState<Station[]>([]);
     const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [sortField, setSortField] = useState<keyof Station | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [allStations, setAllStations] = useState<Station[]>([]);
     const [selectedStationCode, setSelectedStationCode] = useState('All');
     const [selectedStation, setSelectedStation] = useState('All');
+    const [selectedZone, setSelectedZone] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    const uniqueStationCodes = Array.from(new Set(allStations.map(s => s.station_code).filter(Boolean))) as string[];
-    const uniqueStationNames = Array.from(new Set(allStations.map(s => s.station).filter(Boolean))) as string[];
+    const uniqueStationCodes = useMemo(() => Array.from(new Set(allStations.map(s => s.station_code).filter(Boolean))) as string[], [allStations]);
+    const uniqueStationNames = useMemo(() => Array.from(new Set(allStations.map(s => s.station).filter(Boolean))) as string[], [allStations]);
+    const uniqueZones = useMemo(() => Array.from(new Set(allStations.map(s => s.zone).filter(Boolean))) as string[], [allStations]);
 
     // Check if any filters are active
-    const hasActiveFilters = selectedStationCode !== 'All' || selectedStation !== 'All';
+    const filteredStations = useMemo(() => {
+        let result = allStations;
 
-    const filteredStations = stationList.filter(station => {
-        const matchesCode = selectedStationCode === 'All' || station.station_code === selectedStationCode;
-        const matchesName = selectedStation === 'All' || station.station === selectedStation;
-        return matchesCode && matchesName;
-    });
-
-    // Sort the filtered stations
-    const sortedStations = [...filteredStations].sort((a, b) => {
-        if (!sortField) return 0;
-
-        const aValue = a[sortField];
-        const bValue = b[sortField];
-
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-
-        // Handle string comparison
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-            const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
-            return sortDirection === 'asc' ? comparison : -comparison;
+        // Search Filter
+        if (debouncedSearchTerm) {
+            const lowerTerm = debouncedSearchTerm.toLowerCase().trim();
+            result = result.filter(station =>
+                station.station?.toLowerCase().includes(lowerTerm) ||
+                station.station_code?.toLowerCase().includes(lowerTerm) ||
+                station.zone?.toLowerCase().includes(lowerTerm)
+            );
         }
 
-        // Handle other types
-        const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-        return sortDirection === 'asc' ? comparison : -comparison;
-    });
+        // Dropdown Filters
+        if (selectedStationCode !== 'All') {
+            result = result.filter(station => station.station_code === selectedStationCode);
+        }
+        if (selectedStation !== 'All') {
+            result = result.filter(station => station.station === selectedStation);
+        }
+        if (selectedZone !== 'All') {
+            result = result.filter(station => station.zone === selectedZone);
+        }
 
-    // All stations with filters applied (for select-all across all pages)
-    const allFilteredStations = allStations.filter(station => {
-        const matchesCode = selectedStationCode === 'All' || station.station_code === selectedStationCode;
-        const matchesName = selectedStation === 'All' || station.station === selectedStation;
-        return matchesCode && matchesName;
-    });
+        // SORT LOGIC
+        if (sortField) {
+            result = [...result].sort((a, b) => {
+                const aValue = a[sortField];
+                const bValue = b[sortField];
+
+                if (aValue === null || aValue === undefined) return 1;
+                if (bValue === null || bValue === undefined) return -1;
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                }
+
+                const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return result;
+    }, [allStations, debouncedSearchTerm, selectedStationCode, selectedStation, sortField, sortDirection]);
+
+    const total = filteredStations.length;
+
+    const paginatedStations = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredStations.slice(startIndex, startIndex + limit);
+    }, [filteredStations, page, limit]);
+
+    // For bulk actions selection
+    const allFilteredStations = filteredStations;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingStation, setEditingStation] = useState<Station | null>(null);
@@ -94,7 +116,6 @@ const StationManagement: React.FC = () => {
                     errorData: response.errors || []
                 }
             });
-            fetchData();
             fetchAllStations();
         } catch (error: any) {
             console.error('Upload failed:', error);
@@ -114,59 +135,23 @@ const StationManagement: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchTerm]);
+    }, [debouncedSearchTerm, selectedStationCode, selectedStation, selectedZone]);
 
-    useEffect(() => {
-        setPage(1);
-    }, [selectedStationCode, selectedStation]);
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            if (hasActiveFilters) {
-                // When filters are active, fetch ALL data and filter/paginate on frontend
-                const allData = await getAllStations();
-
-                // Apply filters
-                const filtered = allData.filter(station => {
-                    const matchesSearch = !searchTerm ||
-                        station.station?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        station.station_code?.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesCode = selectedStationCode === 'All' || station.station_code === selectedStationCode;
-                    const matchesName = selectedStation === 'All' || station.station === selectedStation;
-                    return matchesSearch && matchesCode && matchesName;
-                });
-
-                // Paginate filtered results
-                const startIndex = (page - 1) * limit;
-                const endIndex = startIndex + limit;
-                setStationList(filtered.slice(startIndex, endIndex));
-                setTotal(filtered.length);
-            } else {
-                // No filters active, use backend pagination
-                const response = await getStationList(page, limit, searchTerm);
-                setStationList(response.items);
-                setTotal(response.total);
-            }
-        } catch (error) {
-            console.error('Error fetching stations:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const fetchAllStations = async () => {
+        setLoading(true);
         try {
             const data = await getAllStations();
             setAllStations(data);
         } catch (error) {
             console.error('Error fetching all stations:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [page, searchTerm, limit, selectedStationCode, selectedStation]);
+
 
     useEffect(() => {
         fetchAllStations();
@@ -181,7 +166,6 @@ const StationManagement: React.FC = () => {
             onConfirm: async () => {
                 try {
                     await deleteStation(id);
-                    fetchData();
                     fetchAllStations();
                     setAlertModal({
                         isOpen: true,
@@ -219,7 +203,6 @@ const StationManagement: React.FC = () => {
             } else {
                 await createStation(data);
             }
-            fetchData();
             fetchAllStations();
             setIsModalOpen(false);
         } catch (error) {
@@ -266,7 +249,7 @@ const StationManagement: React.FC = () => {
     const isAllSelected = allFilteredStations.length > 0 && allFilteredStations.every(s => selectedIds.has(s.id));
 
     const downloadCsvTemplate = () => {
-        const headers = ['station_code', 'station', 'active'];
+        const headers = ['station_code', 'station', 'zone', 'active'];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -297,7 +280,6 @@ const StationManagement: React.FC = () => {
                 try {
                     await bulkDeleteStations(Array.from(selectedIds));
                     setSelectedIds(new Set());
-                    fetchData();
                     fetchAllStations();
                     setAlertModal({
                         isOpen: true,
@@ -423,6 +405,12 @@ const StationManagement: React.FC = () => {
                             options={uniqueStationNames}
                             onChange={setSelectedStation}
                         />
+                        <FilterSelect
+                            label="Zone"
+                            value={selectedZone}
+                            options={uniqueZones}
+                            onChange={setSelectedZone}
+                        />
                         {selectedIds.size > 0 && (
                             <button
                                 onClick={handleBulkDelete}
@@ -459,14 +447,15 @@ const StationManagement: React.FC = () => {
                                         </th>
                                         <SortableHeader field="station_code" label="Station Code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="station" label="Station Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        <SortableHeader field="zone" label="Zone" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
-                                    {filteredStations.length === 0 ? (
+                                    {paginatedStations.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="p-10 text-center">
+                                            <td colSpan={6} className="p-10 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
                                                     <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-1">
                                                         <span className="material-symbols-outlined text-2xl">inbox</span>
@@ -477,7 +466,7 @@ const StationManagement: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        sortedStations.map((station) => (
+                                        paginatedStations.map((station) => (
                                             <StationRow
                                                 key={station.id}
                                                 station={station}
@@ -587,13 +576,13 @@ const FilterSelect = ({ label, value, options, onChange }: { label: string; valu
     </div>
 );
 
-const StationRow = ({ station, onEdit, onDelete, isSelected, onSelect }: {
+const StationRow: React.FC<{
     station: Station;
     onEdit: (station: Station) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: string) => void | Promise<void>;
     isSelected: boolean;
     onSelect: (id: string, checked: boolean) => void;
-}) => {
+}> = ({ station, onEdit, onDelete, isSelected, onSelect }) => {
     return (
         <tr className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
             <td className="p-4 text-center">
@@ -606,6 +595,7 @@ const StationRow = ({ station, onEdit, onDelete, isSelected, onSelect }: {
             </td>
             <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-sm">{station.station_code}</td>
             <td className="px-4 py-4 text-slate-600 dark:text-slate-400 text-sm">{station.station}</td>
+            <td className="px-4 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium">{station.zone || 'N/A'}</td>
             <td className="px-4 py-4 text-center">
                 <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${station.active
                     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'

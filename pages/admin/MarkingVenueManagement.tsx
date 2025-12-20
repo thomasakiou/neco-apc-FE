@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { getMarkingVenueList, deleteMarkingVenue, createMarkingVenue, updateMarkingVenue, uploadMarkingVenueCsv, getAllMarkingVenues, bulkDeleteMarkingVenues } from '../../services/markingVenue';
 import { MarkingVenue, MarkingVenueCreate } from '../../types/markingVenue';
 import { getAllStates } from '../../services/state';
@@ -7,50 +8,69 @@ import MarkingVenueModal from './MarkingVenueModal';
 import AlertModal from '../../components/AlertModal';
 
 const MarkingVenueManagement: React.FC = () => {
-    const [venueList, setVenueList] = useState<MarkingVenue[]>([]);
-    const [allVenues, setAllVenues] = useState<MarkingVenue[]>([]);
     const [states, setStates] = useState<State[]>([]);
     const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [sortField, setSortField] = useState<keyof MarkingVenue | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [allVenues, setAllVenues] = useState<MarkingVenue[]>([]);
     const [selectedState, setSelectedState] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    const hasActiveFilters = selectedState !== 'All';
+    const filteredVenues = useMemo(() => {
+        let result = allVenues;
 
-    const filteredVenues = venueList.filter(venue => {
-        if (selectedState === 'All') return true;
-        if (!venue.state) return false;
-        return venue.state.replace(/[- ]/g, '').toLowerCase() === selectedState.replace(/[- ]/g, '').toLowerCase();
-    });
-
-    const sortedVenues = [...filteredVenues].sort((a, b) => {
-        if (!sortField) return 0;
-
-        const aValue = a[sortField];
-        const bValue = b[sortField];
-
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-            const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
-            return sortDirection === 'asc' ? comparison : -comparison;
+        // Search Filter
+        if (debouncedSearchTerm) {
+            const lowerTerm = debouncedSearchTerm.toLowerCase().trim();
+            result = result.filter(venue =>
+                venue.name?.toLowerCase().includes(lowerTerm) ||
+                venue.code?.toLowerCase().includes(lowerTerm)
+            );
         }
 
-        const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-        return sortDirection === 'asc' ? comparison : -comparison;
-    });
+        // State Filter
+        if (selectedState !== 'All') {
+            const normalizedState = selectedState.replace(/[- ]/g, '').toLowerCase();
+            result = result.filter(venue =>
+                venue.state && venue.state.replace(/[- ]/g, '').toLowerCase() === normalizedState
+            );
+        }
 
-    const allFilteredVenues = allVenues.filter(venue => {
-        if (selectedState === 'All') return true;
-        if (!venue.state) return false;
-        return venue.state.replace(/[- ]/g, '').toLowerCase() === selectedState.replace(/[- ]/g, '').toLowerCase();
-    });
+        // SORT LOGIC
+        if (sortField) {
+            result = [...result].sort((a, b) => {
+                const aValue = a[sortField];
+                const bValue = b[sortField];
+
+                if (aValue === null || aValue === undefined) return 1;
+                if (bValue === null || bValue === undefined) return -1;
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                }
+
+                const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return result;
+    }, [allVenues, debouncedSearchTerm, selectedState, sortField, sortDirection]);
+
+    const total = filteredVenues.length;
+
+    const paginatedVenues = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredVenues.slice(startIndex, startIndex + limit);
+    }, [filteredVenues, page, limit]);
+
+    // For bulk actions selection
+    const allFilteredVenues = filteredVenues;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingVenue, setEditingVenue] = useState<MarkingVenue | null>(null);
@@ -108,32 +128,7 @@ const MarkingVenueManagement: React.FC = () => {
 
     // ...
 
-    const applyFilters = () => {
-        let filtered = allVenues;
 
-        // Search Filter
-        if (searchTerm) {
-            const lowerTerm = searchTerm.toLowerCase();
-            filtered = filtered.filter(venue =>
-                venue.name?.toLowerCase().includes(lowerTerm) ||
-                venue.code?.toLowerCase().includes(lowerTerm)
-            );
-        }
-
-        // State Filter
-        if (selectedState !== 'All') {
-            const normalizedState = selectedState.replace(/[- ]/g, '').toLowerCase();
-            filtered = filtered.filter(venue =>
-                venue.state && venue.state.replace(/[- ]/g, '').toLowerCase() === normalizedState
-            );
-        }
-
-        setTotal(filtered.length);
-
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        setVenueList(filtered.slice(startIndex, endIndex));
-    };
 
     const fetchAllVenues = async () => {
         setLoading(true);
@@ -161,8 +156,8 @@ const MarkingVenueManagement: React.FC = () => {
     };
 
     useEffect(() => {
-        applyFilters();
-    }, [page, searchTerm, limit, selectedState, allVenues]);
+        setPage(1);
+    }, [debouncedSearchTerm, selectedState]);
 
     useEffect(() => {
         fetchAllVenues();
@@ -465,7 +460,7 @@ const MarkingVenueManagement: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
-                                    {filteredVenues.length === 0 ? (
+                                    {paginatedVenues.length === 0 ? (
                                         <tr>
                                             <td colSpan={8} className="p-10 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
@@ -478,7 +473,7 @@ const MarkingVenueManagement: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        sortedVenues.map((venue) => (
+                                        paginatedVenues.map((venue) => (
                                             <VenueRow
                                                 key={venue.id}
                                                 venue={venue}

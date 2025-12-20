@@ -4,6 +4,7 @@ export interface PostingResponse {
     name: string;
     station?: string | null;
     conraiss?: string | null;
+    sex?: string | null;
     year?: string | null;
     assignment_venue?: any[] | null;
     assignments?: any[] | null;
@@ -29,6 +30,7 @@ export interface PostingCreate {
     name: string;
     station?: string | null;
     conraiss?: string | null;
+    sex?: string | null;
     year?: string | null;
     assignment_venue?: any[] | null;
     assignments?: any[] | null;
@@ -43,6 +45,7 @@ export interface PostingUpdate {
     name?: string | null;
     station?: string | null;
     conraiss?: string | null;
+    sex?: string | null;
     year?: string | null;
     assignment_venue?: any[] | null;
     assignments?: any[] | null;

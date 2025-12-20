@@ -78,6 +78,147 @@ const SDLPage: React.FC = () => {
     }>({ isOpen: false, title: '', type: 'info' });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const promoFileInputRef = useRef<HTMLInputElement>(null);
+    const [promotedFileNos, setPromotedFileNos] = useState<string[]>([]);
+
+    const promoteGrade = (currentGrade: string | null): string | null => {
+        if (!currentGrade) return null;
+        // Extract numbers from string like "CONRAISS 12" or "12"
+        const match = currentGrade.match(/\d+/);
+        if (!match) return currentGrade;
+
+        let gradeNum = parseInt(match[0]);
+        let newGradeNum: number;
+
+        if (gradeNum === 9) {
+            newGradeNum = 11;
+        } else {
+            newGradeNum = gradeNum + 1;
+        }
+
+        // Replace the number in the original string to preserve labels if any
+        return currentGrade.replace(match[0], newGradeNum.toString());
+    };
+
+    const handlePromoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            const lines = text.split('\n');
+            const fileNumbers: string[] = [];
+
+            lines.forEach((line, index) => {
+                if (!line.trim()) return;
+                const columns = line.split(',');
+                let val = columns[0].trim().replace(/"/g, '');
+
+                // Skip header if it is exactly "FileNo" or "Station" etc.
+                if (index === 0 && val.toLowerCase().includes('fileno')) return;
+
+                // Pad to 4 digits if it's a number
+                if (/^\d+$/.test(val)) {
+                    val = val.padStart(4, '0');
+                }
+                if (val) fileNumbers.push(val);
+            });
+
+            setPromotedFileNos(fileNumbers);
+            setAlertModal({
+                isOpen: true,
+                title: 'Promotion List Loaded',
+                message: `Loaded ${fileNumbers.length} file numbers into memory. Click "Run Promotion" to update their grades.`,
+                type: 'info'
+            });
+        };
+        reader.readAsText(file);
+
+        if (promoFileInputRef.current) promoFileInputRef.current.value = '';
+    };
+
+    const handlePromote = async () => {
+        if (promotedFileNos.length === 0) {
+            setAlertModal({
+                isOpen: true,
+                title: 'No Promotion List',
+                message: 'Please upload a CSV file with "FileNo" first.',
+                type: 'warning'
+            });
+            return;
+        }
+
+        setAlertModal({
+            isOpen: true,
+            title: 'Confirm Promotion',
+            message: `Are you sure you want to promote ${promotedFileNos.length} staff members? This will increase their CONRAISS by 1 (9 skips to 11).`,
+            type: 'warning',
+            onConfirm: async () => {
+                setLoading(true);
+                let successCount = 0;
+                let failedCount = 0;
+
+                try {
+                    // Fetch ALL staff to ensure we find matches even if not in current page
+                    const allStaffRecords = await getAllStaff();
+                    const staffToPromote = allStaffRecords.filter(s => promotedFileNos.includes(s.fileno));
+
+                    if (staffToPromote.length === 0) {
+                        setAlertModal({
+                            isOpen: true,
+                            title: 'Promotion Error',
+                            message: 'No matching staff found for the provided file numbers.',
+                            type: 'error'
+                        });
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Loop and update
+                    for (const staff of staffToPromote) {
+                        const newConr = promoteGrade(staff.conr);
+                        if (newConr !== staff.conr) {
+                            try {
+                                // Spread the original staff object to ensure all required fields (like fileno, full_name) are sent
+                                // and only override the conr Grade.
+                                const { id, created_at, updated_at, created_by, updated_by, ...updateData } = staff;
+                                await updateStaff(staff.id, { ...updateData, conr: newConr });
+                                successCount++;
+                            } catch (err) {
+                                console.error(`Failed to promote staff ${staff.fileno}`, err);
+                                failedCount++;
+                            }
+                        } else {
+                            // Grade couldn't be parsed or no change
+                            successCount++;
+                        }
+                    }
+
+                    setAlertModal({
+                        isOpen: true,
+                        title: 'Promotion Complete',
+                        message: `Successfully processed ${staffToPromote.length} staff records. ${successCount} updated, ${failedCount} failed. ${promotedFileNos.length - staffToPromote.length} file numbers were not found in database.`,
+                        type: 'success'
+                    });
+
+                    fetchData();
+                    fetchAllStaff();
+                    setPromotedFileNos([]); // Clear memory
+                } catch (error) {
+                    console.error('Promotion process failed', error);
+                    setAlertModal({
+                        isOpen: true,
+                        title: 'Process Error',
+                        message: 'An error occurred during the promotion process.',
+                        type: 'error'
+                    });
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -471,6 +612,33 @@ const SDLPage: React.FC = () => {
                         onChange={handleFileUpload}
                         style={{ display: 'none' }}
                     />
+                    <input
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        ref={promoFileInputRef}
+                        onChange={handlePromoFileUpload}
+                        style={{ display: 'none' }}
+                    />
+                    <button
+                        onClick={() => promoFileInputRef.current?.click()}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-blue-600 dark:from-indigo-400 dark:to-blue-500 group-hover:scale-110 transition-transform text-lg">list_alt</span>
+                        Promote CSV
+                    </button>
+
+                    {promotedFileNos.length > 0 && (
+                        <button
+                            onClick={handlePromote}
+                            disabled={loading}
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 animate-pulse"
+                        >
+                            <span className="material-symbols-outlined group-hover:rotate-12 transition-transform text-lg">trending_up</span>
+                            Run Promotion ({promotedFileNos.length})
+                        </button>
+                    )}
+
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-emerald-600 dark:text-emerald-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200"

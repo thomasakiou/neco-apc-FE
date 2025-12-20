@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
 import { getStateList, deleteState, createState, updateState, uploadStateCsv, getAllStates, bulkDeleteStates, getMarkingVenuesByState, getCustodiansByState, getSchoolsByState, getSSCECustodiansByState, getBECECustodiansByState, getMarkingVenuesByStateName, getSchoolsByStateName, getNCEECentersByStateName } from '../../services/state';
 import { State, StateCreate, MarkingVenue, Custodian, School } from '../../types/state';
@@ -6,15 +7,14 @@ import StateModal from './StateModal';
 import AlertModal from '../../components/AlertModal';
 
 const StateManagement: React.FC = () => {
-    const [stateList, setStateList] = useState<State[]>([]);
-    const [allStates, setAllStates] = useState<State[]>([]);
     const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [sortField, setSortField] = useState<keyof State | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [allStates, setAllStates] = useState<State[]>([]);
     const [selectedStateCode, setSelectedStateCode] = useState('All');
     const [selectedStateName, setSelectedStateName] = useState('All');
     const [selectedZone, setSelectedZone] = useState('All');
@@ -28,43 +28,66 @@ const StateManagement: React.FC = () => {
         }
     }>({});
 
-    const uniqueStateCodes = Array.from(new Set(allStates.map(s => s.state_code).filter(Boolean))) as string[];
-    const uniqueStateNames = Array.from(new Set(allStates.map(s => s.name).filter(Boolean))) as string[];
-    const uniqueZones = Array.from(new Set(allStates.map(s => s.zone).filter(Boolean))) as string[];
+    const uniqueStateCodes = useMemo(() => Array.from(new Set(allStates.map(s => s.state_code).filter(Boolean))) as string[], [allStates]);
+    const uniqueStateNames = useMemo(() => Array.from(new Set(allStates.map(s => s.name).filter(Boolean))) as string[], [allStates]);
+    const uniqueZones = useMemo(() => Array.from(new Set(allStates.map(s => s.zone).filter(Boolean))) as string[], [allStates]);
 
-    const hasActiveFilters = selectedStateCode !== 'All' || selectedStateName !== 'All' || selectedZone !== 'All';
+    const filteredStates = useMemo(() => {
+        let result = allStates;
 
-    const filteredStates = stateList.filter(state => {
-        const matchesCode = selectedStateCode === 'All' || state.state_code === selectedStateCode;
-        const matchesName = selectedStateName === 'All' || state.name === selectedStateName;
-        const matchesZone = selectedZone === 'All' || state.zone === selectedZone;
-        return matchesCode && matchesName && matchesZone;
-    });
-
-    const sortedStates = [...filteredStates].sort((a, b) => {
-        if (!sortField) return 0;
-
-        const aValue = a[sortField];
-        const bValue = b[sortField];
-
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-            const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
-            return sortDirection === 'asc' ? comparison : -comparison;
+        // Search Filter
+        if (debouncedSearchTerm) {
+            const lowerTerm = debouncedSearchTerm.toLowerCase().trim();
+            result = result.filter(state =>
+                state.name?.toLowerCase().includes(lowerTerm) ||
+                state.state_code?.toLowerCase().includes(lowerTerm) ||
+                state.capital?.toLowerCase().includes(lowerTerm) ||
+                state.zone?.toLowerCase().includes(lowerTerm)
+            );
         }
 
-        const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-        return sortDirection === 'asc' ? comparison : -comparison;
-    });
+        // Dropdown Filters
+        if (selectedStateCode !== 'All') {
+            result = result.filter(state => state.state_code === selectedStateCode);
+        }
+        if (selectedStateName !== 'All') {
+            result = result.filter(state => state.name === selectedStateName);
+        }
+        if (selectedZone !== 'All') {
+            result = result.filter(state => state.zone === selectedZone);
+        }
 
-    const allFilteredStates = allStates.filter(state => {
-        const matchesCode = selectedStateCode === 'All' || state.state_code === selectedStateCode;
-        const matchesName = selectedStateName === 'All' || state.name === selectedStateName;
-        const matchesZone = selectedZone === 'All' || state.zone === selectedZone;
-        return matchesCode && matchesName && matchesZone;
-    });
+        // SORT LOGIC
+        if (sortField) {
+            result = [...result].sort((a, b) => {
+                const aValue = a[sortField];
+                const bValue = b[sortField];
+
+                if (aValue === null || aValue === undefined) return 1;
+                if (bValue === null || bValue === undefined) return -1;
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                }
+
+                const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return result;
+    }, [allStates, debouncedSearchTerm, selectedStateCode, selectedStateName, selectedZone, sortField, sortDirection]);
+
+    const total = filteredStates.length;
+
+    const paginatedStates = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredStates.slice(startIndex, startIndex + limit);
+    }, [filteredStates, page, limit]);
+
+    // For bulk actions selection
+    const allFilteredStates = filteredStates;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingState, setEditingState] = useState<State | null>(null);
@@ -102,7 +125,6 @@ const StateManagement: React.FC = () => {
                     errorData: response.errors || []
                 }
             });
-            fetchData();
             fetchAllStates();
         } catch (error: any) {
             console.error('Upload failed:', error);
@@ -122,61 +144,34 @@ const StateManagement: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchTerm]);
+    }, [debouncedSearchTerm, selectedStateCode, selectedStateName, selectedZone]);
 
-    useEffect(() => {
-        setPage(1);
-    }, [selectedStateCode, selectedStateName, selectedZone]);
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            if (hasActiveFilters) {
-                const allData = await getAllStates();
-                const filtered = allData.filter(state => {
-                    const matchesSearch = !searchTerm ||
-                        state.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        state.state_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        state.capital?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        state.zone?.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesCode = selectedStateCode === 'All' || state.state_code === selectedStateCode;
-                    const matchesName = selectedStateName === 'All' || state.name === selectedStateName;
-                    const matchesZone = selectedZone === 'All' || state.zone === selectedZone;
-                    return matchesSearch && matchesCode && matchesName && matchesZone;
-                });
-
-                const startIndex = (page - 1) * limit;
-                const endIndex = startIndex + limit;
-                setStateList(filtered.slice(startIndex, endIndex));
-                setTotal(filtered.length);
-            } else {
-                const response = await getStateList(page, limit, searchTerm);
-                setStateList(response.items);
-                setTotal(response.total);
+    const handleSort = useCallback((field: keyof State) => {
+        setSortField(prev => {
+            if (prev === field) {
+                setSortDirection(d => (d === 'asc' ? 'desc' : 'asc'));
+                return field;
             }
-        } catch (error) {
-            console.error('Error fetching states:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+            setSortDirection('asc');
+            return field;
+        });
+    }, []);
 
-    const fetchAllStates = async () => {
+    const fetchAllStates = useCallback(async () => {
+        setLoading(true);
         try {
             const data = await getAllStates();
             setAllStates(Array.isArray(data) ? data : []);
-        } catch (error) {
-            console.error('Error fetching all states:', error);
+        } catch (e) {
+            console.error("Failed to load states", e);
+        } finally {
+            setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, [page, searchTerm, limit, selectedStateCode, selectedStateName, selectedZone]);
+    }, []);
 
     useEffect(() => {
         fetchAllStates();
-    }, []);
+    }, [fetchAllStates]);
 
     const handleDelete = async (id: string) => {
         setAlertModal({
@@ -187,7 +182,6 @@ const StateManagement: React.FC = () => {
             onConfirm: async () => {
                 try {
                     await deleteState(id);
-                    fetchData();
                     fetchAllStates();
                     setAlertModal({
                         isOpen: true,
@@ -208,24 +202,23 @@ const StateManagement: React.FC = () => {
         });
     };
 
-    const handleEdit = (state: State) => {
+    const handleEdit = useCallback((state: State) => {
         setEditingState(state);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleAdd = () => {
+    const handleAdd = useCallback(() => {
         setEditingState(null);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleModalSubmit = async (data: StateCreate) => {
+    const handleModalSubmit = useCallback(async (data: StateCreate) => {
         try {
             if (editingState) {
                 await updateState(editingState.id, data);
             } else {
                 await createState(data);
             }
-            fetchData();
             fetchAllStates();
             setIsModalOpen(false);
         } catch (error) {
@@ -238,44 +231,34 @@ const StateManagement: React.FC = () => {
             });
             throw error;
         }
-    };
+    }, [editingState, fetchAllStates]);
 
-    const handleSelectAll = (checked: boolean) => {
+    const handleSelectAll = useCallback((checked: boolean) => {
         if (checked) {
-            const allIds = new Set(allFilteredStates.map(s => s.id));
+            const allIds = new Set(filteredStates.map(s => s.id));
             setSelectedIds(allIds);
         } else {
             setSelectedIds(new Set());
         }
-    };
+    }, [filteredStates]);
 
-    const handleSelectOne = (id: string, checked: boolean) => {
-        const newSelected = new Set(selectedIds);
-        if (checked) {
-            newSelected.add(id);
-        } else {
-            newSelected.delete(id);
-        }
-        setSelectedIds(newSelected);
-    };
+    const handleSelectOne = useCallback((id: string, checked: boolean) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    }, []);
 
-    const handleSort = (field: keyof State) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
-        }
-    };
-
-    const toggleRowExpansion = async (stateId: string) => {
+    const toggleRowExpansion = useCallback(async (stateId: string) => {
         const newExpanded = new Set(expandedRows);
         if (newExpanded.has(stateId)) {
             newExpanded.delete(stateId);
         } else {
             newExpanded.add(stateId);
             // Load related data if not already loaded
-            if (!relatedData[stateId]) {
+            if (!relatedData[stateId] || (!relatedData[stateId].ssceCustodians && !relatedData[stateId].beceCustodians)) {
                 setRelatedData(prev => ({ ...prev, [stateId]: { loading: true } }));
                 try {
                     const state = allStates.find(s => s.id === stateId);
@@ -307,12 +290,12 @@ const StateManagement: React.FC = () => {
             }
         }
         setExpandedRows(newExpanded);
-    };
+    }, [expandedRows, allStates, relatedData]);
 
     const totalPages = Math.ceil(total / limit);
     const isAllSelected = allFilteredStates.length > 0 && allFilteredStates.every(s => selectedIds.has(s.id));
 
-    const downloadCsvTemplate = () => {
+    const downloadCsvTemplate = useCallback(() => {
         const headers = ['state_code', 'name', 'capital', 'zone', 'mkv_count', 'schools_count', 'custodians_count'];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
@@ -322,9 +305,9 @@ const StateManagement: React.FC = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    };
+    }, []);
 
-    const handleBulkDelete = () => {
+    const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) {
             setAlertModal({
                 isOpen: true,
@@ -344,7 +327,6 @@ const StateManagement: React.FC = () => {
                 try {
                     await bulkDeleteStates(Array.from(selectedIds));
                     setSelectedIds(new Set());
-                    fetchData();
                     fetchAllStates();
                     setAlertModal({
                         isOpen: true,
@@ -363,7 +345,7 @@ const StateManagement: React.FC = () => {
                 }
             }
         });
-    };
+    }, [selectedIds, fetchAllStates]);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
@@ -522,7 +504,7 @@ const StateManagement: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
-                                    {filteredStates.length === 0 ? (
+                                    {paginatedStates.length === 0 ? (
                                         <tr>
                                             <td colSpan={9} className="p-10 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
@@ -535,7 +517,7 @@ const StateManagement: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        sortedStates.map((state) => (
+                                        paginatedStates.map((state) => (
                                             <StateRow
                                                 key={state.id}
                                                 state={state}
@@ -601,7 +583,7 @@ const StateManagement: React.FC = () => {
     );
 };
 
-const SortableHeader = ({
+const SortableHeader = React.memo(({
     field,
     label,
     sortField,
@@ -632,9 +614,9 @@ const SortableHeader = ({
             </div>
         </th>
     );
-};
+});
 
-const FilterSelect = ({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (val: string) => void }) => (
+const FilterSelect = React.memo(({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (val: string) => void }) => (
     <div className="relative min-w-[200px]">
         <select
             value={value}
@@ -646,9 +628,24 @@ const FilterSelect = ({ label, value, options, onChange }: { label: string; valu
         </select>
         <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">arrow_drop_down</span>
     </div>
-);
+));
 
-const StateRow = ({
+interface StateRowProps {
+    state: State;
+    onEdit: (state: State) => void;
+    onDelete: (id: string) => void | Promise<void>;
+    isSelected: boolean;
+    onSelect: (id: string, checked: boolean) => void;
+    isExpanded: boolean;
+    onToggleExpand: (id: string) => void | Promise<void>;
+    relatedData?: {
+        ssceCustodians?: any[];
+        beceCustodians?: any[];
+        loading?: boolean;
+    };
+}
+
+const StateRow = React.memo<StateRowProps>(({
     state,
     onEdit,
     onDelete,
@@ -657,23 +654,10 @@ const StateRow = ({
     isExpanded,
     onToggleExpand,
     relatedData
-}: {
-    state: State;
-    onEdit: (state: State) => void;
-    onDelete: (id: string) => void;
-    isSelected: boolean;
-    onSelect: (id: string, checked: boolean) => void;
-    isExpanded: boolean;
-    onToggleExpand: (id: string) => void;
-    relatedData?: {
-        ssceCustodians?: any[];
-        beceCustodians?: any[];
-        loading?: boolean;
-    };
 }) => {
     const navigate = useNavigate();
     return (
-        <>
+        <React.Fragment>
             <tr className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                 <td className="p-4">
                     <button
@@ -791,57 +775,8 @@ const StateRow = ({
                     </td>
                 </tr>
             )}
-        </>
+        </React.Fragment>
     );
-};
-
-const CustodianSection = ({ state, relatedData }: { state: State; relatedData?: { custodians?: Custodian[]; loading?: boolean } }) => {
-    const navigate = useNavigate();
-
-    const handleSSCEClick = () => {
-        navigate(`/admin/ssce-custodians?state=${encodeURIComponent(state.name)}`);
-    };
-
-    const handleBECEClick = () => {
-        navigate(`/admin/bece-custodians?state=${encodeURIComponent(state.name)}`);
-    };
-
-    return (
-        <div className="bg-white dark:bg-[#0b1015] rounded-lg border border-amber-200 dark:border-amber-900/40 p-4">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-lg">lock</span>
-                    Custodians ({relatedData?.custodians?.length || 0})
-                </h3>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleSSCEClick}
-                        className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors font-bold"
-                        title="View SSCE Custodians for this state"
-                    >
-                        SSCE
-                    </button>
-                    <button
-                        onClick={handleBECEClick}
-                        className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors font-bold"
-                        title="View BECE Custodians for this state"
-                    >
-                        BECE
-                    </button>
-                </div>
-            </div>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-                {relatedData?.custodians?.map(custodian => (
-                    <div key={custodian.id} className="text-xs p-2 bg-amber-50 dark:bg-amber-900/10 rounded border border-amber-100 dark:border-amber-900/20">
-                        <div className="font-bold text-amber-900 dark:text-amber-200">{custodian.name}</div>
-                        {custodian.code && <div className="text-amber-600 dark:text-amber-400">Code: {custodian.code}</div>}
-                        {custodian.address && <div className="text-amber-600 dark:text-amber-400 truncate">{custodian.address}</div>}
-                        <div className="text-amber-600 dark:text-amber-400">Schools: {custodian.schools}</div>
-                    </div>
-                )) || <p className="text-xs text-slate-400">No custodians</p>}
-            </div>
-        </div>
-    );
-};
+});
 
 export default StateManagement;

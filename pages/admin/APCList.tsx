@@ -1,25 +1,29 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { APCRecord, APCCreate, APCUpdate } from '../../types/apc';
 import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, bulkDeleteAPC, getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
+import { getAllPostingRecords, updatePosting } from '../../services/posting';
+import { PostingResponse } from '../../types/posting';
 import { assignmentFieldMap } from '../../services/personalizedPost';
 import { Assignment } from '../../types/assignment';
 import AlertModal from '../../components/AlertModal';
 import * as XLSX from 'xlsx';
 
 const APCList: React.FC = () => {
-    const [records, setRecords] = useState<APCRecord[]>([]);
     const [allRecords, setAllRecords] = useState<APCRecord[]>([]);
+    const [allPostings, setAllPostings] = useState<PostingResponse[]>([]);
     const [loading, setLoading] = useState(true);
     // Search and Filter States
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
-    const [total, setTotal] = useState(0);
 
     // Sorting State
     const [sortField, setSortField] = useState<keyof APCRecord | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+
+    const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>([]);
 
     // Filters
     const [searchFileNo, setSearchFileNo] = useState('');
@@ -28,10 +32,10 @@ const APCList: React.FC = () => {
     const [filterStation, setFilterStation] = useState('');
     const [filterAssignment, setFilterAssignment] = useState('');
 
-    // Unique options for dropdowns
-    const [conraissOptions, setConraissOptions] = useState<string[]>([]);
-    const [stationOptions, setStationOptions] = useState<string[]>([]);
-    const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>([]);
+    // Debounced search
+    const debouncedSearchFileNo = useDebounce(searchFileNo, 300);
+    const debouncedSearchName = useDebounce(searchName, 300);
+    const debouncedFilterStation = useDebounce(filterStation, 300);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
@@ -49,20 +53,130 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchFileNo, searchName, filterConraiss, filterStation, filterAssignment]);
+    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment]);
 
-    useEffect(() => {
-        fetchData();
-    }, [page, limit, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, sortField, sortDirection]);
+    const filteredRecords = useMemo(() => {
+        let result = [...allRecords];
 
-    const handleSort = (field: keyof APCRecord) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
+        // FILTER LOGIC
+        if (debouncedSearchFileNo) {
+            const lowerFileNo = debouncedSearchFileNo.toLowerCase().trim();
+            result = result.filter(record => record.file_no.toLowerCase().includes(lowerFileNo));
         }
-    };
+        if (debouncedSearchName) {
+            const lowerName = debouncedSearchName.toLowerCase().trim();
+            result = result.filter(record => record.name.toLowerCase().includes(lowerName));
+        }
+        if (filterConraiss) {
+            result = result.filter(record => record.conraiss === filterConraiss);
+        }
+        if (debouncedFilterStation) {
+            const lowerStation = debouncedFilterStation.toLowerCase().trim();
+            result = result.filter(record => record.station && record.station.toLowerCase().includes(lowerStation));
+        }
+
+        if (filterAssignment) {
+            const fieldName = assignmentFieldMap[filterAssignment];
+            if (fieldName) {
+                result = result.filter(record => {
+                    const val = record[fieldName as keyof APCRecord];
+                    return !!(val && val.toString().trim() !== '');
+                });
+            }
+        }
+
+        // SORT LOGIC
+        if (sortField) {
+            result.sort((a, b) => {
+                const aValue = a[sortField];
+                const bValue = b[sortField];
+
+                if (aValue === bValue) return 0;
+                if (aValue === undefined || aValue === null) return 1;
+                if (bValue === undefined || bValue === null) return -1;
+
+                const compareResult = aValue < bValue ? -1 : 1;
+                return sortDirection === 'asc' ? compareResult : -compareResult;
+            });
+        }
+
+        return result;
+    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, sortField, sortDirection]);
+
+    const total = filteredRecords.length;
+
+    const records = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredRecords.slice(startIndex, startIndex + limit);
+    }, [filteredRecords, page, limit]);
+
+    // Update dropdown options based on allRecords
+    const conraissOptions = useMemo(() => {
+        return Array.from(new Set(allRecords.map(r => r.conraiss).filter(Boolean))).sort() as string[];
+    }, [allRecords]);
+
+    const stationOptions = useMemo(() => {
+        return Array.from(new Set(allRecords.map(r => r.station).filter(Boolean))).sort() as string[];
+    }, [allRecords]);
+
+    const fetchAllRecords = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [all, postingsData] = await Promise.all([
+                getAllAPCRecords(false, true),
+                getAllPostingRecords(true)
+            ]);
+            setAllRecords(all);
+            setAllPostings(postingsData);
+        } catch (error) {
+            console.error('Error fetching all records:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Error',
+                message: 'Failed to fetch records. Please try again.',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const toggleRow = useCallback((id: string) => {
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+
+    const handleSelectAll = useCallback((checked: boolean) => {
+        if (checked) {
+            setSelectedIds(new Set(allRecords.map(r => r.id)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    }, [allRecords]);
+
+    const handleSelectOne = useCallback((id: string, checked: boolean) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    }, []);
+
+    const handleSort = useCallback((field: keyof APCRecord) => {
+        setSortField(prevField => {
+            if (prevField === field) {
+                setSortDirection(prevDir => (prevDir === 'asc' ? 'desc' : 'asc'));
+                return field;
+            }
+            setSortDirection('asc');
+            return field;
+        });
+    }, []);
 
     useEffect(() => {
         const loadAssignments = async () => {
@@ -74,166 +188,10 @@ const APCList: React.FC = () => {
             }
         };
         loadAssignments();
-    }, []);
-
-    useEffect(() => {
         fetchAllRecords();
-    }, []);
+    }, [fetchAllRecords]);
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            // For now, we are filtering locally because the API `getAllAPC` takes a single search string.
-            // In a real app with backend support, we would pass these individual filters.
-            // We fetch a larger set or use the single search if applicable, but here we'll filter on client for precise control.
-
-            // Note: If you have server-side search, you should update getAllAPC to accept more params.
-            // Assuming we fetch a page based on limit, but client filtering requires fetching more or relying on backend.
-            // Let's assume we use the search param for a generic fallback or just fetch page.
-
-            // To properly filter locally with pagination, we ideally need ALL records or backend filtering.
-            // Current `getAllAPC` implementation uses simple string search.
-            // Let's stick to the current pattern: fetch and filter.
-
-            const response = await getAllAPC((page - 1) * limit, limit, '');
-            let filteredRecords = response.items;
-
-            // Wait - if we filter locally, we need to apply filters on the full dataset or the current page?
-            // Local filtering on paginated result is bad UX (only filters current page).
-            // However, modifying the backend is out of scope unless requested.
-            // Given the requirement "make the search area ... search the table",
-            // I will use getAllAPCRecords (which fetches ALL) to do client side filtering properly found in fetchAllRecords?
-            // Actually `allRecords` variable might already have them if initialized.
-
-            // Optimization: If total count is small enough (<10k), we can load all client side.
-            // Check `fetchAllRecords` usage. It is called on mount.
-
-            // Let's use `allRecords` for filtering if available, otherwise fetch.
-            // But `allRecords` is async. Let's rely on standard fetch flow but maybe fetch more?
-            // Actually, let's look at `allRecords` state.
-
-            // The user wants efficient search.
-            // Let's apply filters on the `allRecords` state if it's populated, to simulate "searching the table".
-
-            let targetRecords = allRecords.length > 0 ? allRecords : filteredRecords;
-            // If allRecords is empty (initial load), we might depend on response.items, but that's just a slice.
-            // Let's trust `allRecords` is being populated or we trigger it.
-
-            if (allRecords.length === 0) {
-                // Fallback if allRecords not yet loaded
-                // This effectively means search only works on current page until all load
-            }
-
-            // FILTER LOGIC
-            let result = targetRecords.filter(record => {
-                const matchFileNo = record.file_no.toLowerCase().includes(searchFileNo.toLowerCase().trim());
-                const matchName = record.name.toLowerCase().includes(searchName.toLowerCase().trim());
-                const matchConraiss = filterConraiss ? record.conraiss === filterConraiss : true;
-                const matchStation = filterStation ? record.station === filterStation : true;
-
-                let matchAssignment = true;
-                if (filterAssignment) {
-                    const fieldName = assignmentFieldMap[filterAssignment];
-                    if (fieldName) {
-                        const val = record[fieldName as keyof APCRecord];
-                        matchAssignment = !!(val && val.toString().trim() !== '');
-                    }
-                }
-
-                return matchFileNo && matchName && matchConraiss && matchStation && matchAssignment;
-            });
-
-            // SORT LOGIC
-            if (sortField) {
-                result.sort((a, b) => {
-                    const aValue = a[sortField];
-                    const bValue = b[sortField];
-
-                    if (aValue === bValue) return 0;
-                    if (aValue === undefined || aValue === null) return 1;
-                    if (bValue === undefined || bValue === null) return -1;
-
-                    const compareResult = aValue < bValue ? -1 : 1;
-                    return sortDirection === 'asc' ? compareResult : -compareResult;
-                });
-            }
-
-            setTotal(result.length);
-
-            // Pagination logic on client filtered result
-            const startIndex = (page - 1) * limit;
-            const paginatedResult = result.slice(startIndex, startIndex + limit);
-
-            setRecords(paginatedResult);
-
-            // Extract options for dropdowns from full dataset
-            if (targetRecords.length > 0) {
-                const uniqueConraiss = Array.from(new Set(targetRecords.map(r => r.conraiss).filter(Boolean))) as string[];
-                const uniqueStation = Array.from(new Set(targetRecords.map(r => r.station).filter(Boolean))) as string[];
-                // Sort
-                setConraissOptions(uniqueConraiss.sort());
-                setStationOptions(uniqueStation.sort());
-            }
-
-        } catch (error) {
-            console.error("Failed to fetch APC records", error);
-            setAlertModal({
-                isOpen: true,
-                title: 'Error',
-                message: 'Failed to fetch APC records. Please try again.',
-                type: 'error'
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Need to trigger re-fetch when allRecords updates
-    useEffect(() => {
-        if (allRecords.length > 0) {
-            fetchData();
-        }
-    }, [allRecords]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const fetchAllRecords = async () => {
-        try {
-            const all = await getAllAPCRecords();
-            setAllRecords(all);
-        } catch (error) {
-            console.error('Error fetching all APC records:', error);
-        }
-    };
-
-    const toggleRow = (id: string) => {
-        const newExpanded = new Set(expandedRows);
-        if (newExpanded.has(id)) {
-            newExpanded.delete(id);
-        } else {
-            newExpanded.add(id);
-        }
-        setExpandedRows(newExpanded);
-    };
-
-    const handleSelectAll = (checked: boolean) => {
-        if (checked) {
-            const allIds = new Set(allRecords.map(r => r.id));
-            setSelectedIds(allIds);
-        } else {
-            setSelectedIds(new Set());
-        }
-    };
-
-    const handleSelectOne = (id: string, checked: boolean) => {
-        const newSelected = new Set(selectedIds);
-        if (checked) {
-            newSelected.add(id);
-        } else {
-            newSelected.delete(id);
-        }
-        setSelectedIds(newSelected);
-    };
-
-    const handleBulkDelete = () => {
+    const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) return;
 
         setAlertModal({
@@ -245,11 +203,6 @@ const APCList: React.FC = () => {
                 try {
                     setLoading(true);
                     await bulkDeleteAPC(Array.from(selectedIds));
-
-                    // Optimistic Update
-                    setRecords(prev => prev.filter(r => !selectedIds.has(r.id)));
-                    setAllRecords(prev => prev.filter(r => !selectedIds.has(r.id)));
-                    setTotal(prev => Math.max(0, prev - selectedIds.size));
 
                     setSelectedIds(new Set());
 
@@ -264,17 +217,13 @@ const APCList: React.FC = () => {
                 }
             }
         });
-    };
+    }, [selectedIds, fetchAllRecords]);
 
-    const handleExport = async () => {
+    const handleExport = useCallback(async () => {
         try {
             setLoading(true);
-            const allData = await getAllAPC(0, 100000, ''); // Export ignore filters? Or maybe apply them? 
-            // Better to export filtered result
-            // Let's allow exporting ALL by default or filtered if we want
-            // Implementation below exports ALL matches query, but query is now split.
+            const allData = await getAllAPC(0, 100000, '');
 
-            // Let's filter the export data same as table
             const filteredExport = allData.items.filter(record => {
                 const matchFileNo = record.file_no.toLowerCase().includes(searchFileNo.toLowerCase().trim());
                 const matchName = record.name.toLowerCase().includes(searchName.toLowerCase().trim());
@@ -332,9 +281,9 @@ const APCList: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchFileNo, searchName, filterConraiss, filterStation]);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -354,7 +303,6 @@ const APCList: React.FC = () => {
                     errorData: response.errors || []
                 }
             });
-            fetchData();
             fetchAllRecords();
         } catch (error: any) {
             console.error('Upload failed:', error);
@@ -370,14 +318,14 @@ const APCList: React.FC = () => {
             }
             setLoading(false);
         }
-    };
+    }, [fetchAllRecords]);
 
-    const handleEdit = (record: APCRecord) => {
+    const handleEdit = useCallback((record: APCRecord) => {
         setEditingRecord(record);
         setShowAddModal(true);
-    };
+    }, []);
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = useCallback(async (id: string) => {
         setAlertModal({
             isOpen: true,
             title: 'Confirm Delete',
@@ -387,11 +335,6 @@ const APCList: React.FC = () => {
                 try {
                     setLoading(true);
                     await deleteAPC(id);
-
-                    // Optimistic Update
-                    setRecords(prev => prev.filter(r => r.id !== id));
-                    setAllRecords(prev => prev.filter(r => r.id !== id));
-                    setTotal(prev => prev - 1);
 
                     // Background re-sync
                     fetchAllRecords();
@@ -415,7 +358,7 @@ const APCList: React.FC = () => {
                 }
             }
         });
-    };
+    }, [fetchAllRecords]);
 
     const downloadCsvTemplate = () => {
         const headers = [
@@ -733,15 +676,37 @@ const APCList: React.FC = () => {
                     setEditingRecord(null);
                 }}
                 onSubmit={async (data) => {
-                    if (editingRecord) {
-                        await updateAPC(editingRecord.id, data);
-                        setAlertModal({ isOpen: true, title: 'Success', message: 'APC record updated successfully.', type: 'success' });
-                    } else {
-                        await createAPC(data);
-                        setAlertModal({ isOpen: true, title: 'Success', message: 'APC record created successfully.', type: 'success' });
+                    try {
+                        if (editingRecord) {
+                            await updateAPC(editingRecord.id, data);
+
+                            // SYNC LOGIC: Fetch FRESH postings to ensure we have latest counts
+                            const currentPostings = await getAllPostingRecords(true);
+                            const normFileNo = data.file_no.toString().padStart(4, '0');
+                            const posting = currentPostings.find(p => p.file_no.toString().padStart(4, '0') === normFileNo);
+
+                            if (posting) {
+                                const newCount = Number(data.count || 0);
+                                const postedFor = posting.posted_for || 0;
+                                const newToBePosted = Math.max(0, newCount - postedFor);
+
+                                await updatePosting(posting.id, {
+                                    ...posting as any,
+                                    count: newCount,
+                                    posted_for: postedFor,
+                                    to_be_posted: newToBePosted
+                                });
+                            }
+                            setAlertModal({ isOpen: true, title: 'Success', message: 'APC record updated and posting synced successfully.', type: 'success' });
+                        } else {
+                            await createAPC(data);
+                            setAlertModal({ isOpen: true, title: 'Success', message: 'APC record created successfully.', type: 'success' });
+                        }
+                        fetchAllRecords();
+                    } catch (error: any) {
+                        console.error("Submit failed", error);
+                        setAlertModal({ isOpen: true, title: 'Error', message: `Failed to save record: ${error.message}`, type: 'error' });
                     }
-                    fetchData();
-                    fetchAllRecords();
                 }}
                 initialData={editingRecord}
             />
@@ -749,7 +714,7 @@ const APCList: React.FC = () => {
     );
 };
 
-const APCRow: React.FC<{
+const APCRow = React.memo<{
     record: APCRecord;
     isSelected: boolean;
     onSelect: (checked: boolean) => void;
@@ -757,7 +722,7 @@ const APCRow: React.FC<{
     onDelete: () => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
-}> = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand }) => {
+}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand }) => {
     return (
         <React.Fragment>
             <tr className={`group hover:bg-primary/[0.02] dark:hover:bg-slate-800/50 transition-colors duration-150 ${isExpanded ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}`}>
@@ -785,15 +750,15 @@ const APCRow: React.FC<{
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-200 font-bold text-sm ring-2 ring-white dark:ring-slate-800 shadow-sm">
                             {record.name.charAt(0)}
                         </div>
-                        <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{record.name}</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200 text-base">{record.name}</span>
                     </div>
                 </td>
                 <td className="px-4 py-4">
-                    <span className="inline-flex px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700">
+                    <span className="inline-flex px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold border border-slate-200 dark:border-slate-700">
                         {record.conraiss || '-'}
                     </span>
                 </td>
-                <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-sm">{record.station || '-'}</td>
+                <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-base">{record.station || '-'}</td>
                 <td className="px-4 py-4 text-center">
                     <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${record.active
                         ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
@@ -899,7 +864,7 @@ const APCRow: React.FC<{
             )}
         </React.Fragment>
     );
-}
+});
 
 const ActionBtn = ({ icon, isDanger, onClick, tooltip }: { icon: string; isDanger?: boolean; onClick?: () => void; tooltip?: string }) => (
     <button
@@ -1114,7 +1079,7 @@ const APCModal: React.FC<{
     );
 };
 
-const FloatingInput = ({ label, type = "text", value, ...props }: any) => (
+const FloatingInput = React.memo(({ label, type = "text", value, ...props }: any) => (
     <div className="relative group">
         <input
             type={type}
@@ -1127,9 +1092,9 @@ const FloatingInput = ({ label, type = "text", value, ...props }: any) => (
             {label}
         </label>
     </div>
-);
+));
 
-const SelectInput = ({ label, options, ...props }: any) => (
+const SelectInput = React.memo(({ label, options, ...props }: any) => (
     <div className="relative group">
         <select
             {...props}
@@ -1143,11 +1108,11 @@ const SelectInput = ({ label, options, ...props }: any) => (
         </label>
         <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none">expand_more</span>
     </div>
-);
+));
 
-const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any) => (
+const SortableHeader = React.memo(({ field, label, sortField, sortDirection, onSort }: any) => (
     <th
-        className="px-4 py-3 cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+        className="px-4 py-3 cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors text-sm font-bold uppercase tracking-wider"
         onClick={() => onSort(field)}
     >
         <div className="flex items-center gap-2">
@@ -1158,6 +1123,6 @@ const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any)
             </div>
         </div>
     </th>
-);
+));
 
 export default APCList;

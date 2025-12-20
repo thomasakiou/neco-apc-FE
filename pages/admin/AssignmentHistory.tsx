@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import * as XLSX from 'xlsx';
 import { getAllPostingRecords } from '../../services/posting';
 import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
+import { getAllStates } from '../../services/state';
 import { APCRecord } from '../../types/apc';
 import { useNotification } from '../../context/NotificationContext';
 import { PostingResponse } from '../../types/posting';
@@ -12,32 +14,92 @@ import { Mandate } from '../../types/mandate';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+interface FlatPostingRow {
+    uniqueId: string; // composite of id + index
+    originalId: string;
+    file_no: string;
+    name: string;
+    station: string;
+    conraiss: string;
+    sex: string;
+    assignment: string;
+    mandate: string;
+    venue: string;
+    posting: string;
+    state: string;
+    count: number;
+    year: string;
+    posted_for: any;
+    to_be_posted: any;
+}
+
+interface ReportField {
+    id: string;
+    label: string;
+    accessor: (row: FlatPostingRow) => any;
+    default: boolean;
+    pdfWidth?: number | 'auto';
+}
+
+const formatVenueName = (venue: string | null | undefined): string => {
+    if (!venue) return '-';
+    if (venue === 'Returned') return venue;
+    const parts = venue.split('-').map(p => p.trim());
+    return parts.length > 0 ? parts[parts.length - 1] : venue;
+};
+
+const REPORT_FIELDS: ReportField[] = [
+    { id: 'file_no', label: 'FILE NO', accessor: r => r.file_no, default: true, pdfWidth: 25 },
+    { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 65 },
+    { id: 'sex', label: 'SEX', accessor: r => r.sex || '-', default: false, pdfWidth: 15 },
+    { id: 'station', label: 'STATION', accessor: r => r.station, default: true, pdfWidth: 35 },
+    { id: 'conraiss', label: 'CONR', accessor: r => r.conraiss, default: true, pdfWidth: 20 },
+    { id: 'qualification', label: 'QUALIFICATION', accessor: r => '', default: false, pdfWidth: 40 }, // Populated via APC lookup
+    { id: 'mandate', label: 'MANDATE', accessor: r => r.mandate, default: true, pdfWidth: 40 },
+    { id: 'assignment', label: 'ASSIGNMENT', accessor: r => r.assignment, default: true, pdfWidth: 40 },
+    { id: 'venue', label: 'VENUE', accessor: r => formatVenueName(r.venue), default: true, pdfWidth: 40 },
+    { id: 'count', label: 'NIGHTS', accessor: r => r.count, default: false, pdfWidth: 20 },
+    { id: 'year', label: 'YEAR', accessor: r => r.year, default: false, pdfWidth: 20 },
+    { id: 'state', label: 'STATE', accessor: r => r.state, default: false, pdfWidth: 30 },
+    { id: 'posting', label: 'POSTING', accessor: r => r.posting, default: false, pdfWidth: 30 }
+];
+
 const GeneratePage: React.FC = () => {
     const { success, error } = useNotification();
-    const [postings, setPostings] = useState<PostingResponse[]>([]);
-    const [filteredPostings, setFilteredPostings] = useState<PostingResponse[]>([]);
-    const [paginatedPostings, setPaginatedPostings] = useState<PostingResponse[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Filters
     const [assignments, setAssignments] = useState<Assignment[]>([]);
 
     const [mandates, setMandates] = useState<Mandate[]>([]);
+    const [states, setStates] = useState<any[]>([]);
     const [apcRecords, setApcRecords] = useState<APCRecord[]>([]);
 
     const [filterAssignment, setFilterAssignment] = useState('');
     const [filterMandate, setFilterMandate] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
     // Pagination
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
-    const [total, setTotal] = useState(0);
+    const [allFlatRows, setAllFlatRows] = useState<FlatPostingRow[]>([]); // Store all flattened rows
 
     // Report Customization
     const [reportTitle1, setReportTitle1] = useState('');
 
     const [reportTitle2, setReportTitle2] = useState('');
     const [reportTemplate, setReportTemplate] = useState('SSCE');
+
+    // Dynamic Fields
+    const [selectedFieldIds, setSelectedFieldIds] = useState<Set<string>>(
+        new Set(REPORT_FIELDS.filter(f => f.default).map(f => f.id))
+    );
+    const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+    const activeFields = useMemo(() =>
+        REPORT_FIELDS.filter(f => selectedFieldIds.has(f.id)),
+        [selectedFieldIds]);
 
     useEffect(() => {
         fetchInitialData();
@@ -46,22 +108,24 @@ const GeneratePage: React.FC = () => {
     const fetchInitialData = async () => {
         try {
             setLoading(true);
-            const [postingsData, assignmentsData, mandatesData, activeAPC] = await Promise.all([
+            const [postingsData, assignmentsData, mandatesData, activeAPC, statesData] = await Promise.all([
                 getAllPostingRecords(),
                 getAllAssignments(),
                 getAllMandates(),
-                getAllAPCRecords(true)
+                getAllAPCRecords(true),
+                getAllStates()
             ]);
 
             const activeFileNos = new Set(activeAPC.map(a => a.file_no));
             const activePostings = postingsData.filter(p => activeFileNos.has(p.file_no));
 
-            setPostings(activePostings);
-            setFilteredPostings(activePostings);
-            setTotal(activePostings.length);
-            setAssignments(assignmentsData);
+            // FLATTEN DATA
+            const flattened = flattenPostings(activePostings, statesData);
 
+            setAllFlatRows(flattened);
+            setAssignments(assignmentsData);
             setMandates(mandatesData);
+            setStates(statesData);
             setApcRecords(activeAPC);
         } catch (error) {
             console.error("Failed to fetch data", error);
@@ -70,65 +134,139 @@ const GeneratePage: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        filterData();
-    }, [filterAssignment, filterMandate, postings]);
+    const filteredFlatRows = useMemo(() => {
+        let result = allFlatRows;
 
-    // Handle Pagination
-    useEffect(() => {
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        setPaginatedPostings(filteredPostings.slice(startIndex, endIndex));
-    }, [filteredPostings, page, limit]);
-
-    // Check 'page' validity when filtered count changes
-    useEffect(() => {
-        const maxPage = Math.ceil(filteredPostings.length / limit) || 1;
-        if (page > maxPage) setPage(maxPage);
-    }, [filteredPostings.length, limit]);
-
-    const filterData = () => {
-        let result = postings;
+        if (debouncedSearchQuery) {
+            const lowerQuery = debouncedSearchQuery.toLowerCase().trim();
+            result = result.filter(r =>
+                (r.name && r.name.toLowerCase().includes(lowerQuery)) ||
+                (r.file_no && r.file_no.toLowerCase().includes(lowerQuery)) ||
+                (r.station && r.station.toLowerCase().includes(lowerQuery))
+            );
+        }
 
         if (filterAssignment) {
-            result = result.filter(p =>
-                p.assignments?.some((a: any) => {
-                    const val = typeof a === 'string' ? a : a.name || a.code;
-                    // Ensure robust comparison (trim, optional case sensitivity if needed, but IDs are safer if avail)
-                    // For now, match string to string
-                    return val === filterAssignment;
-                })
-            );
+            result = result.filter(r => r.assignment === filterAssignment);
         }
 
         if (filterMandate) {
-            result = result.filter(p =>
-                p.mandates?.some((m: any) =>
-                    (typeof m === 'string' ? m : m.mandate || m.code) === filterMandate
-                )
-            );
+            result = result.filter(r => r.mandate === filterMandate);
         }
 
-        setFilteredPostings(result);
-        setTotal(result.length);
+        return result;
+    }, [allFlatRows, debouncedSearchQuery, filterAssignment, filterMandate]);
+
+    const total = filteredFlatRows.length;
+
+    const paginatedRows = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredFlatRows.slice(startIndex, startIndex + limit);
+    }, [filteredFlatRows, page, limit]);
+
+    // Check 'page' validity when filtered count changes
+    useEffect(() => {
+        const maxPage = Math.ceil(total / limit) || 1;
+        if (page > maxPage) setPage(maxPage);
+    }, [total, limit]);
+
+    const flattenPostings = (list: PostingResponse[], stateList: any[] = []): FlatPostingRow[] => {
+        const result: FlatPostingRow[] = [];
+        const stateNames = new Set(stateList.map(s => s.name.toUpperCase()));
+        list.forEach(p => {
+            // Determine the max length among the arrays to iterate
+            const assigns = p.assignments || [];
+            const mands = p.mandates || [];
+            const venues = p.assignment_venue || [];
+            const maxLen = Math.max(assigns.length, mands.length, venues.length, 1); // Ensure at least 1 row
+
+            for (let i = 0; i < maxLen; i++) {
+                const a = assigns[i];
+                const m = mands[i];
+                const v = venues[i];
+
+                const aName = typeof a === 'string' ? a : a?.name || a?.code || '';
+                const mName = typeof m === 'string' ? m : m?.mandate || m?.code || '';
+                const vName = typeof v === 'string' ? v : v?.name || v?.code || '';
+
+                // Extract State and Posting from Venue
+                let state = '';
+                let posting = vName;
+
+                if (vName.includes(' | ')) {
+                    const parts = vName.split(' | ').map(p => p.trim());
+                    // Format: (CODE) | POSTING | STATE
+                    if (parts.length === 3) {
+                        posting = parts[1];
+                        state = parts[2];
+                    } else if (parts.length === 2) {
+                        posting = parts[0];
+                        state = parts[1];
+                    }
+                } else if (vName.includes(' - ')) {
+                    const parts = vName.split(' - ').map(p => p.trim());
+                    if (parts.length === 3) {
+                        posting = parts[1];
+                        state = parts[2];
+                    } else if (parts.length === 2) {
+                        if (parts[0].startsWith('(')) {
+                            // Format: (CODE) - NAME
+                            // Check if NAME is a state
+                            const possibleName = parts[1];
+                            if (stateNames.has(possibleName.toUpperCase())) {
+                                posting = possibleName;
+                                state = possibleName;
+                            } else {
+                                posting = possibleName;
+                                state = '';
+                            }
+                        } else {
+                            posting = parts[0];
+                            state = parts[1];
+                        }
+                    }
+                } else {
+                    // Fallback for raw names
+                    if (stateNames.has(vName.toUpperCase())) {
+                        state = vName;
+                    }
+                }
+
+                result.push({
+                    uniqueId: `${p.id}_${i}`,
+                    originalId: p.id,
+                    file_no: p.file_no,
+                    name: p.name,
+                    station: p.station || '-',
+                    conraiss: p.conraiss || '-',
+                    sex: p.sex || '-',
+                    assignment: aName,
+                    mandate: mName,
+                    venue: formatVenueName(vName),
+                    posting: posting || '-',
+                    state: state || '-',
+                    count: p.count || 0,
+                    year: p.year || '-',
+                    posted_for: p.posted_for || 0,
+                    to_be_posted: p.to_be_posted || 0
+                });
+            }
+        });
+        return result;
     };
+
+
 
     const handleExport = (type: 'xlsx' | 'csv') => {
         try {
             setLoading(true);
-            const exportData = filteredPostings.map(record => ({
-                'File Number': record.file_no,
-                'Name': record.name,
-                'Station': record.station,
-                'CONRAISS': record.conraiss,
-                'Year': record.year,
-                'Count': record.count,
-                'Assignments': record.assignments?.map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', '),
-                'Mandates': record.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', '),
-                'Venue': record.assignment_venue?.map((v: any) => typeof v === 'string' ? v : v.name || v.code).join(', '),
-                'Posted For': record.posted_for,
-                'To Be Posted': record.to_be_posted
-            }));
+            const exportData = filteredFlatRows.map(record => {
+                const row: any = {};
+                activeFields.forEach(field => {
+                    row[field.label] = field.accessor(record);
+                });
+                return row;
+            });
 
             const ws = XLSX.utils.json_to_sheet(exportData);
             const fileName = `Report_${new Date().toISOString().split('T')[0]}.${type}`;
@@ -166,14 +304,24 @@ const GeneratePage: React.FC = () => {
             const width = doc.internal.pageSize.getWidth();
             const height = doc.internal.pageSize.getHeight();
 
-            // Load Logo
+            // Load Logo and Signature
             const logoUrl = '/images/neco.png';
-            const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
-                const img = new Image();
-                img.src = logoUrl;
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-            });
+            const signatureUrl = '/images/signature.png';
+
+            const [logoImg, signatureImg] = await Promise.all([
+                new Promise<HTMLImageElement>((resolve, reject) => {
+                    const img = new Image();
+                    img.src = logoUrl;
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                }),
+                new Promise<HTMLImageElement>((resolve, reject) => {
+                    const img = new Image();
+                    img.src = signatureUrl;
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                })
+            ]);
 
             // Template Configurations
             const getTemplateConfig = () => {
@@ -247,6 +395,16 @@ const GeneratePage: React.FC = () => {
 
                 // --- Signature ---
                 const signatureY = pageHeight - 20;
+
+                // Add actual signature image if available
+                if (signatureImg) {
+                    const sigWidth = 35;
+                    const sigAspectRatio = signatureImg.width / signatureImg.height;
+                    const sigH = sigWidth / sigAspectRatio;
+                    // Position it above the name with better spacing (8 units gap)
+                    doc.addImage(signatureImg, 'PNG', 15, signatureY - sigH - 8, sigWidth, sigH);
+                }
+
                 doc.setFontSize(11);
                 doc.setFont("helvetica", "bold");
                 doc.setTextColor(0);
@@ -272,15 +430,10 @@ const GeneratePage: React.FC = () => {
                 // Group by State (Venue)
                 const groupedByState: { [key: string]: any[] } = {};
                 // Create lookup for Qualification
-                const apcMap = new Map(apcRecords.map(a => [a.file_no, a]));
+                const apcMap = new Map<string, APCRecord>(apcRecords.map(a => [a.file_no, a] as [string, APCRecord]));
 
-                filteredPostings.forEach(post => {
-                    const venues = post.assignment_venue?.map((v: any) => {
-                        let name = typeof v === 'string' ? v : v.name;
-                        return name ? name.replace(/^\(\d+\)\s*-\s*/, '').trim() : '';
-                    }).join(', ') || 'UNKNOWN STATE';
-                    // Utilize the first venue as the state key if multiple (though likely one for accreditation)
-                    const stateKey = venues.split(',')[0].trim();
+                filteredFlatRows.forEach(post => {
+                    const stateKey = post.state || 'UNKNOWN STATE';
                     if (!groupedByState[stateKey]) groupedByState[stateKey] = [];
                     groupedByState[stateKey].push(post);
                 });
@@ -288,21 +441,19 @@ const GeneratePage: React.FC = () => {
                 const sortedStates = Object.keys(groupedByState).sort();
                 let currentY = 55; // Initial Start Y for first table
 
-                const accreditationColumns = ["S/N", "FILE NO", "NAME", "CONR", "STATION", "QUALIFICATION", "NUMBER OF NIGHTS"];
+                const accreditationColumns = activeFields.map(f => f.label);
+                if (!accreditationColumns.includes("S/N")) accreditationColumns.unshift("S/N");
 
                 for (const state of sortedStates) {
                     const stateRows = groupedByState[state].map((post, index) => {
                         const apc = apcMap.get(post.file_no);
-                        const qual = apc?.qualification || '-';
-                        return [
-                            index + 1,
-                            post.file_no,
-                            post.name,
-                            post.conraiss || '-',
-                            post.station,
-                            qual,
-                            post.count || '' // Number of Nights
-                        ];
+                        const rowData = activeFields.map(f => {
+                            if (f.id === 'qualification') {
+                                return apc?.qualification || '-';
+                            }
+                            return f.accessor(post);
+                        });
+                        return [index + 1, ...rowData];
                     });
 
                     // Check space for Title + Table Header (approx 20 + 20)
@@ -318,6 +469,15 @@ const GeneratePage: React.FC = () => {
                     doc.setTextColor(config.tableHeaderColor[0], config.tableHeaderColor[1], config.tableHeaderColor[2]);
                     doc.text(state.toUpperCase(), 15, currentY);
 
+                    // Generate dynamic column styles
+                    const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
+                    activeFields.forEach((f, i) => {
+                        colStyles[i + 1] = { cellWidth: f.pdfWidth || 'auto' };
+                        if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
+                            colStyles[i + 1].halign = 'center';
+                        }
+                    });
+
                     // Generate Table
                     autoTable(doc, {
                         head: [accreditationColumns],
@@ -325,17 +485,10 @@ const GeneratePage: React.FC = () => {
                         startY: currentY + 5,
                         margin: { top: 45, bottom: 40 },
                         theme: 'grid',
-                        styles: { fontSize: 10, cellPadding: 3, minCellHeight: 10 }, // Slightly smaller font for more cols?
+                        styles: { fontSize: 11, cellPadding: 2, minCellHeight: 8 },
+                        bodyStyles: { fontStyle: 'bold' },
                         headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
-                        columnStyles: {
-                            0: { halign: 'center', cellWidth: 15 },  // S/N
-                            1: { cellWidth: 25 }, // File No
-                            2: { cellWidth: 70 }, // Name
-                            3: { halign: 'center', cellWidth: 20 }, // Conraiss
-                            4: { cellWidth: 25 }, // Station
-                            5: { cellWidth: 80 }, // Qualification
-                            6: { halign: 'center', cellWidth: 'auto' } // Nights
-                        },
+                        columnStyles: colStyles,
                         didDrawPage: (data) => {
                             // Use the shared didDrawPage logic, but we need to pass it here.
                             // Duplicating the function body for simplicity or defining it outside loop.
@@ -352,22 +505,28 @@ const GeneratePage: React.FC = () => {
 
             } else {
                 // SSCE / NCEE (Standard Single Table)
-                const tableColumn = ["S/N", "FILE No", "NAME", "CONR", "STATION", "POSTING", "MANDATE"];
-                const tableRows = filteredPostings.map((post, index) => {
-                    const mandates = post.mandates?.map((m: any) => (typeof m === 'string' ? m : m.mandate || m.name)).join(', ') || '-';
-                    const venues = post.assignment_venue?.map((v: any) => {
-                        let name = typeof v === 'string' ? v : v.name;
-                        return name ? name.replace(/^\(\d+\)\s*-\s*/, '').trim() : '';
-                    }).join(', ') || '';
+                const tableColumn = ["S/N", ...activeFields.map(f => f.label)];
+
+                // Sort by State ascending
+                const sortedRows = [...filteredFlatRows].sort((a, b) => {
+                    const stateA = a.state || '';
+                    const stateB = b.state || '';
+                    return stateA.localeCompare(stateB);
+                });
+
+                const tableRows = sortedRows.map((post, index) => {
                     return [
                         index + 1,
-                        post.file_no,
-                        post.name,
-                        post.conraiss || '-',
-                        post.station,
-                        venues || '-',
-                        mandates
+                        ...activeFields.map(f => f.accessor(post))
                     ];
+                });
+
+                const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
+                activeFields.forEach((f, i) => {
+                    colStyles[i + 1] = { cellWidth: f.pdfWidth || 'auto' };
+                    if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
+                        colStyles[i + 1].halign = 'center';
+                    }
                 });
 
                 autoTable(doc, {
@@ -376,17 +535,10 @@ const GeneratePage: React.FC = () => {
                     startY: 45,
                     margin: { top: 45, bottom: 40 },
                     theme: 'grid',
-                    styles: { fontSize: 12, cellPadding: 3, minCellHeight: 12 },
+                    styles: { fontSize: 11, cellPadding: 2, minCellHeight: 8 },
+                    bodyStyles: { fontStyle: 'bold' },
                     headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
-                    columnStyles: {
-                        0: { halign: 'center', cellWidth: 15 },
-                        1: { cellWidth: 30 },
-                        2: { cellWidth: 60 },
-                        3: { halign: 'center', cellWidth: 20 },
-                        4: { cellWidth: 30 },
-                        5: { cellWidth: 50 },
-                        6: { cellWidth: 'auto' }
-                    },
+                    columnStyles: colStyles,
                     alternateRowStyles: { fillColor: [240, 253, 244] },
                     didDrawPage: (data) => drawPageContent(data)
                 });
@@ -416,6 +568,13 @@ const GeneratePage: React.FC = () => {
                 </div>
                 <div className="flex gap-3">
                     <button
+                        onClick={() => setIsConfigOpen(!isConfigOpen)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-bold text-xs shadow-sm transition-all ${isConfigOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white dark:bg-[#121b25] border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300'}`}
+                    >
+                        <span className="material-symbols-outlined text-lg">settings_suggest</span>
+                        Customize Columns
+                    </button>
+                    <button
                         onClick={handlePDFExport}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
                         title="Export as PDF"
@@ -441,6 +600,62 @@ const GeneratePage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-gray-800 p-6 flex flex-col gap-6">
+
+                {/* Column Customizer Panel */}
+                {isConfigOpen && (
+                    <div className="bg-indigo-50/30 dark:bg-indigo-900/10 p-5 rounded-xl border border-indigo-100 dark:border-indigo-900/30 animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-black text-indigo-900 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-2">
+                                <span className="material-symbols-outlined">view_column</span>
+                                Select Columns to Include in Reports
+                            </h3>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setSelectedFieldIds(new Set(REPORT_FIELDS.map(f => f.id)))}
+                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase"
+                                >
+                                    Select All
+                                </button>
+                                <span className="text-slate-300">|</span>
+                                <button
+                                    onClick={() => setSelectedFieldIds(new Set(REPORT_FIELDS.filter(f => f.default).map(f => f.id)))}
+                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase"
+                                >
+                                    Reset to Default
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                            {REPORT_FIELDS.map(field => (
+                                <label key={field.id} className="flex items-center gap-3 cursor-pointer group">
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            className="peer hidden"
+                                            checked={selectedFieldIds.has(field.id)}
+                                            onChange={(e) => {
+                                                const next = new Set(selectedFieldIds);
+                                                if (e.target.checked) next.add(field.id);
+                                                else if (next.size > 1) next.delete(field.id);
+                                                setSelectedFieldIds(next);
+                                            }}
+                                        />
+                                        <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-white text-sm scale-0 peer-checked:scale-100 transition-transform">check</span>
+                                        </div>
+                                    </div>
+                                    <span className={`text-xs font-bold transition-colors ${selectedFieldIds.has(field.id) ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                        {field.label}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2 text-[10px] text-indigo-700/60 dark:text-indigo-400/60 italic">
+                            <span className="material-symbols-outlined text-sm">info</span>
+                            Changes are applied immediately to the preview table and all export formats (PDF, Excel, CSV).
+                        </div>
+                    </div>
+                )}
 
                 {/* PDF Template Selection */}
                 <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -478,7 +693,7 @@ const GeneratePage: React.FC = () => {
                             className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
                             value={reportTitle1}
                             onChange={(e) => setReportTitle1(e.target.value)}
-                            placeholder="e.g. 2024 SENIOR SCHOOL CERTIFICATE EXAMINATION (INTERNAL)"
+                            placeholder="e.g. 2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)"
                         />
                     </div>
                     <div>
@@ -488,7 +703,24 @@ const GeneratePage: React.FC = () => {
                             className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
                             value={reportTitle2}
                             onChange={(e) => setReportTitle2(e.target.value)}
-                            placeholder="e.g. LIST OF SUPERVISORS"
+                            placeholder="e.g. SSCE CUSTODIAN OFFICERS POSTING"
+                        />
+                    </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Search Records</label>
+                    <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="material-symbols-outlined text-slate-400">search</span>
+                        </span>
+                        <input
+                            type="text"
+                            className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by Name, Station, or File No..."
                         />
                     </div>
                 </div>
@@ -525,79 +757,44 @@ const GeneratePage: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gradient-to-r from-slate-50 to-white dark:from-[#0f161d] dark:to-[#121b25] border-b border-slate-200 dark:border-gray-800">
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">File No / Name</th>
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Station / CONRAISS</th>
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assignment</th>
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Mandate</th>
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Venue</th>
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Status</th>
+                                    {activeFields.map(field => (
+                                        <th key={field.id} className={`p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 ${field.id === 'count' ? 'text-center' : ''}`}>
+                                            {field.label}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan={6} className="p-8 text-center text-slate-500 italic">Loading data...</td></tr>
-                                ) : paginatedPostings.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-8 text-center text-slate-500 italic">No records found.</td></tr>
+                                    <tr><td colSpan={activeFields.length} className="p-8 text-center text-slate-500 italic">Loading data...</td></tr>
+                                ) : paginatedRows.length === 0 ? (
+                                    <tr><td colSpan={activeFields.length} className="p-8 text-center text-slate-500 italic">No records found.</td></tr>
                                 ) : (
-                                    paginatedPostings.map((record) => (
-                                        <tr key={record.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150">
-                                            <td className="p-4 align-top">
-                                                <div className="flex flex-col">
-                                                    <span className="font-mono text-lg font-black text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded w-fit mb-1 shadow-sm border border-slate-200 dark:border-slate-700">{record.file_no}</span>
-                                                    <span className="font-bold text-slate-600 dark:text-slate-300 group-hover:text-indigo-600 transition-colors text-sm">{record.name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4 align-top">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                                                        <span className="material-symbols-outlined text-[16px] text-slate-400">business</span>
-                                                        {record.station || '-'}
-                                                    </div>
-                                                    {record.conraiss && (
+                                    paginatedRows.map((record) => (
+                                        <tr key={record.uniqueId} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150">
+                                            {activeFields.map(field => (
+                                                <td key={field.id} className={`p-4 align-top ${field.id === 'count' ? 'text-center' : ''}`}>
+                                                    {field.id === 'file_no' ? (
+                                                        <span className="font-mono text-sm font-black text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded w-fit shadow-sm border border-slate-200 dark:border-slate-700">{field.accessor(record)}</span>
+                                                    ) : field.id === 'name' ? (
+                                                        <span className="font-bold text-slate-600 dark:text-slate-300 text-sm">{field.accessor(record)}</span>
+                                                    ) : field.id === 'conraiss' ? (
                                                         <span className="text-xs font-semibold text-sky-600 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-300 px-2 py-0.5 rounded-full w-fit">
-                                                            CON: {record.conraiss}
+                                                            {field.accessor(record)}
                                                         </span>
+                                                    ) : field.id === 'mandate' ? (
+                                                        <span className="text-xs uppercase font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 dark:bg-emerald-900/50 dark:border-emerald-700 dark:text-emerald-300 px-2 py-1 rounded w-fit">
+                                                            {field.accessor(record) || '-'}
+                                                        </span>
+                                                    ) : field.id === 'assignment' ? (
+                                                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 px-2 py-1 rounded">
+                                                            {field.accessor(record) || '-'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{field.accessor(record) || '-'}</span>
                                                     )}
-                                                </div>
-                                            </td>
-                                            <td className="p-4 align-top max-w-xs">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {record.assignments?.map((a: any, i) => (
-                                                        <span key={i} className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 px-1.5 py-0.5 rounded">
-                                                            {typeof a === 'string' ? a : a.name || a.code}
-                                                        </span>
-                                                    ))}
-                                                    {!record.assignments?.length && <span className="text-slate-400 text-xs italic">-</span>}
-                                                </div>
-                                            </td>
-                                            <td className="p-4 align-top max-w-xs">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {record.mandates?.map((m: any, i) => (
-                                                        <span key={i} className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded">
-                                                            {typeof m === 'string' ? m : m.mandate || m.code}
-                                                        </span>
-                                                    ))}
-                                                    {!record.mandates?.length && <span className="text-slate-400 text-xs italic">-</span>}
-                                                </div>
-                                            </td>
-                                            <td className="p-4 align-top max-w-xs">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {record.assignment_venue?.map((v: any, i) => (
-                                                        <span key={i} className="text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-100 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded">
-                                                            {typeof v === 'string' ? v : v.name || v.code}
-                                                        </span>
-                                                    ))}
-                                                    {!record.assignment_venue?.length && <span className="text-slate-400 text-xs italic">-</span>}
-                                                </div>
-                                            </td>
-                                            <td className="p-4 align-top text-center">
-                                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold border ${(record.to_be_posted || 0) > 0
-                                                    ? 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800'
-                                                    : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-                                                    }`}>
-                                                    {record.to_be_posted || 0}
-                                                </span>
-                                            </td>
+                                                </td>
+                                            ))}
                                         </tr>
                                     ))
                                 )}
@@ -663,7 +860,7 @@ const GeneratePage: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

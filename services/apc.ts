@@ -31,6 +31,9 @@ export const getAllAPC = async (
     return data;
 };
 
+// Cache
+let apcCache: APCRecord[] | null = null;
+
 export const createAPC = async (data: APCCreate): Promise<APCRecord> => {
     const response = await fetch(REQUEST_URL, {
         method: 'POST',
@@ -42,6 +45,7 @@ export const createAPC = async (data: APCCreate): Promise<APCRecord> => {
     if (!response.ok) {
         throw new Error('Failed to create APC record');
     }
+    apcCache = null; // Invalidate
     return response.json();
 };
 
@@ -56,6 +60,7 @@ export const updateAPC = async (id: string, data: APCUpdate): Promise<APCRecord>
     if (!response.ok) {
         throw new Error('Failed to update APC record');
     }
+    apcCache = null; // Invalidate
     return response.json();
 };
 
@@ -66,6 +71,7 @@ export const deleteAPC = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete APC record');
     }
+    apcCache = null; // Invalidate
 };
 
 export const bulkDeleteAPC = async (ids: string[]): Promise<void> => {
@@ -79,6 +85,7 @@ export const bulkDeleteAPC = async (ids: string[]): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to bulk delete APC records');
     }
+    apcCache = null; // Invalidate
 };
 
 export const uploadAPC = async (file: File): Promise<any> => {
@@ -102,15 +109,22 @@ export const uploadAPC = async (file: File): Promise<any> => {
         }
         throw new Error(errorMessage);
     }
+    apcCache = null; // Invalidate
     return response.json();
 };
 
-export const getAllAPCRecords = async (onlyActive: boolean = false): Promise<APCRecord[]> => {
+export const getAllAPCRecords = async (onlyActive: boolean = false, force: boolean = false): Promise<APCRecord[]> => {
+    if (apcCache && !force) {
+        return onlyActive ? apcCache.filter(item => item.active) : apcCache;
+    }
+
     const response = await fetch(`${REQUEST_URL}?limit=100000`);
     if (!response.ok) {
         throw new Error('Failed to fetch all APC records');
     }
     const data: APCListResponse = await response.json();
+    apcCache = data.items;
+
     let items = data.items;
     if (onlyActive) {
         items = items.filter(item => item.active);

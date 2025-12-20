@@ -2,6 +2,10 @@ import { StateListResponse, StateCreate, StateUpdate, State, MarkingVenue, Custo
 
 const API_BASE_URL = '/api/states';
 
+let allStatesCache: State[] | null = null;
+export const clearStateCache = () => { allStatesCache = null; };
+
+
 export const getStateList = async (page: number = 1, limit: number = 10, search: string = ''): Promise<StateListResponse> => {
     const skip = (page - 1) * limit;
     const params = new URLSearchParams({
@@ -30,6 +34,7 @@ export const createState = async (data: StateCreate): Promise<State> => {
     if (!response.ok) {
         throw new Error('Failed to create state');
     }
+    clearStateCache();
     return response.json();
 };
 
@@ -44,6 +49,7 @@ export const updateState = async (id: string, data: StateUpdate): Promise<State>
     if (!response.ok) {
         throw new Error('Failed to update state');
     }
+    clearStateCache();
     return response.json();
 };
 
@@ -54,6 +60,7 @@ export const deleteState = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete state');
     }
+    clearStateCache();
 };
 
 export const uploadStateCsv = async (file: File): Promise<any> => {
@@ -74,12 +81,14 @@ export const uploadStateCsv = async (file: File): Promise<any> => {
 }
 
 export const getAllStates = async (): Promise<State[]> => {
+    if (allStatesCache) return allStatesCache;
     const response = await fetch(`${API_BASE_URL}?limit=10000`);
     if (!response.ok) {
         throw new Error('Failed to fetch all states');
     }
     const data: StateListResponse = await response.json();
-    return data.items;
+    allStatesCache = data.items;
+    return allStatesCache;
 };
 
 export const bulkDeleteStates = async (ids: string[]): Promise<void> => {

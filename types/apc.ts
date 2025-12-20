@@ -79,6 +79,10 @@ export interface StaffMandateAssignment {
     apc_id?: string; // ID of the APC record if assigned
     mandate_id?: string | null; // ID of the mandate if assigned
 
+    // Analytics
+    total_allotted?: number;
+    assign_left?: number;
+
     // Draft State
     pendingAction?: 'add' | 'remove' | 'move';
     originalMandateId?: string | null; // To track changes

@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { getAssignments, getAllAssignments, getMandatesByAssignment, deleteAssignment, createAssignment, updateAssignment, uploadAssignments, deleteAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { Assignment, AssignmentCreate } from '../../types/assignment';
@@ -6,15 +7,15 @@ import AssignmentModal from './AssignmentModal';
 import AlertModal from '../../components/AlertModal';
 
 const AssignmentConfig: React.FC = () => {
-    const [assignmentList, setAssignmentList] = useState<Assignment[]>([]);
-    const [allMandates, setAllMandates] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [sortField, setSortField] = useState<keyof Assignment | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
+    const [allMandates, setAllMandates] = useState<any[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
     const [selectedAssignmentForMandates, setSelectedAssignmentForMandates] = useState<Assignment | null>(null);
@@ -34,42 +35,57 @@ const AssignmentConfig: React.FC = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const filteredAssignments = useMemo(() => {
+        let result = allAssignments;
+
+        // Search Filter
+        if (debouncedSearchTerm) {
+            const lowerTerm = debouncedSearchTerm.toLowerCase().trim();
+            result = result.filter(assignment =>
+                assignment.code?.toLowerCase().includes(lowerTerm) ||
+                assignment.name?.toLowerCase().includes(lowerTerm)
+            );
+        }
+
+        // SORT LOGIC
+        if (sortField) {
+            result = [...result].sort((a, b) => {
+                const aValue = a[sortField];
+                const bValue = b[sortField];
+
+                if (aValue === null || aValue === undefined) return 1;
+                if (bValue === null || bValue === undefined) return -1;
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                }
+
+                const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return result;
+    }, [allAssignments, debouncedSearchTerm, sortField, sortDirection]);
+
+    const total = filteredAssignments.length;
+
+    const paginatedAssignments = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredAssignments.slice(startIndex, startIndex + limit);
+    }, [filteredAssignments, page, limit]);
+
+    // For bulk actions selection
+    const allFilteredAssignments = filteredAssignments;
+
     const fetchAssignments = async () => {
         setLoading(true);
         try {
-            // Always fetch all data to enable proper sorting across all records
-            const allData = await getAllAssignments();
-
-            // Apply search filter
-            const filtered = allData.filter(assignment => {
-                if (!searchTerm) return true;
-                return assignment.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    assignment.name?.toLowerCase().includes(searchTerm.toLowerCase());
-            });
-
-            // Apply sorting to all filtered data
-            const sorted = [...filtered].sort((a, b) => {
-                if (!sortField) return 0;
-                const aValue = a[sortField];
-                const bValue = b[sortField];
-                if (aValue === bValue) return 0;
-                if (aValue === undefined || aValue === null) return 1;
-                if (bValue === undefined || bValue === null) return -1;
-
-                const compareResult = aValue < bValue ? -1 : 1;
-                return sortDirection === 'asc' ? compareResult : -compareResult;
-            });
-
-            // Paginate the sorted results
-            const startIndex = (page - 1) * limit;
-            const endIndex = startIndex + limit;
-            setAssignmentList(sorted.slice(startIndex, endIndex));
-            setTotal(sorted.length);
+            const data = await getAllAssignments();
+            setAllAssignments(data);
         } catch (error: any) {
             console.error('Error fetching assignments:', error);
-            // Set empty data on error to prevent crashes
-            setAssignmentList([]);
-            setTotal(0);
             showAlert('Error', 'Failed to fetch assignments. The assignments endpoint may not be available yet.', 'error');
         } finally {
             setLoading(false);
@@ -77,8 +93,12 @@ const AssignmentConfig: React.FC = () => {
     };
 
     useEffect(() => {
+        setPage(1);
+    }, [debouncedSearchTerm]);
+
+    useEffect(() => {
         fetchAssignments();
-    }, [page, limit, searchTerm, sortField, sortDirection]);
+    }, []);
 
     useEffect(() => {
         const fetchMandates = async () => {
@@ -205,7 +225,7 @@ const AssignmentConfig: React.FC = () => {
     // Selection Handlers
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
-            setSelectedIds(new Set(assignmentList.map(m => m.id)));
+            setSelectedIds(new Set(allFilteredAssignments.map(m => m.id)));
         } else {
             setSelectedIds(new Set());
         }
@@ -243,7 +263,7 @@ const AssignmentConfig: React.FC = () => {
         setExpandedRows(newExpanded);
     };
 
-    const isAllSelected = assignmentList.length > 0 && selectedIds.size === assignmentList.length;
+    const isAllSelected = allFilteredAssignments.length > 0 && selectedIds.size === allFilteredAssignments.length;
 
     const downloadCsvTemplate = () => {
         const headers = ['code', 'assignment', 'mandates', 'active'];
@@ -391,7 +411,7 @@ const AssignmentConfig: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
-                                    {assignmentList.length === 0 ? (
+                                    {paginatedAssignments.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="p-10 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
@@ -404,7 +424,7 @@ const AssignmentConfig: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        assignmentList.map((assignment) => (
+                                        paginatedAssignments.map((assignment) => (
                                             <AssignmentRow
                                                 key={assignment.id}
                                                 assignment={assignment}
@@ -507,7 +527,7 @@ const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any)
 interface AssignmentRowProps {
     assignment: Assignment;
     onEdit: (data: Assignment) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: string) => void | Promise<void>;
     isSelected: boolean;
     onSelect: (id: string, checked: boolean) => void;
     isExpanded: boolean;

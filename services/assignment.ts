@@ -16,10 +16,17 @@ export const getAssignments = async (skip = 0, limit = 100, search = ''): Promis
     return response.json();
 };
 
+// Cache
+let assignmentCache: Assignment[] | null = null;
+
 export const getAllAssignments = async (): Promise<Assignment[]> => {
+    if (assignmentCache) return assignmentCache;
+
     const response = await fetch(`${API_URL}?skip=0&limit=10000`);
     if (!response.ok) throw new Error('Failed to fetch all assignments');
     const data: AssignmentListResponse = await response.json();
+
+    assignmentCache = data.items;
     return data.items;
 };
 
@@ -49,6 +56,7 @@ export const createAssignment = async (data: AssignmentCreate): Promise<Assignme
         const errorData = await response.json();
         throw new Error(errorData.detail?.[0]?.msg || 'Failed to create assignment');
     }
+    assignmentCache = null; // Invalidate
     return response.json();
 };
 
@@ -66,6 +74,7 @@ export const updateAssignment = async (id: string, data: AssignmentUpdate): Prom
         console.error('Update assignment error:', errorData);
         throw new Error('Failed to update assignment');
     }
+    assignmentCache = null; // Invalidate
     return response.json();
 };
 
@@ -74,6 +83,7 @@ export const deleteAssignment = async (id: string): Promise<void> => {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete assignment');
+    assignmentCache = null; // Invalidate
 };
 
 export const deleteAssignments = async (): Promise<void> => {
@@ -81,6 +91,7 @@ export const deleteAssignments = async (): Promise<void> => {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete all assignments');
+    assignmentCache = null; // Invalidate
 };
 
 export const uploadAssignments = async (file: File): Promise<AssignmentBulkUploadResponse> => {
@@ -96,5 +107,6 @@ export const uploadAssignments = async (file: File): Promise<AssignmentBulkUploa
         const errorData = await response.json();
         throw new Error(errorData.detail?.[0]?.msg || 'Failed to upload assignments');
     }
+    assignmentCache = null; // Invalidate
     return response.json();
 };

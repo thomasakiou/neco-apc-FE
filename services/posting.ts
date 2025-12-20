@@ -15,6 +15,9 @@ const getAuthHeader = () => {
     };
 };
 
+// Cache for Posting Records
+let postingCache: PostingResponse[] | null = null;
+
 export const getAllPostings = async (skip: number = 0, limit: number = 100): Promise<PostingListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
@@ -30,13 +33,22 @@ export const getAllPostings = async (skip: number = 0, limit: number = 100): Pro
 };
 
 // Fetch ALL records for client-side filtering/export if needed
-export const getAllPostingRecords = async (): Promise<PostingResponse[]> => {
+export const getAllPostingRecords = async (force: boolean = false): Promise<PostingResponse[]> => {
+    // Return cached data if available and not forced
+    if (postingCache && !force) {
+        return postingCache;
+    }
+
     const response = await fetch(`${BASE_URL}?skip=0&limit=100000`, {
         headers: getAuthHeader() as HeadersInit
     });
 
     if (!response.ok) throw new Error('Failed to fetch all posting records');
     const data = await response.json();
+
+    // Store in cache
+    postingCache = data.items;
+
     return data.items;
 };
 
@@ -48,6 +60,8 @@ export const createPosting = async (data: PostingCreate): Promise<PostingRespons
     });
 
     if (!response.ok) throw new Error('Failed to create posting');
+
+    postingCache = null; // Invalidate cache
     return response.json();
 };
 
@@ -59,6 +73,8 @@ export const updatePosting = async (id: string, data: PostingUpdate): Promise<Po
     });
 
     if (!response.ok) throw new Error('Failed to update posting');
+
+    postingCache = null; // Invalidate cache
     return response.json();
 };
 
@@ -69,6 +85,8 @@ export const deletePosting = async (id: string): Promise<any> => {
     });
 
     if (!response.ok) throw new Error('Failed to delete posting');
+
+    postingCache = null; // Invalidate cache
     return response.json();
 };
 
@@ -80,6 +98,8 @@ export const bulkDeletePostings = async (ids: string[]): Promise<any> => {
     });
 
     if (!response.ok) throw new Error('Failed to bulk delete postings');
+
+    postingCache = null; // Invalidate cache
     return response.json();
 };
 
@@ -90,6 +110,8 @@ export const deleteAllPostings = async (): Promise<any> => {
     });
 
     if (!response.ok) throw new Error('Failed to delete all postings');
+
+    postingCache = null; // Invalidate cache
     return response.json();
 };
 
@@ -101,5 +123,7 @@ export const bulkCreatePostings = async (data: BulkPostingCreateRequest): Promis
     });
 
     if (!response.ok) throw new Error('Failed to bulk create postings');
+
+    postingCache = null; // Invalidate cache
     return response.json();
 };

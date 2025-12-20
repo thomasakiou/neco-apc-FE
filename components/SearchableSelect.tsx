@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 interface Option {
     id: string;
     name: string;
+    display_name?: string;
     type?: string;
 }
 
@@ -30,7 +31,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     const selectedOption = options.find(opt => opt.id === value);
 
     const filteredOptions = options.filter(option =>
-        option.name.toLowerCase().includes(searchTerm.toLowerCase())
+        option.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (option.display_name && option.display_name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     useEffect(() => {
@@ -69,7 +71,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 `}
             >
                 <span className={`block truncate ${!selectedOption ? 'text-slate-400' : ''}`}>
-                    {selectedOption ? selectedOption.name : placeholder}
+                    {selectedOption ? (selectedOption.display_name || selectedOption.name) : placeholder}
                 </span>
                 <span className="material-symbols-outlined text-slate-400 text-xl">
                     {isOpen ? 'expand_less' : 'expand_more'}
@@ -103,7 +105,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800'}
                                     `}
                                 >
-                                    {option.name}
+                                    {option.display_name || option.name}
                                 </div>
                             ))
                         ) : (

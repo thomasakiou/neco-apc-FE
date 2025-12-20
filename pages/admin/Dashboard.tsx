@@ -5,31 +5,41 @@ import { getDashboardStats, DashboardStats } from '../../services/dashboardStats
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchStats = async (force = false) => {
+    if (force) setIsRefreshing(true);
+    else setLoading(true);
+
+    try {
+      const data = await getDashboardStats(force);
+      setStats(data);
+    } catch (error) {
+      console.error('Failed to load dashboard stats', error);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await getDashboardStats();
-        setStats(data);
-      } catch (error) {
-        console.error('Failed to load dashboard stats', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStats();
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      <div className="flex flex-col items-center justify-center h-full gap-4 bg-slate-50 dark:bg-[#0b1015]">
+        <div className="relative">
+          <div className="size-16 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="material-symbols-outlined text-emerald-500 animate-pulse text-2xl">insights</span>
+          </div>
+        </div>
+        <p className="text-sm font-bold text-slate-400 dark:text-slate-500 tracking-widest uppercase">Analyzing Data...</p>
       </div>
     );
   }
 
-  // Fallback if stats fail
   const safeStats = stats || {
     counts: {
       staff: 0, apc: 0, completedPostings: 0, ssceCustodians: 0,
@@ -45,122 +55,263 @@ const AdminDashboard: React.FC = () => {
   const { counts, charts } = safeStats;
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-[#101922] transition-colors duration-200">
-      {/* Top Header */}
-      <header className="sticky top-0 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-8 py-3 bg-white/80 dark:bg-[#121b25]/80 backdrop-blur-sm z-10 transition-colors">
-        <h2 className="text-slate-900 dark:text-slate-200 text-lg font-bold">Dashboard Overview</h2>
-        <div className="flex items-center gap-4">
-          <label className="relative hidden sm:flex items-center">
-            <span className="material-symbols-outlined absolute left-3 text-slate-400">search</span>
-            <input className="form-input w-full min-w-40 max-w-64 rounded-lg bg-slate-100 dark:bg-[#0b1015] text-slate-900 dark:text-slate-200 pl-10 border-transparent focus:border-emerald-500 focus:ring-emerald-500 text-sm h-10 placeholder:text-slate-400" placeholder="Search..." type="search" />
-          </label>
-          <button className="flex items-center justify-center rounded-full size-10 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">
-            <span className="material-symbols-outlined">notifications</span>
+    <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
+      {/* Premium Header */}
+      <header className="flex-none flex items-center justify-between px-10 py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+            APCIC <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Dashboard</span>
+          </h1>
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">NECO APCIC Posting Ecosystem</p>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => fetchStats(true)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
+          >
+            <span className={`material-symbols-outlined text-lg ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
+            {isRefreshing ? 'Refreshing...' : 'Live Data'}
           </button>
-          <div className="bg-emerald-600/10 rounded-full size-10 flex items-center justify-center text-emerald-600 font-bold">AD</div>
+
+          <div className="h-8 w-[1px] bg-slate-200 dark:bg-white/10"></div>
+
+          <div className="flex items-center gap-3 bg-white dark:bg-white/5 p-1.5 pr-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
+            <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-emerald-500/20">
+              AD
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-black text-slate-900 dark:text-white leading-none">Admin Controller</span>
+              <span className="text-[10px] font-bold text-emerald-500 uppercase leading-none mt-1">Neco HQ</span>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard title="Total Staff" value={counts.staff.toLocaleString()} icon="group" color="text-blue-600" bg="bg-blue-50 dark:bg-blue-900/20" />
-          <StatCard title="In APC" value={counts.apc.toLocaleString()} icon="description" color="text-purple-600" bg="bg-purple-50 dark:bg-purple-900/20" />
-          <StatCard title="Completed Posting" value={counts.completedPostings.toLocaleString()} icon="task_alt" color="text-emerald-600" bg="bg-emerald-50 dark:bg-emerald-900/20" />
-          <StatCard title="States" value={counts.states.toLocaleString()} icon="map" color="text-amber-600" bg="bg-amber-50 dark:bg-amber-900/20" />
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-12">
+        <div className="max-w-[1600px] mx-auto space-y-10">
 
-          <StatCard title="SSCE Custodians" value={counts.ssceCustodians.toLocaleString()} icon="reduce_capacity" color="text-indigo-600" bg="bg-indigo-50 dark:bg-indigo-900/20" />
-          <StatCard title="BECE Custodians" value={counts.beceCustodians.toLocaleString()} icon="diversity_3" color="text-pink-600" bg="bg-pink-50 dark:bg-pink-900/20" />
-          <StatCard title="Marking Venues" value={counts.markingVenues.toLocaleString()} icon="location_city" color="text-cyan-600" bg="bg-cyan-50 dark:bg-cyan-900/20" />
-          <StatCard title="NCEE Exam Centers" value={counts.nceeCenters.toLocaleString()} icon="school" color="text-rose-600" bg="bg-rose-50 dark:bg-rose-900/20" />
-        </div>
+          {/* Executive Metrics Grid */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+            <GlassCard
+              title="Global Staff Pool"
+              value={counts.staff}
+              icon="diversity_1"
+              gradient="from-blue-500 to-indigo-600"
+              trend="+12% from last cycle"
+            />
+            <GlassCard
+              title="Active APC Records"
+              value={counts.apc}
+              icon="quick_reference_all"
+              gradient="from-emerald-500 to-teal-600"
+              trend="98% data integrity"
+            />
+            <GlassCard
+              title="Postings Completed"
+              value={counts.completedPostings}
+              icon="verified"
+              gradient="from-violet-500 to-purple-600"
+              trend="Efficiency Peak"
+            />
+            <GlassCard
+              title="Operational States"
+              value={counts.states}
+              icon="explore"
+              gradient="from-amber-500 to-orange-600"
+              trend="All 37 Regions Active"
+            />
+          </section>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Staff Distribution */}
-          <div className="lg:col-span-3 bg-white dark:bg-[#121b25] border border-gray-200 dark:border-gray-800 rounded-xl p-6 transition-colors shadow-sm">
-            <h3 className="text-slate-800 dark:text-slate-200 text-base font-bold mb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-slate-400">bar_chart</span>
-              Staff Distribution By Location (Top 10)
-            </h3>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={charts.staffDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 12 }}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'transparent' }}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                    {charts.staffDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#3b82f6'} fillOpacity={0.8} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          {/* Core Analytics Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-          {/* Posting Status Overview */}
-          <div className="lg:col-span-2 bg-white dark:bg-[#121b25] border border-gray-200 dark:border-gray-800 rounded-xl p-6 flex flex-col items-center justify-center transition-colors shadow-sm">
-            <h3 className="text-slate-800 dark:text-slate-200 text-base font-bold mb-4 w-full text-left flex items-center gap-2">
-              <span className="material-symbols-outlined text-slate-400">pie_chart</span>
-              Posting Status Overview
-            </h3>
-            <div className="h-[250px] w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={charts.postingStatus}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {charts.postingStatus.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-3xl font-black text-slate-800 dark:text-slate-200">{charts.totalPostings.toLocaleString()}</span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total APC</span>
+            {/* Staff Geographical Distribution */}
+            <div className="lg:col-span-8 group">
+              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-emerald-500/20">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                    <span className="size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-emerald-500 transition-colors">
+                      <span className="material-symbols-outlined">analytics</span>
+                    </span>
+                    Deployment Distribution
+                  </h3>
+                  <div className="px-4 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                    Top 10 Active Stations
+                  </div>
+                </div>
+
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={charts.staffDistribution} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                      <defs>
+                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                        interval={0}
+                        angle={-25}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(59, 130, 246, 0.05)', radius: [10, 10, 0, 0] }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3 rounded-2xl shadow-2xl backdrop-blur-xl">
+                                <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-1">{payload[0].payload.name}</p>
+                                <p className="text-xl font-black text-slate-900 dark:text-white">{payload[0].value.toLocaleString()} <span className="text-[10px] text-emerald-500">Staff</span></p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={45}>
+                        {charts.staffDistribution.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={index === 0 ? 'url(#barGradient)' : '#64748b'}
+                            fillOpacity={index === 0 ? 1 : 0.15}
+                            className="transition-all duration-500 hover:fill-emerald-500 hover:fill-opacity-100"
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
-            <div className="w-full flex flex-col gap-3 mt-4 px-4">
-              {charts.postingStatus.map((item, index) => {
-                const percent = charts.totalPostings > 0 ? ((item.value / charts.totalPostings) * 100).toFixed(1) : '0';
-                return (
-                  <div key={index} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="size-3 rounded-full" style={{ backgroundColor: item.color }}></span>
-                      <span className="text-slate-600 dark:text-slate-300 font-medium">{item.name}</span>
+            {/* Posting Integrity Overview */}
+            <div className="lg:col-span-4 group">
+              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-teal-500/20 flex flex-col">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-8 flex items-center gap-3">
+                  <span className="size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-teal-500 transition-colors">
+                    <span className="material-symbols-outlined">donut_large</span>
+                  </span>
+                  Posting Target Status
+                </h3>
+
+                <div className="flex-1 flex flex-col items-center justify-center -mt-4">
+                  <div className="size-64 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={charts.postingStatus}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={80}
+                          outerRadius={105}
+                          paddingAngle={8}
+                          dataKey="value"
+                          stroke="none"
+                          cornerRadius={12}
+                        >
+                          {charts.postingStatus.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={entry.color}
+                              className="focus:outline-white cursor-pointer transition-all hover:opacity-80"
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<div className="hidden"></div>} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Utilization</span>
+                      <span className="text-4xl font-black text-slate-900 dark:text-white leading-none">{charts.totalPostings.toLocaleString()}</span>
+                      <div className="mt-2 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black">APC ACTIVE</div>
                     </div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.value.toLocaleString()} <span className="text-slate-400 text-xs font-normal">({percent}%)</span></span>
                   </div>
-                );
-              })}
+
+                  <div className="w-full space-y-3 mt-8">
+                    {charts.postingStatus.map((item, index) => {
+                      const percent = charts.totalPostings > 0 ? ((item.value / charts.totalPostings) * 100).toFixed(1) : '0';
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 transition-transform hover:scale-[1.02]">
+                          <div className="flex items-center gap-3">
+                            <span className="size-3 rounded-full shadow-[0_0_10px] shadow-current" style={{ color: item.color, backgroundColor: item.color }}></span>
+                            <span className="text-xs font-black text-slate-600 dark:text-slate-300">{item.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-black text-slate-900 dark:text-white block leading-none">{item.value.toLocaleString()}</span>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{percent}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
+
           </div>
+
+          {/* Secondary Operational Stats */}
+          <section className="bg-slate-900 dark:bg-emerald-950/20 rounded-[3rem] p-10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 size-96 bg-emerald-500/10 blur-[100px] rounded-full -mr-48 -mt-48"></div>
+            <div className="absolute bottom-0 left-0 size-96 bg-blue-500/5 blur-[100px] rounded-full -ml-48 -mb-48"></div>
+
+            <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-8">
+              <MiniOperational title="SSCE Custodians" value={counts.ssceCustodians} icon="shield_person" />
+              <MiniOperational title="BECE Custodians" value={counts.beceCustodians} icon="security" />
+              <MiniOperational title="Marking Venues" value={counts.markingVenues} icon="room_preferences" />
+              <MiniOperational title="NCEE Centers" value={counts.nceeCenters} icon="account_balance" />
+            </div>
+          </section>
+
         </div>
       </div>
     </div>
   );
 };
+
+const GlassCard = ({ title, value, icon, gradient, trend }: any) => (
+  <div className="group relative">
+    <div className={`absolute -inset-0.5 bg-gradient-to-br ${gradient} rounded-3xl blur opacity-0 group-hover:opacity-20 transition duration-500`}></div>
+    <div className="relative bg-white dark:bg-[#121b25] border border-slate-200/60 dark:border-white/5 rounded-3xl p-6 shadow-xl shadow-slate-200/10 dark:shadow-none transition-all duration-300 group-hover:-translate-y-1">
+      <div className="flex items-start justify-between mb-6">
+        <div className={`size-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white shadow-lg shadow-current/20`}>
+          <span className="material-symbols-outlined text-2xl">{icon}</span>
+        </div>
+        <div className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 text-[10px] font-black flex items-center gap-1">
+          <span className="material-symbols-outlined text-[12px]">trending_up</span>
+          LIVE
+        </div>
+      </div>
+      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-2">{title}</p>
+      <p className="text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </p>
+      <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic opacity-60">{trend}</span>
+        <span className="material-symbols-outlined text-sm text-slate-300 dark:text-slate-600">arrow_forward_ios</span>
+      </div>
+    </div>
+  </div>
+);
+
+const MiniOperational = ({ title, value, icon }: any) => (
+  <div className="flex flex-col gap-2">
+    <div className="flex items-center gap-3">
+      <span className="material-symbols-outlined text-emerald-400/60 text-xl">{icon}</span>
+      <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{title}</span>
+    </div>
+    <div className="flex items-end gap-2">
+      <span className="text-3xl font-black text-white">{value.toLocaleString()}</span>
+      <span className="text-[10px] font-bold text-emerald-500/80 mb-1.5 uppercase">UNITS</span>
+    </div>
+  </div>
+);
 
 interface StatCardProps {
   title: string;

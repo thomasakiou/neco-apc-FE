@@ -14,7 +14,21 @@ interface MandateColumnProps {
     colorTheme?: 'slate' | 'emerald' | 'blue' | 'purple' | 'amber';
 }
 
-export const MandateColumn: React.FC<MandateColumnProps> = ({
+interface MandateColumnProps {
+    columnId: string; // 'unassigned' or mandateId
+    title: string;
+    subtitle?: string;
+    staffList: StaffMandateAssignment[];
+    isDropTarget?: boolean;
+    onDragOver: (e: React.DragEvent) => void;
+    onDrop: (e: React.DragEvent, targetColumnId: string) => void;
+    onCardClick?: (staff: StaffMandateAssignment) => void;
+    colorTheme?: 'slate' | 'emerald' | 'blue' | 'purple' | 'amber';
+    selectedStaffIds?: Set<string>;
+    onToggleSelect?: (id: string) => void;
+}
+
+export const MandateColumn = React.memo<MandateColumnProps>(({
     columnId,
     title,
     subtitle,
@@ -23,7 +37,9 @@ export const MandateColumn: React.FC<MandateColumnProps> = ({
     onDragOver,
     onDrop,
     onCardClick,
-    colorTheme = 'slate'
+    colorTheme = 'slate',
+    selectedStaffIds,
+    onToggleSelect
 }) => {
     const getThemeStyles = () => {
         switch (colorTheme) {
@@ -44,27 +60,29 @@ export const MandateColumn: React.FC<MandateColumnProps> = ({
 
     return (
         <div
-            className={`flex flex-col min-w-[280px] w-full max-w-sm rounded-xl border ${theme.border} ${theme.bg} overflow-hidden transition-colors h-[calc(100vh-240px)]`}
+            className={`flex flex-col min-w-[300px] w-full max-w-sm rounded-xl border ${theme.border} ${theme.bg} overflow-hidden transition-all h-full group/col`}
             onDragOver={onDragOver}
             onDrop={(e) => onDrop(e, columnId)}
         >
             {/* Header */}
-            <div className={`p-3 border-b ${theme.border} ${theme.headerBg} flex justify-between items-center sticky top-0 backdrop-blur-sm z-10`}>
+            <div className={`p-4 border-b ${theme.border} ${theme.headerBg} flex justify-between items-center sticky top-0 backdrop-blur-sm z-10 shadow-sm`}>
                 <div className="flex flex-col overflow-hidden">
-                    <h3 className={`font-bold text-sm ${theme.text} truncate`} title={title}>{title}</h3>
-                    {subtitle && <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{subtitle}</span>}
+                    <h3 className={`font-black text-base ${theme.text} truncate uppercase tracking-tight`} title={title}>{title}</h3>
+                    {subtitle && <span className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate opacity-70 italic">{subtitle}</span>}
                 </div>
-                <span className={`flex items-center justify-center min-w-[24px] h-6 px-2 text-xs font-bold rounded-full bg-white dark:bg-gray-800 ${theme.text} shadow-sm border ${theme.border}`}>
-                    {staffList.length}
-                </span>
+                <div className="flex items-center gap-2">
+                    <span className={`flex items-center justify-center min-w-[24px] h-6 px-2 text-xs font-black rounded-lg bg-white dark:bg-gray-800 ${theme.text} shadow-sm border ${theme.border}`}>
+                        {staffList.length}
+                    </span>
+                </div>
             </div>
 
             {/* Drop Zone */}
-            <div className={`flex-1 overflow-y-auto p-3 pb-20 flex flex-col gap-2 ${isDropTarget ? 'bg-indigo-50/30' : ''}`}>
+            <div className={`flex-1 overflow-y-auto p-3 pb-10 flex flex-col gap-2.5 custom-scrollbar ${isDropTarget ? 'bg-indigo-50/50 ring-2 ring-inset ring-indigo-500/20' : ''}`}>
                 {staffList.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2 opacity-60">
-                        <span className="material-symbols-outlined text-3xl">inbox</span>
-                        <span className="text-xs">No staff assigned</span>
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3 py-10 opacity-40 grayscale">
+                        <span className="material-symbols-outlined text-4xl">inventory_2</span>
+                        <span className="text-[10px] uppercase font-bold tracking-widest">Empty Workspace</span>
                     </div>
                 ) : (
                     staffList.map(staff => (
@@ -73,10 +91,12 @@ export const MandateColumn: React.FC<MandateColumnProps> = ({
                             staff={staff}
                             onDragStart={handleDragStart}
                             onClick={onCardClick}
+                            isSelected={selectedStaffIds?.has(staff.id)}
+                            onToggleSelect={onToggleSelect}
                         />
                     ))
                 )}
             </div>
         </div>
     );
-};
+});

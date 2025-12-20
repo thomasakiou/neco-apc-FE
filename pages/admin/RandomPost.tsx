@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllAPCRecords } from '../../services/apc';
+import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
@@ -15,6 +15,9 @@ import { PostingResponse } from '../../types/posting';
 import { getAllNCEECenters } from '../../services/nceeCenter';
 import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
 import { getAllStates } from '../../services/state';
+import { getAllStations } from '../../services/station';
+import { Station } from '../../types/station';
+import { State } from '../../types/state';
 import { useNotification } from '../../context/NotificationContext';
 
 const RandomPost: React.FC = () => {
@@ -26,8 +29,10 @@ const RandomPost: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [mandates, setMandates] = useState<Mandate[]>([]);
     const [existingPostings, setExistingPostings] = useState<PostingResponse[]>([]);
+    const [allStations, setAllStations] = useState<Station[]>([]);
+    const [allStates, setAllStates] = useState<State[]>([]);
     // Using simple object structure for flexible station types
-    const [venues, setVenues] = useState<{ id: string, name: string, type: string }[]>([]);
+    const [venues, setVenues] = useState<{ id: string, name: string, type: string, state_name?: string, zone?: string }[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Selections
@@ -44,6 +49,8 @@ const RandomPost: React.FC = () => {
     const [conraissConfig, setConraissConfig] = useState<{ [key: number]: number }>({
         6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
     });
+    // Distribution Percentages (0-100)
+    const [distRatios, setDistRatios] = useState({ state: 60, zone: 20, hq: 20 });
     // Accreditation Specific
     const [numberOfNights, setNumberOfNights] = useState<number>(0);
 
@@ -58,19 +65,36 @@ const RandomPost: React.FC = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [apcData, assignmentsData, mandatesData, venuesData, postingsData] = await Promise.all([
+            const [apcData, assignmentsData, mandatesData, venuesData, postingsData, stationsData, statesData] = await Promise.all([
                 getAllAPCRecords(true),
                 getAllAssignments(),
                 getAllMandates(),
                 getAllMarkingVenues(),
-                getAllPostingRecords()
+                getAllPostingRecords(),
+                getAllStations(),
+                getAllStates()
             ]);
             setAllAPC(apcData);
             setAssignments(assignmentsData);
             setMandates(mandatesData);
             setExistingPostings(postingsData || []); // Ensure safe fallback
+            setAllStations(stationsData);
+            setAllStates(statesData);
+
+            const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
+            const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
+
             // Default to Marking Venues
-            setVenues(venuesData.map(v => ({ id: v.id, name: v.name, type: 'marking_venue' })));
+            setVenues(venuesData.map(v => {
+                const state = stateNameMap.get((v.state || '').toLowerCase());
+                return {
+                    id: v.id,
+                    name: v.name,
+                    type: 'marking_venue',
+                    state_name: state?.name || v.state,
+                    zone: state?.zone || undefined
+                };
+            }));
         } catch (err) {
             console.error("Failed to load initial data", err);
             error('Failed to load initial data.');
@@ -82,50 +106,58 @@ const RandomPost: React.FC = () => {
     const handleStationTypeSelect = async (type: string) => {
         setLoading(true);
         try {
-            let options: { id: string; name: string; type: string }[] = [];
+            let options: any[] = [];
 
             if (type === 'state') {
                 const data = await getAllStates();
                 options = data.map(s => ({
                     id: s.id,
-                    name: s.state_code ? `(${s.state_code}) - ${s.name}` : s.name,
-                    type: 'state'
+                    name: s.state_code ? `(${s.state_code}) - ${s.name} - ${s.name}` : `${s.name} - ${s.name}`,
+                    type: 'state',
+                    state_name: s.name,
+                    zone: s.zone || undefined
                 }));
-            } else if (type === 'school') {
-                const data = await getAllSchools();
-                options = data.map(s => ({
-                    id: s.id,
-                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
-                    type: 'school'
-                }));
-            } else if (type === 'bece_custodian') {
-                const data = await getAllBECECustodians();
-                options = data.map(s => ({
-                    id: s.id,
-                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
-                    type: 'bece_custodian'
-                }));
-            } else if (type === 'ssce_custodian') {
-                const data = await getAllSSCECustodians();
-                options = data.map(s => ({
-                    id: s.id,
-                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
-                    type: 'ssce_custodian'
-                }));
-            } else if (type === 'ncee_center') {
-                const data = await getAllNCEECenters();
-                options = data.map(s => ({
-                    id: s.id,
-                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
-                    type: 'ncee_center'
-                }));
-            } else if (type === 'marking_venue') {
-                const data = await getAllMarkingVenues();
-                options = data.map(s => ({
-                    id: s.id,
-                    name: s.code ? `(${s.code}) - ${s.name}` : s.name,
-                    type: 'marking_venue'
-                }));
+            } else {
+                const [statesData, specificData] = await Promise.all([
+                    getAllStates(),
+                    type === 'school' ? getAllSchools() :
+                        type === 'bece_custodian' ? getAllBECECustodians() :
+                            type === 'ssce_custodian' ? getAllSSCECustodians() :
+                                type === 'ncee_center' ? getAllNCEECenters() :
+                                    getAllMarkingVenues()
+                ]);
+
+                const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
+                const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
+
+                options = specificData.map((s: any) => {
+                    let stateObj: State | undefined;
+                    if (s.state_id) stateObj = stateMap.get(s.state_id);
+                    else if (s.state) stateObj = stateNameMap.get(s.state.toLowerCase());
+
+                    const stateName = stateObj?.name || s.state || '';
+                    const code = s.code || s.state_code || '';
+
+                    // Value format: (CODE) | NAME | STATE
+                    const parts = [];
+                    parts.push(code ? `(${code})` : '');
+                    parts.push(s.name);
+                    parts.push(stateName);
+
+                    // Display format: (CODE) - NAME
+                    const displayParts = [];
+                    if (code) displayParts.push(`(${code})`);
+                    displayParts.push(s.name);
+
+                    return {
+                        id: s.id,
+                        name: parts.join(' | '),
+                        display_name: displayParts.join(' - '),
+                        type: type,
+                        state_name: stateName,
+                        zone: stateObj?.zone || undefined
+                    };
+                });
             }
 
             setVenues(options);
@@ -146,7 +178,7 @@ const RandomPost: React.FC = () => {
         setConraissConfig(prev => ({ ...prev, [level]: numVal }));
     };
 
-    const totalStaffRequired = Object.values(conraissConfig).reduce((a, b) => a + b, 0);
+
 
     const generatePostings = async () => {
         if (!selectedAssignment || !selectedMandate) {
@@ -159,8 +191,8 @@ const RandomPost: React.FC = () => {
             return;
         }
 
-        if (totalStaffRequired === 0) {
-            warning('Please configure the number of staff required.');
+        if (targetQuota === 0) {
+            warning('Please configure the target quota per venue.');
             return;
         }
 
@@ -170,22 +202,36 @@ const RandomPost: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 100));
 
         try {
-            const assignmentName = assignments.find(a => a.id === selectedAssignment)?.name || selectedAssignment;
-            const apcField = assignmentFieldMap[assignmentName];
+            const assignmentRecord = assignments.find(a => a.id === selectedAssignment);
+            const assignmentName = assignmentRecord?.name || selectedAssignment;
+            const assignmentCode = assignmentRecord?.code || selectedAssignment;
+            const apcField = assignmentFieldMap[assignmentCode] || assignmentFieldMap[assignmentName];
 
             // 1. Existing Assignments Lookup (duplicate prevention)
             const targetMandate = mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate;
             const alreadyAssignedStaffIds = new Set<string>();
+
+            // 1.5 Calculate Global Posted Counts & Check specific duplication
+            const postedCountMap = new Map<string, number>();
             existingPostings.forEach(p => {
+                const count = (p.assignments || []).length;
+                postedCountMap.set(p.file_no, (postedCountMap.get(p.file_no) || 0) + count);
+
                 if (Array.isArray(p.mandates) && p.mandates.some(m => m === targetMandate)) {
                     alreadyAssignedStaffIds.add(p.file_no);
                 }
             });
 
-            // 2. Filter Eligible Staff
+            // 2. Filter Eligible Staff (Strict check on Global Quota)
             const eligibleStaff = allAPC.filter(staff => {
                 if (!staff.active) return false;
                 if (alreadyAssignedStaffIds.has(staff.file_no)) return false;
+
+                // Capacity Check
+                const totalPosted = postedCountMap.get(staff.file_no) || 0;
+                const totalAllotted = staff.count || 0;
+                if (totalPosted >= totalAllotted) return false; // Exhausted
+
                 if (apcField) {
                     const val = staff[apcField as keyof APCRecord];
                     return !!val;
@@ -203,20 +249,54 @@ const RandomPost: React.FC = () => {
                 }
             });
 
-            // Shuffle pools
-            const shuffle = <T,>(array: T[]): T[] => array.sort(() => Math.random() - 0.5);
-            Object.keys(staffByLevel).forEach(key => {
-                const lvl = parseInt(key);
-                staffByLevel[lvl] = shuffle(staffByLevel[lvl]);
+            // Pre-process staff zones and states for prioritization
+            const stationToZoneMap = new Map(allStations.map(s => [s.station, s.zone]));
+            const staffToStateMap = new Map<string, string>(); // staff_id -> state_name
+
+            allAPC.forEach(staff => {
+                const station = (staff.station || '').toLowerCase();
+                // Find the first state name that appears in the station string
+                const matchedState = allStates.find(s => station.includes(s.name.toLowerCase()));
+                if (matchedState) {
+                    staffToStateMap.set(staff.id, matchedState.name);
+                }
             });
 
-            const newPostings: PostingCreate[] = [];
-            const targetVenues = isAllVenues ? venues : venues.filter(v => v.id === selectedVenue);
-            const usedStaffIds = new Set<string>();
+            // Shuffle pools
+            const shuffle = <T,>(array: T[]): T[] => {
+                const arr = [...array];
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            };
 
-            // 4. Distribute (Target-Capped Logic)
-            targetVenues.forEach(venue => {
-                // Calculate Existing Total for Venue
+            // 4. PREPARE VENUE STATES & QUOTAS
+            const targetVenues = isAllVenues ? venues : venues.filter(v => v.id === selectedVenue);
+
+            interface VenueQuota {
+                venue: typeof targetVenues[0];
+                cleanName: string;
+                zone?: string;
+                remainingNeeded: number;
+                usedLevels: number[];
+                // Specific layer quotas
+                stateQuota: number;
+                zoneQuota: number;
+                hqQuota: number;
+                // Layer pick counters
+                statePicks: number;
+                zonePicks: number;
+                hqPicks: number;
+            }
+
+            const venueQuotas: VenueQuota[] = targetVenues.map(venue => {
+                const venueZone = venue.zone;
+                const venueState = venue.state_name;
+                const venueName = venue.name;
+                const cleanVenueName = venue.type === 'state' ? venueState : venueName.split(' | ')[1] || venueName;
+
                 let venueExistingTotal = 0;
                 const venueExistingLevels: { [key: number]: number } = {};
 
@@ -234,40 +314,106 @@ const RandomPost: React.FC = () => {
                     }
                 });
 
-                // Determine Effective Target
-                const effectiveTarget = targetQuota > 0 ? targetQuota : totalStaffRequired;
+                const effectiveTarget = targetQuota;
+                const remainingNeeded = Math.max(0, effectiveTarget - venueExistingTotal);
 
-                let venueNeeded = Math.max(0, effectiveTarget - venueExistingTotal);
-                if (venueNeeded <= 0) return; // Venue full
+                // Calculate layer quotas using Math.round for better behavior with small targets (e.g. 50/50 of 2 = 1 and 1)
+                const stateQuotaStr = (effectiveTarget * (distRatios.state / 100)).toFixed(2);
+                const zoneQuotaStr = (effectiveTarget * (distRatios.zone / 100)).toFixed(2);
 
-                // Get configured levels and SHUFFLE them to ensure fair distribution for loose targets
-                const activeLevels = Object.entries(conraissConfig)
-                    .filter(([_, count]) => count > 0)
-                    .map(([lvl, count]) => ({ level: parseInt(lvl), limit: count }));
+                const stateQuota = Math.round(parseFloat(stateQuotaStr));
+                const zoneQuota = Math.round(parseFloat(zoneQuotaStr));
+                // HQ takes the remainder to ensure we hit the exact target
+                const hqQuota = Math.max(0, effectiveTarget - stateQuota - zoneQuota);
 
-                const shuffledLevels = shuffle(activeLevels);
+                return {
+                    venue,
+                    cleanName: cleanVenueName || '',
+                    zone: venueZone,
+                    remainingNeeded,
+                    usedLevels: [],
+                    stateQuota,
+                    zoneQuota,
+                    hqQuota,
+                    statePicks: 0,
+                    zonePicks: 0,
+                    hqPicks: 0
+                };
+            }).filter(vq => vq.remainingNeeded > 0);
 
-                for (const config of shuffledLevels) {
-                    if (venueNeeded <= 0) break;
+            const activeLevels = Object.keys(conraissConfig).map(Number).filter(lvl => conraissConfig[lvl] > 0);
+            if (activeLevels.length === 0) {
+                warning('Please select at least one CONRAISS level.');
+                setLoading(false);
+                return;
+            }
 
-                    const levelExisting = venueExistingLevels[config.level] || 0;
-                    // How many can we add for this level specifically?
-                    const levelSpace = Math.max(0, config.limit - levelExisting);
+            const usedStaffIds = new Set<string>();
+            const newPostings: PostingCreate[] = [];
 
-                    // Add minimum of (VenueNeed, LevelLimit)
-                    const countToAdd = Math.min(venueNeeded, levelSpace);
+            /**
+             * PRIORITY STAGES (0-6):
+             * 0: Primary State (Fill requested stateQuota with State staff)
+             * 1: Primary Zone (Fill requested zoneQuota with Zone staff)
+             * 2: Primary HQ (Fill requested hqQuota with HQ staff)
+             * 3: Fallback State (Fill ANY remaining vacancy in any venue using State staff)
+             * 4: Fallback Zone (Fill ANY remaining vacancy using Zone staff)
+             * 5: Fallback HQ (Fill ANY remaining vacancy using HQ staff)
+             * 6: Fallback Anyone (Last resort)
+             */
+            for (let stage = 0; stage <= 6; stage++) {
+                let madeProgressInStage = true;
 
-                    if (countToAdd > 0) {
-                        let addedForLevel = 0;
-                        const pool = staffByLevel[config.level] || [];
+                while (madeProgressInStage) {
+                    madeProgressInStage = false;
+                    const localVenueOrder = shuffle([...venueQuotas]);
 
-                        for (const staff of pool) {
-                            if (addedForLevel >= countToAdd) break;
-                            if (!usedStaffIds.has(staff.id)) {
+                    for (const vq of localVenueOrder) {
+                        if (vq.remainingNeeded <= 0) continue;
+
+                        // Check if we already filled the quota for specific primary stages
+                        if (stage === 0 && vq.statePicks >= vq.stateQuota) continue;
+                        if (stage === 1 && vq.zonePicks >= vq.zoneQuota) continue;
+                        if (stage === 2 && vq.hqPicks >= vq.hqQuota) continue;
+
+                        const availableLevels = shuffle([...activeLevels]);
+                        const levelOrder = availableLevels.sort((a, b) => {
+                            const countA = vq.usedLevels.filter(l => l === a).length;
+                            const countB = vq.usedLevels.filter(l => l === b).length;
+                            return countA - countB;
+                        });
+
+                        for (const level of levelOrder) {
+                            const pool = staffByLevel[level] || [];
+                            const priorityMatches = pool.filter(staff => {
+                                if (usedStaffIds.has(staff.id)) return false;
+
+                                const staffStation = staff.station || '';
+                                const staffZone = stationToZoneMap.get(staffStation);
+                                const staffStateName = staffToStateMap.get(staff.id);
+
+                                // Category determination (staff-centric)
+                                const isStateStaff = vq.venue.state_name && staffStateName === vq.venue.state_name;
+                                const isZoneStaff = !isStateStaff && vq.zone && staffZone === vq.zone;
+                                const isHQStaff = !isStateStaff && !isZoneStaff && (staffStation.toUpperCase().includes('HQ') || !staffZone || staffZone === 'HQ');
+
+                                // Stage Filter
+                                if (stage === 0) return isStateStaff;
+                                if (stage === 1) return isZoneStaff;
+                                if (stage === 2) return isHQStaff;
+                                if (stage === 3) return isStateStaff;
+                                if (stage === 4) return isZoneStaff;
+                                if (stage === 5) return isHQStaff;
+                                return true; // Stage 6: Last resort (Anyone)
+                            });
+
+                            if (priorityMatches.length > 0) {
+                                const staff = shuffle(priorityMatches)[0];
                                 usedStaffIds.add(staff.id);
 
                                 const currentCount = staff.count || 0;
-                                const toBePosted = Math.max(0, currentCount - 1);
+                                const totalPostedSoFar = postedCountMap.get(staff.file_no) || 0;
+                                const newToBePosted = Math.max(0, currentCount - (totalPostedSoFar + 1));
 
                                 newPostings.push({
                                     file_no: staff.file_no,
@@ -275,23 +421,37 @@ const RandomPost: React.FC = () => {
                                     station: staff.station,
                                     conraiss: staff.conraiss,
                                     year: new Date().getFullYear().toString(),
-                                    // Use 'numberOfNights' for Accreditation if set, else maintain original logic (or default to 0/1)
-                                    // Assuming 'count' field on Posting is appropriate for 'Number of Nights' in this context
-                                    count: assignmentName.toUpperCase().includes('ACCREDITATION') && numberOfNights > 0 ? numberOfNights : (staff.count || 0),
+                                    count: numberOfNights,
                                     posted_for: 1,
-                                    to_be_posted: toBePosted,
-                                    assignments: [assignmentName],
+                                    to_be_posted: newToBePosted,
+                                    assignments: [assignmentCode],
                                     mandates: [targetMandate],
-                                    assignment_venue: [venue.name],
-                                });
-                                addedForLevel++;
+                                    assignment_venue: [vq.venue.name],
+                                    state_name: vq.venue.state_name,
+                                    zone: vq.venue.zone,
+                                } as any);
+
+                                // Accounting for picks (geographic categories)
+                                const staffStation = staff.station || '';
+                                const staffZone = stationToZoneMap.get(staffStation);
+                                const staffStateName = staffToStateMap.get(staff.id);
+
+                                const isActuallyState = vq.venue.state_name && staffStateName === vq.venue.state_name;
+                                const isActuallyZone = !isActuallyState && vq.zone && staffZone === vq.zone;
+
+                                if (isActuallyState) vq.statePicks++;
+                                else if (isActuallyZone) vq.zonePicks++;
+                                else vq.hqPicks++;
+
+                                vq.usedLevels.push(level);
+                                vq.remainingNeeded--;
+                                madeProgressInStage = true;
+                                break; // Round-robin: move to next venue
                             }
                         }
-
-                        venueNeeded -= addedForLevel;
                     }
                 }
-            });
+            }
 
             setGeneratedPostings(newPostings);
             setLoading(false);
@@ -322,6 +482,36 @@ const RandomPost: React.FC = () => {
         if (generatedPostings.length === 0) return;
         setLoading(true);
         try {
+            // 1. Identify APC Field
+            const assignmentRecord = assignments.find(a => a.id === selectedAssignment);
+            const assignmentCode = assignmentRecord?.code || '';
+            const assignmentName = assignmentRecord?.name || '';
+            const apcField = assignmentFieldMap[assignmentCode] || assignmentFieldMap[assignmentName];
+
+            if (apcField) {
+                // 2. Prepare APC Updates
+                const updates = [];
+                const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
+
+                for (const posting of generatedPostings) {
+                    const normFileNo = posting.file_no.toString().padStart(4, '0');
+                    const apcRecord = apcMap.get(normFileNo) as any;
+
+                    if (apcRecord && apcRecord.id) {
+                        const { id, created_at, updated_at, created_by, updated_by, ...cleanRecord } = apcRecord;
+                        updates.push(updateAPC(id, {
+                            ...cleanRecord,
+                            [apcField]: '', // Clear the assignment field
+                        } as any));
+                    }
+                }
+
+                if (updates.length > 0) {
+                    await Promise.allSettled(updates);
+                }
+            }
+
+            // 3. Create Postings
             await bulkCreatePostings({ items: generatedPostings });
             success(`Successfully posted ${generatedPostings.length} staff!`);
             setGeneratedPostings([]);
@@ -362,23 +552,31 @@ const RandomPost: React.FC = () => {
                 <div className="bg-white dark:bg-[#121b25] rounded-xl border border-slate-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[600px]">
                     <div className="overflow-x-auto overflow-y-auto flex-1">
                         <table className="w-full text-left border-collapse relative">
-                            <thead className="bg-slate-50 dark:bg-[#0f161d] text-xs uppercase font-bold text-slate-500 sticky top-0 z-10 shadow-sm">
+                            <thead className="bg-slate-50 dark:bg-[#0f161d] text-sm uppercase font-bold text-slate-500 sticky top-0 z-10 shadow-sm">
                                 <tr>
                                     <th className="p-3">File No</th>
                                     <th className="p-3">Name</th>
                                     <th className="p-3">CON</th>
                                     <th className="p-3">Station</th>
                                     <th className="p-3">Venue</th>
+                                    <th className="p-3">State</th>
+                                    <th className="p-3">Zone</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-sm">
+                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-base">
                                 {generatedPostings.map((p, idx) => (
                                     <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
-                                        <td className="p-3 font-mono font-bold text-slate-700 dark:text-slate-300">{p.file_no}</td>
-                                        <td className="p-3">{p.name}</td>
-                                        <td className="p-3">{p.conraiss}</td>
-                                        <td className="p-3">{p.station}</td>
-                                        <td className="p-3 font-medium text-purple-600 dark:text-purple-400">{p.assignment_venue?.[0]}</td>
+                                        <td className="p-3 font-mono font-bold text-slate-700 dark:text-slate-300 text-sm">{p.file_no}</td>
+                                        <td className="p-3 font-medium text-slate-800 dark:text-slate-100">{p.name}</td>
+                                        <td className="p-3 font-bold">{p.conraiss}</td>
+                                        <td className="p-3 text-sm">{p.station}</td>
+                                        <td className="p-3 font-bold text-purple-600 dark:text-purple-400 text-sm">{p.assignment_venue?.[0]}</td>
+                                        <td className="p-3 text-sm">{(p as any).state_name || '-'}</td>
+                                        <td className="p-3">
+                                            <span className={`px-2 py-1 rounded-md text-xs font-bold ${(p as any).zone ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                                                {(p as any).zone || 'N/A'}
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -462,7 +660,7 @@ const RandomPost: React.FC = () => {
                                     disabled={isAllVenues}
                                 >
                                     <option value="">Select Venue</option>
-                                    {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                    {venues.map(v => <option key={v.id} value={v.id}>{v.display_name || v.name}</option>)}
                                 </select>
                                 <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 rounded-xl border border-slate-200 dark:border-gray-700">
                                     <input
@@ -501,9 +699,36 @@ const RandomPost: React.FC = () => {
                                     onChange={e => setTargetQuota(parseInt(e.target.value) || 0)}
                                 />
                             </div>
-                            <div className={`text-sm font-bold px-3 py-2 rounded-lg flex flex-col items-center border ${totalStaffRequired === targetQuota ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
-                                <span className="text-[10px] uppercase opacity-70">Current</span>
-                                <span className="text-lg">{totalStaffRequired}</span>
+
+                            <div className="h-10 w-[1px] bg-slate-200 dark:bg-gray-800 mx-2" />
+
+                            <div className="flex items-center gap-3">
+                                {[
+                                    { label: 'State', key: 'state' },
+                                    { label: 'Zone', key: 'zone' },
+                                    { label: 'HQ', key: 'hq' }
+                                ].map(({ label, key }) => (
+                                    <div key={key} className="flex flex-col items-center">
+                                        <label className="text-[10px] uppercase font-bold text-slate-400">{label}%</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            className="w-16 h-9 px-1 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d]"
+                                            value={distRatios[key as keyof typeof distRatios]}
+                                            onChange={e => {
+                                                const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                                setDistRatios(prev => ({ ...prev, [key]: val }));
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                                <div className="flex flex-col items-center pl-2 border-l border-slate-200 dark:border-gray-800">
+                                    <label className="text-[10px] uppercase font-bold text-slate-400">Total</label>
+                                    <span className={`text-sm font-bold ${distRatios.state + distRatios.zone + distRatios.hq === 100 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                        {distRatios.state + distRatios.zone + distRatios.hq}%
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -542,8 +767,8 @@ const RandomPost: React.FC = () => {
                         </>
                     )}
                 </button>
-                {/* Accreditation Specific Input */}
-                {assignments.find(a => a.id === selectedAssignment)?.name.toUpperCase().includes('ACCREDITATION') && (
+                {/* Assignment Specific configurations (like Number of Nights) */}
+                {selectedAssignment && (
                     <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 mt-4">
                         <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Number of Nights</label>
                         <input

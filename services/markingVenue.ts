@@ -22,6 +22,9 @@ export const getMarkingVenueList = async (page: number = 1, limit: number = 10, 
     return response.json();
 };
 
+// Cache
+let venueCache: MarkingVenue[] | null = null;
+
 export const createMarkingVenue = async (data: MarkingVenueCreate): Promise<MarkingVenue> => {
     const response = await fetch(API_BASE_URL, {
         method: 'POST',
@@ -33,6 +36,7 @@ export const createMarkingVenue = async (data: MarkingVenueCreate): Promise<Mark
     if (!response.ok) {
         throw new Error('Failed to create marking venue');
     }
+    venueCache = null; // Invalidate
     return response.json();
 };
 
@@ -47,6 +51,7 @@ export const updateMarkingVenue = async (id: string, data: MarkingVenueUpdate): 
     if (!response.ok) {
         throw new Error('Failed to update marking venue');
     }
+    venueCache = null; // Invalidate
     return response.json();
 };
 
@@ -57,6 +62,7 @@ export const deleteMarkingVenue = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete marking venue');
     }
+    venueCache = null; // Invalidate
 };
 
 export const uploadMarkingVenueCsv = async (file: File): Promise<any> => {
@@ -73,19 +79,24 @@ export const uploadMarkingVenueCsv = async (file: File): Promise<any> => {
         console.error('Upload Error Details:', errorData);
         throw new Error(errorData.detail || 'Failed to upload marking venue CSV');
     }
+    venueCache = null; // Invalidate
     return response.json();
 }
 
 export const getAllMarkingVenues = async (): Promise<MarkingVenue[]> => {
+    if (venueCache) return venueCache;
+
     const response = await fetch(`${API_BASE_URL}?limit=10000`);
     if (!response.ok) {
         throw new Error('Failed to fetch all marking venues');
     }
     const data: MarkingVenueListResponse = await response.json();
+    venueCache = data.items;
     return data.items;
 };
 
 export const bulkDeleteMarkingVenues = async (ids: string[]): Promise<void> => {
     const deletePromises = ids.map(id => deleteMarkingVenue(id));
     await Promise.all(deletePromises);
+    venueCache = null; // Invalidate
 };

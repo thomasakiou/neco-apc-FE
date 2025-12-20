@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { getMandateList, deleteMandate, createMandate, updateMandate, uploadMandateCsv, getAllMandates, bulkDeleteMandates } from '../../services/mandate';
 import { getAllAssignments } from '../../services/assignment';
 import { Mandate, MandateCreate } from '../../types/mandate';
@@ -7,29 +8,69 @@ import MandateModal from './MandateModal';
 import AlertModal from '../../components/AlertModal';
 
 const MandateConfig: React.FC = () => {
-    const [mandateList, setMandateList] = useState<Mandate[]>([]);
     const [allMandates, setAllMandates] = useState<Mandate[]>([]);
     const [assignmentList, setAssignmentList] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof Mandate | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [selectedAssignment, setSelectedAssignment] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [selectedMandate, setSelectedMandate] = useState<Mandate | null>(null);
+    const [sortField, setSortField] = useState<keyof Mandate | null>(null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-    // Filter allMandates for selection purposes
-    const allFilteredMandates = allMandates.filter(mandate => {
-        const matchesSearch = !searchTerm ||
-            mandate.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            mandate.mandate?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesAssignment = selectedAssignment === 'All' ||
-            (mandate.conraiss_range && mandate.conraiss_range.includes(selectedAssignment));
-        return matchesSearch && matchesAssignment;
-    });
+    const filteredMandates = useMemo(() => {
+        let result = allMandates;
+
+        // Search Filter
+        if (debouncedSearchTerm) {
+            const lowerTerm = debouncedSearchTerm.toLowerCase().trim();
+            result = result.filter(mandate =>
+                mandate.code?.toLowerCase().includes(lowerTerm) ||
+                mandate.mandate?.toLowerCase().includes(lowerTerm)
+            );
+        }
+
+        // Dropdown Filters
+        if (selectedAssignment !== 'All') {
+            result = result.filter(mandate =>
+                mandate.conraiss_range && mandate.conraiss_range.includes(selectedAssignment)
+            );
+        }
+
+        // SORT LOGIC
+        if (sortField) {
+            result = [...result].sort((a, b) => {
+                const aValue = a[sortField];
+                const bValue = b[sortField];
+
+                if (aValue === null || aValue === undefined) return 1;
+                if (bValue === null || bValue === undefined) return -1;
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                }
+
+                const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return result;
+    }, [allMandates, debouncedSearchTerm, selectedAssignment, sortField, sortDirection]);
+
+    const total = filteredMandates.length;
+
+    const paginatedMandates = useMemo(() => {
+        const startIndex = (page - 1) * limit;
+        return filteredMandates.slice(startIndex, startIndex + limit);
+    }, [filteredMandates, page, limit]);
+
+    // For bulk actions selection
+    const allFilteredMandates = filteredMandates;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMandate, setEditingMandate] = useState<Mandate | null>(null);
@@ -87,52 +128,13 @@ const MandateConfig: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchTerm]);
-
-    useEffect(() => {
-        setPage(1);
-    }, [selectedAssignment]);
+    }, [debouncedSearchTerm, selectedAssignment]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Always fetch all data to enable proper sorting across all records
-            const allData = await getAllMandates();
-
-            // Apply search and assignment filters
-            const filtered = allData.filter(mandate => {
-                const matchesSearch = !searchTerm ||
-                    mandate.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    mandate.mandate?.toLowerCase().includes(searchTerm.toLowerCase());
-                const matchesAssignment = selectedAssignment === 'All' ||
-                    (mandate.conraiss_range && mandate.conraiss_range.includes(selectedAssignment));
-                return matchesSearch && matchesAssignment;
-            });
-
-            // Apply sorting to all filtered data
-            const sorted = [...filtered].sort((a, b) => {
-                if (!sortField) return 0;
-
-                const aValue = a[sortField];
-                const bValue = b[sortField];
-
-                if (aValue === null || aValue === undefined) return 1;
-                if (bValue === null || bValue === undefined) return -1;
-
-                if (typeof aValue === 'string' && typeof bValue === 'string') {
-                    const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
-                    return sortDirection === 'asc' ? comparison : -comparison;
-                }
-
-                const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-                return sortDirection === 'asc' ? comparison : -comparison;
-            });
-
-            // Paginate the sorted results
-            const startIndex = (page - 1) * limit;
-            const endIndex = startIndex + limit;
-            setMandateList(sorted.slice(startIndex, endIndex));
-            setTotal(sorted.length);
+            const data = await getAllMandates();
+            setAllMandates(data);
         } catch (error) {
             console.error('Error fetching mandates:', error);
         } finally {
@@ -151,7 +153,7 @@ const MandateConfig: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [page, searchTerm, limit, selectedAssignment, sortField, sortDirection]);
+    }, []);
 
     useEffect(() => {
         fetchAllMandates();
@@ -467,9 +469,9 @@ const MandateConfig: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                    {mandateList.length === 0 ? (
+                                    {paginatedMandates.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="p-10 text-center">
+                                            <td colSpan={7} className="p-10 text-center">
                                                 <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
                                                     <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-1">
                                                         <span className="material-symbols-outlined text-2xl">inbox</span>
@@ -480,7 +482,7 @@ const MandateConfig: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        mandateList.map((mandate) => (
+                                        paginatedMandates.map((mandate) => (
                                             <MRow
                                                 key={mandate.id}
                                                 mandate={mandate}
