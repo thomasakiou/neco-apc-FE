@@ -1,1 +1,0 @@
-for the Personalized Posting page, add a button on the right of the Save Changes button that becomes active when i pick a mandate from the drop down. When i click this button, open a modal where i can select if i want to use State, School, BECE or SSCE Custodian, NCEE Exam Center. What i pick in this modal will determine what is loaded onto the third dropdown for selection.

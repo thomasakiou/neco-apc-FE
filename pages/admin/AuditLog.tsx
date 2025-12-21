@@ -1,17 +1,25 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { getAuditLogs } from '../../services/user';
+import { deleteAuditLog, clearAllAuditLogs } from '../../services/audit';
 import { AuditLogResponse } from '../../types/audit';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import moment from 'moment';
 import * as XLSX from 'xlsx';
 
 const AuditLog: React.FC = () => {
-   const { user: currentUser } = useAuth();
+   const { user: currentUser, isSuperAdmin } = useAuth();
+   const { showNotification } = useNotification();
    const [events, setEvents] = useState<AuditLogResponse[]>([]);
    const [loading, setLoading] = useState(true);
    const [page, setPage] = useState(1);
    const [limit] = useState(20);
    const [total, setTotal] = useState(0);
+
+   // Deletion State
+   const [logToDelete, setLogToDelete] = useState<string | null>(null);
+   const [isClearLogsModalOpen, setIsClearLogsModalOpen] = useState(false);
+   const [isDeleting, setIsDeleting] = useState(false);
 
    useEffect(() => {
       fetchAuditData();
@@ -36,6 +44,35 @@ const AuditLog: React.FC = () => {
    };
 
    const totalPages = Math.ceil(total / limit);
+
+   const handleDeleteLog = async () => {
+      if (!logToDelete) return;
+      setIsDeleting(true);
+      try {
+         await deleteAuditLog(logToDelete);
+         showNotification('Audit log entry deleted', 'success');
+         fetchAuditData();
+         setLogToDelete(null);
+      } catch (error) {
+         showNotification('Failed to delete log entry', 'error');
+      } finally {
+         setIsDeleting(false);
+      }
+   };
+
+   const handleClearLogs = async () => {
+      setIsDeleting(true);
+      try {
+         await clearAllAuditLogs();
+         showNotification('All audit logs cleared', 'success');
+         fetchAuditData();
+         setIsClearLogsModalOpen(false);
+      } catch (error) {
+         showNotification('Failed to clear logs', 'error');
+      } finally {
+         setIsDeleting(false);
+      }
+   };
 
    const handleExport = () => {
       const dataToExport = events.map(event => ({
@@ -70,6 +107,18 @@ const AuditLog: React.FC = () => {
                   <span className="material-symbols-outlined text-xl group-hover:translate-y-0.5 transition-transform text-emerald-500">download_for_offline</span>
                   Export Data
                </button>
+
+               {isSuperAdmin && (
+                  <button
+                     onClick={() => setIsClearLogsModalOpen(true)}
+                     disabled={loading || events.length === 0}
+                     className="group flex items-center gap-3 px-6 py-3 bg-rose-500/10 text-rose-500 rounded-2xl border border-rose-500/20 hover:bg-rose-500/20 transition-all font-black text-sm active:scale-95 disabled:opacity-50"
+                  >
+                     <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">delete_sweep</span>
+                     Clear All
+                  </button>
+               )}
+
                <button
                   onClick={fetchAuditData}
                   disabled={loading}
@@ -101,6 +150,7 @@ const AuditLog: React.FC = () => {
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Temporal / identity</th>
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Transaction Type</th>
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Reference Object</th>
+                                 {isSuperAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>}
                               </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-200/40 dark:divide-white/5">
@@ -145,6 +195,17 @@ const AuditLog: React.FC = () => {
                                              </span>
                                           </div>
                                        </td>
+                                       {isSuperAdmin && (
+                                          <td className="px-8 py-6 text-right">
+                                             <button
+                                                onClick={() => setLogToDelete(event.id)}
+                                                className="size-8 inline-flex items-center justify-center rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                                title="Delete Log"
+                                             >
+                                                <span className="material-symbols-outlined text-lg font-bold">delete</span>
+                                             </button>
+                                          </td>
+                                       )}
                                     </tr>
                                  ))
                               )}
@@ -205,6 +266,32 @@ const AuditLog: React.FC = () => {
                </div>
             </div>
          </div>
+
+         {/* Delete Single Log Modal */}
+         {logToDelete && (
+            <ConfirmationModal
+               isOpen={!!logToDelete}
+               onClose={() => setLogToDelete(null)}
+               onConfirm={handleDeleteLog}
+               title="Delete Audit Log"
+               message="Are you sure you want to delete this audit log entry? This action cannot be undone."
+               isDanger={true}
+               isLoading={isDeleting}
+            />
+         )}
+
+         {/* Clear All Logs Modal */}
+         {isClearLogsModalOpen && (
+            <ConfirmationModal
+               isOpen={isClearLogsModalOpen}
+               onClose={() => setIsClearLogsModalOpen(false)}
+               onConfirm={handleClearLogs}
+               title="Clear All Audit Logs"
+               message="Are you sure you want to delete ALL audit logs? This action is irreversible and will wipe the entire history."
+               isDanger={true}
+               isLoading={isDeleting}
+            />
+         )}
       </div>
    );
 };
@@ -238,5 +325,68 @@ const PaginationButton = ({ icon, disabled, onClick }: { icon: string, disabled:
       <span className="material-symbols-outlined text-xl">{icon}</span>
    </button>
 );
+
+const ConfirmationModal = ({
+   isOpen,
+   onClose,
+   onConfirm,
+   title,
+   message,
+   isDanger = false,
+   isLoading = false
+}: {
+   isOpen: boolean;
+   onClose: () => void;
+   onConfirm: () => void;
+   title: string;
+   message: string;
+   isDanger?: boolean;
+   isLoading?: boolean;
+}) => {
+   if (!isOpen) return null;
+
+   return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+         <div className="bg-white dark:bg-[#1e293b] rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/10">
+            <div className="p-8 flex flex-col items-center text-center">
+               <div className={`size-16 rounded-2xl flex items-center justify-center mb-6 ${isDanger ? 'bg-rose-500/10 text-rose-500' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
+                  <span className="material-symbols-outlined text-3xl">
+                     {isDanger ? 'warning' : 'help'}
+                  </span>
+               </div>
+
+               <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
+                  {title}
+               </h3>
+
+               <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  {message}
+               </p>
+            </div>
+
+            <div className="p-6 bg-slate-50 dark:bg-white/5 flex gap-4">
+               <button
+                  onClick={onClose}
+                  disabled={isLoading}
+                  className="flex-1 py-3.5 px-6 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:shadow-md transition-all disabled:opacity-50"
+               >
+                  Cancel
+               </button>
+               <button
+                  onClick={onConfirm}
+                  disabled={isLoading}
+                  className={`flex-1 py-3.5 px-6 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2 ${isDanger
+                     ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/25'
+                     : 'bg-indigo-500 hover:bg-indigo-600 shadow-indigo-500/25'
+                     }`}
+               >
+                  {isLoading && <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>}
+                  {isDanger ? 'Delete' : 'Confirm'}
+               </button>
+            </div>
+         </div>
+      </div>
+   );
+};
 
 export default AuditLog;
