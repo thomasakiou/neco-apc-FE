@@ -79,6 +79,7 @@ const AuditLog: React.FC = () => {
          User: event.user_name || 'System',
          Action: event.action,
          Entity: event.entity_name,
+         Details: event.details || '',
          Timestamp: moment(event.timestamp).format('YYYY-MM-DD HH:mm:ss')
       }));
 
@@ -149,6 +150,7 @@ const AuditLog: React.FC = () => {
                               <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200/60 dark:border-white/10">
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Temporal / identity</th>
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Transaction Type</th>
+                                 <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Operational Details</th>
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Reference Object</th>
                                  {isSuperAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>}
                               </tr>
@@ -187,6 +189,11 @@ const AuditLog: React.FC = () => {
                                           <span className="inline-flex px-3 py-1.5 rounded-xl bg-indigo-500/5 text-indigo-500 dark:text-indigo-400 border border-indigo-500/10 text-[11px] font-black uppercase tracking-wider">
                                              {event.action}
                                           </span>
+                                       </td>
+                                       <td className="px-8 py-6 max-w-[300px]">
+                                          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-help" title={event.details || ''}>
+                                             {event.details || '---'}
+                                          </p>
                                        </td>
                                        <td className="px-8 py-6 text-right">
                                           <div className="flex flex-col items-end">

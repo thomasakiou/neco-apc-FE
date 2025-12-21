@@ -417,6 +417,7 @@ const Configuration: React.FC = () => {
                                                 <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200/60 dark:border-white/10">
                                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Timestamp / Identity</th>
                                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Operation performed</th>
+                                                    <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Operational Details</th>
                                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Target Entity</th>
                                                     {isSuperAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>}
                                                 </tr>
@@ -436,6 +437,11 @@ const Configuration: React.FC = () => {
                                                             <span className="inline-flex px-3 py-1 rounded-lg bg-indigo-500/5 text-indigo-500 border border-indigo-500/10 text-xs font-bold">
                                                                 {log.action}
                                                             </span>
+                                                        </td>
+                                                        <td className="px-8 py-6 max-w-[250px]">
+                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-help" title={log.details || ''}>
+                                                                {log.details || '---'}
+                                                            </p>
                                                         </td>
                                                         <td className="px-8 py-6 text-right">
                                                             <span className="text-xs font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200/50 dark:border-white/5">
