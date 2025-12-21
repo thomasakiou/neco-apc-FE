@@ -30,6 +30,7 @@ interface FlatPostingRow {
     location: string;
     posted_for: any;
     to_be_posted: any;
+    description?: string;
 }
 
 interface ReportField {
@@ -83,17 +84,21 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'year', label: 'YEAR', accessor: r => r.year, default: false, pdfWidth: 20 },
     { id: 'location', label: 'LOCATION', accessor: r => r.location, default: false, pdfWidth: 40 },
     { id: 'state', label: 'STATE', accessor: r => r.state, default: false, pdfWidth: 30 },
-    { id: 'posting', label: 'POSTING', accessor: r => r.posting, default: false, pdfWidth: 30 }
+    { id: 'posting', label: 'POSTING', accessor: r => r.posting, default: false, pdfWidth: 30 },
+    { id: 'description', label: 'DESCRIPTION', accessor: r => r.description || '-', default: true, pdfWidth: 40 }
 ];
 
 const GeneratePage: React.FC = () => {
     const { success, error } = useNotification();
     const [loading, setLoading] = useState(true);
+    const [exportType, setExportType] = useState<'pdf' | 'csv' | 'xlsx' | null>(null);
 
     const [states, setStates] = useState<any[]>([]);
     const [apcRecords, setApcRecords] = useState<APCRecord[]>([]);
 
     const [filterMandate, setFilterMandate] = useState('');
+    const [filterAssignment, setFilterAssignment] = useState(''); // New filter state
+    const [filterDescription, setFilterDescription] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -158,6 +163,16 @@ const GeneratePage: React.FC = () => {
         return Array.from(set).sort();
     }, [allFlatRows]);
 
+    const uniqueAssignments = useMemo(() => {
+        const set = new Set(allFlatRows.map(r => r.assignment).filter(Boolean));
+        return Array.from(set).sort();
+    }, [allFlatRows]);
+
+    const uniqueDescriptions = useMemo(() => {
+        const set = new Set(allFlatRows.map(r => r.description).filter(Boolean));
+        return Array.from(set).sort();
+    }, [allFlatRows]);
+
     const filteredFlatRows = useMemo(() => {
         let result = allFlatRows;
 
@@ -175,8 +190,16 @@ const GeneratePage: React.FC = () => {
             result = result.filter(r => r.mandate === filterMandate);
         }
 
+        if (filterAssignment) {
+            result = result.filter(r => r.assignment === filterAssignment);
+        }
+
+        if (filterDescription) {
+            result = result.filter(r => r.description === filterDescription);
+        }
+
         return result;
-    }, [allFlatRows, debouncedSearchQuery, filterMandate]);
+    }, [allFlatRows, debouncedSearchQuery, filterMandate, filterAssignment, filterDescription]);
 
     const total = filteredFlatRows.length;
 
@@ -312,7 +335,8 @@ const GeneratePage: React.FC = () => {
                         nceeMap.get(cleanName(posting)) ||
                         '-',
                     posted_for: p.posted_for || 0,
-                    to_be_posted: p.to_be_posted || 0
+                    to_be_posted: p.to_be_posted || 0,
+                    description: p.description || '' // Populate description
                 });
             }
         });
@@ -323,7 +347,7 @@ const GeneratePage: React.FC = () => {
 
     const handleExport = (type: 'xlsx' | 'csv') => {
         try {
-            setLoading(true);
+            setExportType(type);
             const exportData = filteredFlatRows.map(record => {
                 const row: any = {};
                 activeFields.forEach(field => {
@@ -353,17 +377,17 @@ const GeneratePage: React.FC = () => {
             }
 
             success(`${type.toUpperCase()} Export successful!`);
-        } catch (error) {
-            console.error("Export failed", error);
+        } catch (err) {
+            console.error("Export failed", err);
             error("Failed to export data.");
         } finally {
-            setLoading(false);
+            setExportType(null);
         }
     };
 
     const handlePDFExport = async () => {
         try {
-            setLoading(true);
+            setExportType('pdf');
             const doc = new jsPDF('l', 'mm', 'a4');
             const width = doc.internal.pageSize.getWidth();
             const height = doc.internal.pageSize.getHeight();
@@ -514,15 +538,16 @@ const GeneratePage: React.FC = () => {
 
                 for (const state of sortedStates) {
                     const stateRows = groupedByState[state].sort((a, b) => {
-                        // If no custom sort, further sort by venue within group
-                        if (!sortBy) {
-                            const venueA = a.venue || '';
-                            const venueB = b.venue || '';
-                            return venueA.localeCompare(venueB) * sortDir;
+                        // For ACCREDITATION, always sort by CONRAISS descending (15, 14, 13...)
+                        const conraissA = parseInt(a.conraiss?.replace(/\D/g, '') || '0', 10);
+                        const conraissB = parseInt(b.conraiss?.replace(/\D/g, '') || '0', 10);
+                        if (conraissA !== conraissB) {
+                            return conraissB - conraissA; // Descending order
                         }
-                        const valA = (a as any)[sortBy] || '';
-                        const valB = (b as any)[sortBy] || '';
-                        return (valA.toString().localeCompare(valB.toString())) * sortDir;
+                        // Secondary sort by venue if CONRAISS is equal
+                        const venueA = a.venue || '';
+                        const venueB = b.venue || '';
+                        return venueA.localeCompare(venueB);
                     }).map((post, index) => {
                         const apc = apcMap.get(post.file_no);
                         const rowData = activeFields.map(f => {
@@ -642,12 +667,41 @@ const GeneratePage: React.FC = () => {
             console.error("PDF Export failed:", err);
             error("Failed to export PDF. Ensure the logo exists at /images/neco.png");
         } finally {
-            setLoading(false);
+            setExportType(null);
         }
     };
 
     return (
         <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-4 md:p-8 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+
+            {/* Export Loading Overlay */}
+            {exportType && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fadeIn">
+                    <div className="bg-white dark:bg-[#121b25] p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-gray-800 flex flex-col items-center gap-6 max-w-sm w-full mx-4 animate-in zoom-in-95 duration-300">
+                        <div className="relative">
+                            <div className="w-20 h-20 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-2xl text-emerald-500">
+                                    {exportType === 'pdf' ? 'picture_as_pdf' : exportType === 'csv' ? 'csv' : 'table_view'}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">
+                                Generating {exportType.toUpperCase()} Report
+                            </h3>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                Please wait while your report is being prepared...
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            Processing {filteredFlatRows.length} records
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -808,7 +862,7 @@ const GeneratePage: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">PDF Report Design</label>
                     <div className="flex gap-4">
-                        {['SSCE', 'NCEE', 'ACCREDITATION'].map((template) => (
+                        {[{ key: 'SSCE', label: 'SSCE FORMAT' }, { key: 'NCEE', label: 'NCEE FORMAT' }, { key: 'ACCREDITATION', label: 'ACCREDITATION FORMAT' }].map(({ key: template, label }) => (
                             <label key={template} className={`flex-1 cursor-pointer relative px-4 py-3 rounded-lg border-2 transition-all duration-200 flex items-center justify-center gap-2 ${reportTemplate === template ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-emerald-200'}`}>
                                 <input
                                     type="radio"
@@ -820,7 +874,7 @@ const GeneratePage: React.FC = () => {
                                 <span className={`material-symbols-outlined text-xl ${reportTemplate === template ? 'font-filled' : ''}`}>
                                     {template === 'SSCE' ? 'school' : template === 'NCEE' ? 'child_care' : 'verified'}
                                 </span>
-                                <span className="font-bold text-sm">{template}</span>
+                                <span className="font-bold text-sm">{label}</span>
                                 {reportTemplate === template && (
                                     <span className="absolute -top-2 -right-2 bg-emerald-500 text-white rounded-full p-0.5 shadow-sm">
                                         <span className="material-symbols-outlined text-[14px] font-bold block">check</span>
@@ -873,7 +927,7 @@ const GeneratePage: React.FC = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="relative">
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Mandate</label>
                         <select
@@ -883,6 +937,28 @@ const GeneratePage: React.FC = () => {
                         >
                             <option value="">All Mandates</option>
                             {uniqueMandates.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                    </div>
+                    <div className="relative">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Assignment</label>
+                        <select
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={filterAssignment}
+                            onChange={(e) => setFilterAssignment(e.target.value)}
+                        >
+                            <option value="">All Assignments</option>
+                            {uniqueAssignments.map(a => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                    </div>
+                    <div className="relative">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Description</label>
+                        <select
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={filterDescription}
+                            onChange={(e) => setFilterDescription(e.target.value)}
+                        >
+                            <option value="">All Descriptions</option>
+                            {uniqueDescriptions.map(d => <option key={d} value={d}>{d}</option>)}
                         </select>
                     </div>
                 </div>

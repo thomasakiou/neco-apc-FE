@@ -12,6 +12,7 @@ export interface PostingResponse {
     count?: number | null;
     posted_for?: number | null;
     to_be_posted?: number | null;
+    description?: string | null;
     created_at?: string | null;
     updated_at?: string | null;
     created_by?: string | null;
@@ -38,6 +39,7 @@ export interface PostingCreate {
     count?: number | null;
     posted_for?: number | null;
     to_be_posted?: number | null;
+    description?: string | null;
 }
 
 export interface PostingUpdate {
@@ -53,6 +55,7 @@ export interface PostingUpdate {
     count?: number | null;
     posted_for?: number | null;
     to_be_posted?: number | null;
+    description?: string | null;
 }
 
 export interface BulkPostingCreateRequest {

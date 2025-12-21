@@ -34,6 +34,7 @@ const PersonalizedPost: React.FC = () => {
     const [manualStationType, setManualStationType] = useState<string>('');
     const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
     const [numberOfNights, setNumberOfNights] = useState<number>(0);
+    const [description, setDescription] = useState<string>(''); // Added Description State
     const [alert, setAlert] = useState<{ open: boolean; title: string; message: string; type: 'success' | 'error' | 'warning' }>({
         open: false, title: '', message: '', type: 'success'
     });
@@ -158,14 +159,16 @@ const PersonalizedPost: React.FC = () => {
             return;
         }
 
+        const assignment = assignments.find(a => a.id === selectedAssignmentId);
+
         setLoading(true);
         try {
-            const assignment = assignments.find(a => a.id === selectedAssignmentId);
             await bulkSaveAssignments({
                 assignment: assignment!,
                 station: stationOptions.find(s => s.id === selectedStationId),
                 changes: pendingChanges,
-                numberOfNights: (assignment?.code === 'MAR-ACCR' || assignment?.code === 'OCT-ACCR') ? numberOfNights : undefined
+                numberOfNights: (assignment?.code === 'MAR-ACCR' || assignment?.code === 'OCT-ACCR') ? numberOfNights : undefined,
+                description: description // Pass description
             });
             showAlert('Success', `${pendingChanges.length} changes committed successfully!`, 'success');
             await loadBoardData(selectedAssignmentId);
@@ -269,9 +272,28 @@ const PersonalizedPost: React.FC = () => {
                         <button
                             onClick={() => setIsStationModalOpen(true)}
                             className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-inner flex-shrink-0"
+                            title="Filter Station Types"
                         >
                             <span className="material-symbols-outlined text-xl font-bold">tune</span>
                         </button>
+
+                        <input
+                            type="text"
+                            placeholder="Description..."
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="h-10 px-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-indigo-500 outline-none transition-all w-full sm:min-w-[200px] flex-1"
+                        />
+
+                        <input
+                            type="number"
+                            placeholder="Nights..."
+                            min="0"
+                            value={numberOfNights}
+                            onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
+                            className="h-10 px-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-indigo-500 outline-none transition-all w-20 sm:w-24"
+                        />
+
                     </div>
                 </div>
 

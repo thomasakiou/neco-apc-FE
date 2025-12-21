@@ -198,9 +198,10 @@ export const bulkSaveAssignments = async (
         station?: { id: string; name: string; type: string };
         changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[];
         numberOfNights?: number;
+        description?: string;
     }
 ): Promise<void> => {
-    const { assignment, changes, station, numberOfNights } = payload;
+    const { assignment, changes, station, numberOfNights, description } = payload;
     if (!assignment || !changes || changes.length === 0) return;
 
     // Load heavy dependencies once
@@ -223,6 +224,7 @@ export const bulkSaveAssignments = async (
         if (!apcRecord && change.action === 'add') throw new Error(`Staff ${change.staff.staff_no} not found in APC records.`);
 
         const allottedCount = numberOfNights !== undefined ? numberOfNights : (apcRecord?.count || 0);
+        const apcLimit = apcRecord?.count || 0; // Use APC limit for validation
         const postingRecord = postingMap.get(normalizedStaffNo);
         const totalPosted = postingRecord ? (postingRecord.assignments || []).length : 0;
 
@@ -236,8 +238,8 @@ export const bulkSaveAssignments = async (
         const venue = station?.name || '';
 
         if (change.action === 'add' || change.action === 'move') {
-            if (change.action === 'add' && allottedCount - totalPosted <= 0) {
-                throw new Error(`Limit reached for ${change.staff.staff_name}.`);
+            if (change.action === 'add' && apcLimit - totalPosted <= 0) {
+                throw new Error(`Limit reached for ${change.staff.staff_name}. (Allowed: ${apcLimit}, Used: ${totalPosted})`);
             }
 
             // APC Sync (Immediate but could be batched later if needed)
@@ -267,12 +269,13 @@ export const bulkSaveAssignments = async (
                 station: change.staff.current_station,
                 conraiss: change.staff.conr,
                 year: new Date().getFullYear().toString(),
-                count: allottedCount,
+                count: allottedCount, // Persist numberOfNights if provided
                 posted_for: newAssignments.length,
-                to_be_posted: allottedCount - newAssignments.length,
+                to_be_posted: apcLimit - newAssignments.length, // Calculate from APC limit
                 assignments: newAssignments,
                 mandates: newMandates,
-                assignment_venue: newVenues
+                assignment_venue: newVenues,
+                description: description || null
             });
             modifiedStaffNos.add(normalizedStaffNo);
 

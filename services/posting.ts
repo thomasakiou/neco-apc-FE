@@ -108,6 +108,7 @@ export const deleteAllPostings = async (): Promise<any> => {
 };
 
 export const bulkCreatePostings = async (data: BulkPostingCreateRequest): Promise<BulkUploadResponse> => {
+    console.log('Sending Bulk Create Payload:', JSON.stringify(data, null, 2));
     const response = await fetch(`${BASE_URL}/bulk`, {
         method: 'POST',
         headers: getAuthHeaders(),

@@ -20,7 +20,7 @@ import AssignmentHistory from './pages/admin/AssignmentHistory';
 import SDLPage from './pages/admin/metadata/SDLPage';
 import ComparePage from './pages/admin/metadata/ComparePage';
 import AuditLog from './pages/admin/AuditLog';
-import RandomPost from './pages/admin/RandomPost';
+import RandomizedPost from './pages/admin/RandomizedPost';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import AdminLayout from './components/AdminLayout';
@@ -75,7 +75,7 @@ const App: React.FC = () => {
               <Route path="metadata/compare" element={<ProtectedRoute moduleName="metadata"><ComparePage /></ProtectedRoute>} />
 
               <Route path="assignments/board" element={<ProtectedRoute moduleName="posting"><PersonalizedPost /></ProtectedRoute>} />
-              <Route path="assignments/random" element={<ProtectedRoute moduleName="posting"><RandomPost /></ProtectedRoute>} />
+              <Route path="assignments/random" element={<ProtectedRoute moduleName="posting"><RandomizedPost /></ProtectedRoute>} />
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />
 

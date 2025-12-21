@@ -23,13 +23,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
     const [moduleLocks, setModuleLocks] = useState<Record<string, boolean>>({});
 
-    console.log('[AuthContext] AuthProvider rendered. User:', user?.username, 'Loading:', isLoading);
 
     const fetchModuleLocks = useCallback(async () => {
-        console.log('[AuthContext] Fetching module locks...');
         try {
             const locks = await configService.getModuleLocks();
-            console.log('[AuthContext] Fetched module locks successfully:', locks);
             setModuleLocks(locks);
         } catch (error) {
             console.error('[AuthContext] Failed to fetch module locks:', error);
@@ -107,7 +104,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, {} as Record<string, boolean>);
 
         const locked = !!locks[lowerName];
-        console.log(`[AuthContext] Checking lock for ${moduleName}:`, locked, 'Current locks:', moduleLocks);
         return locked;
     }, [moduleLocks]);
 

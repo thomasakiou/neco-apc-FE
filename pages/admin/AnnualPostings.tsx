@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import * as XLSX from 'xlsx';
-import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings } from '../../services/posting';
+import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings, updatePosting } from '../../services/posting';
 import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMarkingVenues } from '../../services/markingVenue';
 import { PostingResponse, PostingCreate } from '../../types/posting';
+import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
 import { MarkingVenue } from '../../types/markingVenue';
 import { useNotification } from '../../context/NotificationContext';
@@ -16,8 +17,8 @@ import { CSVPostingData, assignmentFieldMap } from '../../services/personalizedP
 interface CollapsibleRowProps {
   record: PostingResponse;
   selected: boolean;
-  onSelect: (checked: boolean) => void;
   onDelete: () => void;
+  onReplace: () => void;
   isSwapping: boolean;
   isSwapSource: boolean;
   onSwap: () => void;
@@ -50,7 +51,7 @@ const deduplicatePostings = (assignments: any[], mandates: any[], venues: any[])
   return { assignments: resAssignments, mandates: resMandates, venues: resVenues };
 };
 
-const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSelect, onDelete, isSwapping, isSwapSource, onSwap }) => {
+const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSelect, onDelete, onReplace, isSwapping, isSwapSource, onSwap }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -102,17 +103,19 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
           <div className="flex items-center justify-center gap-1">
             <button
               onClick={onSwap}
-              className={`p-2 rounded-lg transition-colors ${isSwapSource
-                ? 'bg-indigo-600 text-white animate-pulse'
-                : isSwapping
-                  ? 'bg-rose-100 text-rose-600 hover:bg-rose-200'
-                  : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
-                }`}
-              title={isSwapSource ? "Source for Swap" : isSwapping ? "Confirm Swap" : "Swap Staff Assignment"}
+              className={`p-2 rounded-lg transition-all duration-300 ${isSwapSource ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : isSwapping ? 'text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              title={isSwapSource ? "Cancel Swap" : isSwapping ? "Swap Venue with this Staff" : "Swap Staff Venue"}
             >
               <span className="material-symbols-outlined text-lg">
                 {isSwapSource ? 'sync' : isSwapping ? 'published_with_changes' : 'swap_horiz'}
               </span>
+            </button>
+            <button
+              onClick={onReplace}
+              className="p-2 text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+              title="Replace Staff"
+            >
+              <span className="material-symbols-outlined text-lg">person_search</span>
             </button>
             <button
               onClick={onDelete}
@@ -139,6 +142,15 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                     ))}
                   </div>
                 </div>
+
+                {/* Description */}
+                <div className="col-span-2 mt-2">
+                  <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Description</span>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300 italic p-2 bg-white dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700 min-h-[30px]">
+                    {record.description || 'No description provided.'}
+                  </p>
+                </div>
+
                 <div>
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Qualification</span>
                   <span className="text-slate-700 dark:text-slate-300 font-bold">{record.qualification || '-'}</span>
@@ -158,9 +170,9 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
               </div>
             </div>
           </td>
-        </tr>
+        </tr >
       )}
-    </React.Fragment>
+    </React.Fragment >
   );
 });
 
@@ -172,7 +184,11 @@ const AnnualPostings: React.FC = () => {
   const { success, error } = useNotification();
 
   // Swap State
+  // Swap & Replace State
   const [swapSource, setSwapSource] = useState<PostingResponse | null>(null);
+  const [replacementSource, setReplacementSource] = useState<PostingResponse | null>(null);
+  const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
+  const [replacementPool, setReplacementPool] = useState<APCRecord[]>([]);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -194,12 +210,16 @@ const AnnualPostings: React.FC = () => {
   const [filterPostedFor, setFilterPostedFor] = useState('');
   const [filterAssignmentsLeft, setFilterAssignmentsLeft] = useState(''); // New Filter
   const [filterToBePosted, setFilterToBePosted] = useState('');
+  const [filterDescription, setFilterDescription] = useState('');
+  const [venueSearch, setVenueSearch] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Debounced Search
   const debouncedFileNo = useDebounce(searchFileNo, 300);
   const debouncedName = useDebounce(searchName, 300);
   const debouncedStation = useDebounce(searchStation, 300);
   const debouncedAssignmentSearch = useDebounce(filterAssignment, 300);
+  const debouncedVenueSearch = useDebounce(venueSearch, 300);
 
   // Modals
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -207,28 +227,37 @@ const AnnualPostings: React.FC = () => {
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const fetchInitialData = useCallback(async () => {
+  const fetchInitialData = useCallback(async (force: boolean = false) => {
     try {
       setLoading(true);
-      const [postingsData, assignmentsData, venuesData, activeAPC] = await Promise.all([
-        getAllPostingRecords(true),
-        getAllAssignments(true),
-        getAllMarkingVenues(true),
-        getAllAPCRecords(true, true) // Get only active staff
+      // Step 1: Fetch primary data quickly
+      const [postingsData, assignmentsData, venuesData] = await Promise.all([
+        getAllPostingRecords(force),
+        getAllAssignments(force),
+        getAllMarkingVenues(force)
       ]);
 
-      const activeFileNos = new Set(activeAPC.map(a => a.file_no));
-      const activePostings = postingsData.filter(p => activeFileNos.has(p.file_no));
-
-      setPostings(activePostings);
+      setPostings(postingsData);
       setAssignments(assignmentsData);
       setVenues(venuesData);
+      setLoading(false); // Initial load done
+
+      // Step 2: Sync active staff in background
+      setIsSyncing(true);
+      const activeAPC = await getAllAPCRecords(true, force);
+      const activeFileNos = new Set(activeAPC.map(a => a.file_no));
+
+      // Filter postings to show only active staff
+      setPostings(prev => prev.filter(p => activeFileNos.has(p.file_no)));
     } catch (error) {
       console.error("Failed to fetch initial data", error);
     } finally {
       setLoading(false);
+      setIsSyncing(false);
     }
-  }, [setLoading, setPostings, setAssignments, setVenues]);
+  }, [setPostings, setAssignments, setVenues]);
+
+  const handleRefresh = () => fetchInitialData(true);
 
   useEffect(() => {
     fetchInitialData();
@@ -282,6 +311,32 @@ const AnnualPostings: React.FC = () => {
     return Array.from(mandateSet).sort();
   }, [postings]);
 
+  const uniqueDescriptions = useMemo(() => {
+    const descSet = new Set<string>();
+    postings.forEach(p => {
+      if (p.description) descSet.add(p.description);
+    });
+    return Array.from(descSet).sort();
+  }, [postings]);
+
+  const uniqueVenues = useMemo(() => {
+    const venueSet = new Set<string>();
+    postings.forEach(p => {
+      if (Array.isArray(p.assignment_venue)) {
+        p.assignment_venue.forEach(v => {
+          if (v) venueSet.add(v);
+        });
+      }
+    });
+    return Array.from(venueSet).sort();
+  }, [postings]);
+
+  const filteredVenues = useMemo(() => {
+    if (!debouncedVenueSearch) return uniqueVenues;
+    const lowerSearch = debouncedVenueSearch.toLowerCase();
+    return uniqueVenues.filter(v => v.toLowerCase().includes(lowerSearch));
+  }, [uniqueVenues, debouncedVenueSearch]);
+
   const filteredPostings = useMemo(() => {
     let result = postings;
 
@@ -331,6 +386,9 @@ const AnnualPostings: React.FC = () => {
         result = result.filter(p => (p.to_be_posted || 0) <= 0);
       }
     }
+    if (filterDescription) {
+      result = result.filter(p => p.description === filterDescription);
+    }
 
     return result;
   }, [
@@ -343,7 +401,8 @@ const AnnualPostings: React.FC = () => {
     filterVenue,
     filterPostedFor,
     filterAssignmentsLeft,
-    filterToBePosted
+    filterToBePosted,
+    filterDescription
   ]);
 
   const total = filteredPostings.length;
@@ -376,93 +435,34 @@ const AnnualPostings: React.FC = () => {
     try {
       setLoading(true);
 
-      // 1. Prepare New Posting Records (Venue-based Swap)
+      // 1. Mandate Validation
+      const sourceMandates = swapSource.mandates.map(m => typeof m === 'string' ? m : m.mandate || m.code);
+      const targetMandates = target.mandates.map(m => typeof m === 'string' ? m : m.mandate || m.code);
+      const sharedMandates = sourceMandates.filter(m => targetMandates.includes(m));
+
+      if (sharedMandates.length === 0) {
+        throw new Error(`Staff members must share the same mandate to swap venues. ${swapSource.name} and ${target.name} do not share any mandates.`);
+      }
+
+      // 2. Prepare New Posting Records (Venue-based Swap)
+      // Strictly swap assignment_venue arrays. Mandates and Assignments stay with original staff.
       const isSameCount = swapSource.assignments.length === target.assignments.length;
 
-      let sourceVenues = [...target.assignment_venue];
-      let targetVenues = [...swapSource.assignment_venue];
-      let sourceMandates = [...swapSource.mandates];
-      let targetMandates = [...target.mandates];
-      let sourceAssignments = [...swapSource.assignments];
-      let targetAssignments = [...target.assignments];
-
       if (!isSameCount) {
-        // Fallback to Full Swap if lengths differ, to maintain integrity
-        // But still apply deduplication
-        const sourceData = deduplicatePostings([...target.assignments], [...target.mandates], [...target.assignment_venue]);
-        const targetData = deduplicatePostings([...swapSource.assignments], [...swapSource.mandates], [...swapSource.assignment_venue]);
-
-        sourceVenues = sourceData.venues;
-        sourceMandates = sourceData.mandates;
-        sourceAssignments = sourceData.assignments;
-
-        targetVenues = targetData.venues;
-        targetMandates = targetData.mandates;
-        targetAssignments = targetData.assignments;
+        throw new Error(`Staff members must have the same number of assignments to swap venues. ${swapSource.name} has ${swapSource.assignments.length} while ${target.name} has ${target.assignments.length}.`);
       }
 
-      const newSourceRecord: any = {
-        ...swapSource,
-        assignments: sourceAssignments,
-        mandates: sourceMandates,
-        assignment_venue: sourceVenues,
-        posted_for: sourceAssignments.length,
-        to_be_posted: (swapSource.count || 0) - sourceAssignments.length
-      };
+      // 3. Skip Quota Validation for swaps as requested (assignments count hasn't changed)
 
-      const newTargetRecord: any = {
-        ...target,
-        assignments: targetAssignments,
-        mandates: targetMandates,
-        assignment_venue: targetVenues,
-        posted_for: targetAssignments.length,
-        to_be_posted: (target.count || 0) - targetAssignments.length
-      };
-
-      // 1.5 Quota Validation
-      if (newSourceRecord.to_be_posted < 0) {
-        throw new Error(`${swapSource.name} has a quota of ${swapSource.count} but would receive ${newSourceRecord.posted_for} assignments. Quota exceeded.`);
-      }
-      if (newTargetRecord.to_be_posted < 0) {
-        throw new Error(`${target.name} has a quota of ${target.count} but would receive ${newTargetRecord.posted_for} assignments. Quota exceeded.`);
-      }
-
-      // 2. Sync APC Records
-      const activeAPC = await getAllAPCRecords(false, true);
-      const sourceAPC = activeAPC.find(a => a.file_no === swapSource.file_no);
-      const targetAPC = activeAPC.find(a => a.file_no === target.file_no);
-
-      const updateAPCFields = async (apc: any, newVenues: string[], newAssignments: any[], oldAssignments: any[]) => {
-        if (!apc) return;
-        const updates: any = { ...apc };
-
-        // Clear old assignments
-        oldAssignments.forEach(code => {
-          const field = assignmentFieldMap[code];
-          if (field) updates[field] = '';
-        });
-
-        // Set new assignments (Venue-based)
-        newAssignments.forEach((code, idx) => {
-          const field = assignmentFieldMap[code];
-          if (field) {
-            updates[field] = newVenues[idx] || '';
-          }
-        });
-
-        const { id, created_at, updated_at, created_by, updated_by, ...cleanUpdates } = updates;
-        await updateAPC(id, cleanUpdates);
-      };
-
+      // 4. Update Posting Records (Targeted Updates to prevent duplication)
       await Promise.all([
-        updateAPCFields(sourceAPC, newSourceRecord.assignment_venue, newSourceRecord.assignments, swapSource.assignments),
-        updateAPCFields(targetAPC, newTargetRecord.assignment_venue, newTargetRecord.assignments, target.assignments),
-        bulkCreatePostings({ items: [newSourceRecord, newTargetRecord] })
+        updatePosting(swapSource.id, { assignment_venue: [...target.assignment_venue] }),
+        updatePosting(target.id, { assignment_venue: [...swapSource.assignment_venue] })
       ]);
 
       setSwapSource(null);
       await fetchInitialData();
-      success(`Successfully swapped postings between ${swapSource.name} and ${target.name}`);
+      success(`Successfully swapped venues between ${swapSource.name} and ${target.name}.`);
     } catch (err: any) {
       console.error("Swap failed", err);
       error(err.message || "Failed to execute swap. Please try again.");
@@ -470,6 +470,76 @@ const AnnualPostings: React.FC = () => {
       setLoading(false);
     }
   }, [swapSource, fetchInitialData, success, error]);
+  const handleExecuteReplacement = useCallback(async (targetAPC: APCRecord) => {
+    if (!replacementSource) return;
+    try {
+      setLoading(true);
+
+      // 1. Fetch Source Staff APC Record
+      const allAPC = await getAllAPCRecords(false, true);
+      const sourceAPC = allAPC.find(a => a.file_no === replacementSource.file_no);
+
+      if (!sourceAPC) throw new Error("Original staff not found in APC database.");
+
+      // 2. Prepare Updates
+      const newTargetRecord: PostingCreate = {
+        file_no: targetAPC.file_no,
+        name: targetAPC.name,
+        station: targetAPC.station,
+        conraiss: targetAPC.conraiss,
+        year: replacementSource.year,
+        count: replacementSource.count,
+        posted_for: replacementSource.assignments.length,
+        to_be_posted: (targetAPC.count || 1) - replacementSource.assignments.length,
+        assignments: replacementSource.assignments,
+        mandates: replacementSource.mandates,
+        assignment_venue: replacementSource.assignment_venue,
+        description: replacementSource.description
+      };
+
+      // 3. Update Source APC (Return to Pool)
+      const updateSourceAPC = async () => {
+        const updates: any = { ...sourceAPC };
+        replacementSource.assignments.forEach(code => {
+          const field = assignmentFieldMap[code];
+          if (field) updates[field] = 'Returned';
+        });
+        const { id, created_at, updated_at, created_by, updated_by, ...clean } = updates;
+        await updateAPC(id, clean);
+      };
+
+      // 4. Update Target APC (Assign Posting)
+      const updateTargetAPC = async () => {
+        const updates: any = { ...targetAPC };
+        replacementSource.assignments.forEach((code, idx) => {
+          const field = assignmentFieldMap[code];
+          if (field) {
+            updates[field] = replacementSource.assignment_venue[idx] || '';
+          }
+        });
+        const { id, created_at, updated_at, created_by, updated_by, ...clean } = updates;
+        await updateAPC(id, clean);
+      };
+
+      // 5. Execute API Calls
+      await Promise.all([
+        updateSourceAPC(),
+        updateTargetAPC(),
+        bulkDeletePostings([replacementSource.id]),
+        bulkCreatePostings({ items: [newTargetRecord] })
+      ]);
+
+      success(`Successfully replaced ${replacementSource.name} with ${targetAPC.name}`);
+      setIsReplacementModalOpen(false);
+      setReplacementSource(null);
+      await fetchInitialData();
+    } catch (err: any) {
+      console.error("Replacement failed", err);
+      error(err.message || "Failed to replace staff. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [replacementSource, fetchInitialData, success, error]);
 
   const handleSingleDelete = useCallback(async (record: PostingResponse) => {
     try {
@@ -728,6 +798,20 @@ const AnnualPostings: React.FC = () => {
               <span className="material-symbols-outlined text-lg">download</span>
               Template
             </button>
+            {isSyncing && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-tight">Syncing Pool</span>
+              </div>
+            )}
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
+              title="Force Refresh Data"
+            >
+              <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+              Force Refresh
+            </button>
             <button
               onClick={() => setIsCsvModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all"
@@ -839,14 +923,43 @@ const AnnualPostings: React.FC = () => {
             </div>
 
             {/* Venues Filter */}
+            <div className="relative flex flex-col gap-1 min-w-[200px]">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="material-symbols-outlined text-slate-400 group-focus-within:text-teal-500 transition-colors text-sm">search</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Filter venues..."
+                  className="w-full pl-9 h-8 rounded-t-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:bg-white dark:focus:bg-[#0b1015] focus:border-teal-500 transition-all outline-none text-xs font-medium border-b-0"
+                  value={venueSearch}
+                  onChange={(e) => setVenueSearch(e.target.value)}
+                />
+              </div>
+              <div className="relative">
+                <select
+                  className="w-full h-10 px-3 rounded-b-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
+                  value={filterVenue}
+                  onChange={(e) => setFilterVenue(e.target.value)}
+                >
+                  <option value="">All Venues {filteredVenues.length !== uniqueVenues.length ? `(${filteredVenues.length})` : ''}</option>
+                  {filteredVenues.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
+                  <span className="material-symbols-outlined text-lg">expand_more</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Description Filter */}
             <div className="relative">
               <select
                 className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
-                value={filterVenue}
-                onChange={(e) => setFilterVenue(e.target.value)}
+                value={filterDescription}
+                onChange={(e) => setFilterDescription(e.target.value)}
               >
-                <option value="">All Venues</option>
-                {venues.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                <option value="">All Descriptions</option>
+                {uniqueDescriptions.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
               <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
                 <span className="material-symbols-outlined text-lg">expand_more</span>
@@ -894,9 +1007,9 @@ const AnnualPostings: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                   {loading ? (
-                    <tr><td colSpan={9} className="p-8 text-center text-slate-500 italic">Loading records...</td></tr>
+                    <tr><td colSpan={10} className="p-8 text-center text-slate-500 italic">Loading records...</td></tr>
                   ) : paginatedPostings.length === 0 ? (
-                    <tr><td colSpan={9} className="p-8 text-center text-slate-500 italic">No records found matching your filters.</td></tr>
+                    <tr><td colSpan={10} className="p-8 text-center text-slate-500 italic">No records found matching your filters.</td></tr>
                   ) : (
                     paginatedPostings.map((record) => (
                       <CollapsibleRow
@@ -914,6 +1027,27 @@ const AnnualPostings: React.FC = () => {
                           } else {
                             setSwapSource(record);
                           }
+                        }}
+                        onReplace={async () => {
+                          setReplacementSource(record);
+                          // Fetch eligible pool
+                          const pool = await getAllAPCRecords(true, false);
+
+                          // Pre-calculate posted counts from current postings
+                          const postedCountMap = new Map<string, number>();
+                          postings.forEach(p => {
+                            const count = (p.assignments || []).length;
+                            postedCountMap.set(p.file_no, (postedCountMap.get(p.file_no) || 0) + count);
+                          });
+
+                          const eligible = pool.filter(staff => {
+                            if (staff.file_no === record.file_no) return false;
+                            const totalPosted = (postedCountMap.get(staff.file_no) || 0);
+                            const totalAllotted = (staff.count || 0);
+                            return totalPosted < totalAllotted;
+                          });
+                          setReplacementPool(eligible);
+                          setIsReplacementModalOpen(true);
                         }}
                         onDelete={() => {
                           if (window.confirm(`Are you sure you want to delete posting for ${record.name}? This will return the staff to the pool.`)) {
@@ -975,6 +1109,79 @@ const AnnualPostings: React.FC = () => {
           onClose={() => setIsCsvModalOpen(false)}
           onUpload={handleCsvUpload}
         />
+
+        {/* Staff Replacement Modal */}
+        {isReplacementModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-white dark:bg-[#121b25] w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-gray-800 flex flex-col max-h-[90vh] overflow-hidden">
+              <div className="p-6 border-b border-slate-100 dark:border-gray-800 flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">Replace Posted Staff</h3>
+                  <p className="text-xs font-medium text-slate-500 mt-1 uppercase tracking-wider">
+                    Source: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{replacementSource?.name}</span>
+                  </p>
+                </div>
+                <button onClick={() => setIsReplacementModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
+                  <span className="material-symbols-outlined text-slate-400">close</span>
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-4 rounded-2xl flex items-start gap-3">
+                  <span className="material-symbols-outlined text-amber-500 mt-0.5">info</span>
+                  <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                    This will return <span className="font-bold underline">{replacementSource?.name}</span> to the eligible pool and transfer their assignments to the person you select below.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Select Replacement Staff ({replacementPool.length} Eligible)</span>
+                  {replacementPool.length === 0 ? (
+                    <div className="p-12 text-center text-slate-500 italic bg-slate-50 dark:bg-slate-900/20 rounded-2xl border border-dashed border-slate-200 dark:border-gray-800">
+                      No eligible staff found in the pool for this assignment.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2">
+                      {replacementPool.map(staff => (
+                        <button
+                          key={staff.id}
+                          onClick={() => handleExecuteReplacement(staff)}
+                          className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 dark:border-gray-800 bg-white dark:bg-[#0f161d] hover:border-indigo-500 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-all text-left"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-500">
+                              {staff.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-tight">{staff.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-black text-slate-500 uppercase">{staff.file_no}</span>
+                                <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded font-black text-indigo-600 dark:text-indigo-400 uppercase">CON {staff.conraiss}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] block font-black text-emerald-500 uppercase tracking-tight">Available</span>
+                            <span className="text-xs text-slate-400 font-medium">{staff.station}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 dark:border-gray-800 flex justify-end gap-3">
+                <button
+                  onClick={() => setIsReplacementModalOpen(false)}
+                  className="px-6 py-2 rounded-xl border border-slate-200 dark:border-gray-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

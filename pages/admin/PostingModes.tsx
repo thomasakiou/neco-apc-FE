@@ -32,10 +32,10 @@ const PostingModes: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                {/* Random Post */}
+                {/* Randomized Post */}
                 <div className="bg-white dark:bg-[#121b25] rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 flex flex-col h-full transition-colors">
                     <div className="p-6">
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Random Post</h3>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Randomized Post</h3>
                         <p className="text-slate-500 dark:text-slate-400 mt-1">Initiate a system-driven random posting based on the published Annual Posting Calendar (APC) and predefined rules.</p>
                     </div>
                     <div className="p-6 border-t border-gray-100 dark:border-gray-800 space-y-4">
@@ -45,7 +45,7 @@ const PostingModes: React.FC = () => {
                     </div>
                     <div className="p-6 mt-auto border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
                         <a href="#" className="text-primary font-medium underline">View Posting History & Logs</a>
-                        <button onClick={() => navigate('/admin/assignments/random')} className="h-10 px-5 bg-primary/10 dark:bg-emerald-900/30 text-primary dark:text-emerald-400 font-bold rounded-lg hover:bg-primary/20 transition-colors text-sm">Start Random Post</button>
+                        <button onClick={() => navigate('/admin/assignments/random')} className="h-10 px-5 bg-primary/10 dark:bg-emerald-900/30 text-primary dark:text-emerald-400 font-bold rounded-lg hover:bg-primary/20 transition-colors text-sm">Start Randomized Post</button>
                     </div>
                 </div>
 

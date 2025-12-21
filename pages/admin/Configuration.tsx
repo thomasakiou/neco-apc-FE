@@ -310,7 +310,7 @@ const Configuration: React.FC = () => {
                                         />
                                         <ModuleToggle
                                             label="Posting Module"
-                                            description="Lock/Unlock access to Board and Random Post Generator."
+                                            description="Lock/Unlock access to Board and Randomized Post Generator."
                                             isLocked={moduleLocks['posting']}
                                             onToggle={() => handleToggleLock('posting')}
                                             icon="send"
