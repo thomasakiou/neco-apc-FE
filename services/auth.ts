@@ -41,14 +41,18 @@ export const getMe = async (): Promise<UserResponse> => {
 };
 
 export const changePassword = async (old_password: string, new_password: string): Promise<void> => {
+    const payload = { old_password, new_password };
+    console.log('[AuthService] changePassword payload:', payload);
+
     const response = await fetch(`${AUTH_URL}/change-password`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ old_password, new_password }),
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to change password' }));
+        console.error('[AuthService] changePassword error:', response.status, errorData);
         throw new Error(errorData.detail || 'Failed to change password');
     }
 };

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { listUsers, createUser, getAuditLogs } from '../../services/user';
+import { listUsers, createUser, getAuditLogs, resetUserPassword } from '../../services/user';
+import { deleteAuditLog, clearAllAuditLogs } from '../../services/audit';
 import { downloadDatabaseBackup } from '../../services/database';
 import { changePassword } from '../../services/auth';
 import { UserResponse, UserCreate, UserRole } from '../../types/auth';
@@ -21,15 +23,62 @@ const TabButton = ({ active, onClick, label, icon }: { active: boolean, onClick:
 const Configuration: React.FC = () => {
     const { isSuperAdmin, moduleLocks, toggleModuleLock, user: currentUser } = useAuth();
     const { showNotification } = useNotification();
-    const [activeTab, setActiveTab] = useState<'users' | 'modules' | 'audit' | 'database'>('users');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState<'users' | 'modules' | 'audit' | 'database'>((searchParams.get('tab') as any) || 'users');
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLogResponse[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
+    // Audit Log Deletion State
+    const [logToDelete, setLogToDelete] = useState<string | null>(null);
+    const [isClearLogsModalOpen, setIsClearLogsModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDeleteLog = async () => {
+        if (!logToDelete) return;
+        setIsDeleting(true);
+        try {
+            await deleteAuditLog(logToDelete);
+            showNotification('Audit log deleted successfully', 'success');
+            fetchLogs();
+            setLogToDelete(null);
+        } catch (error) {
+            showNotification('Failed to delete audit log', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleClearLogs = async () => {
+        setIsDeleting(true);
+        try {
+            await clearAllAuditLogs();
+            showNotification('All audit logs cleared successfully', 'success');
+            fetchLogs();
+            setIsClearLogsModalOpen(false);
+        } catch (error) {
+            showNotification('Failed to clear audit logs', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && ['users', 'modules', 'audit', 'database'].includes(tab)) {
+            setActiveTab(tab as any);
+        }
+    }, [searchParams]);
+
     useEffect(() => {
         if (activeTab === 'users') fetchUsers();
         if (activeTab === 'audit') fetchLogs();
+
+        // Update URL when tab changes internally
+        if (activeTab !== searchParams.get('tab')) {
+            setSearchParams({ tab: activeTab });
+        }
     }, [activeTab]);
 
     const fetchUsers = async () => {
@@ -49,7 +98,7 @@ const Configuration: React.FC = () => {
         setIsLoading(true);
         try {
             const data = await getAuditLogs(0, 50);
-            const filteredLogs = data.items.filter(log => log.user_name !== 'Super Admin 1');
+            const filteredLogs = data.items.filter(log => !log.user_name.toLowerCase().startsWith('super admin'));
             setAuditLogs(filteredLogs);
         } catch (error: any) {
             showNotification(error.message, 'error');
@@ -191,9 +240,14 @@ const Configuration: React.FC = () => {
                                                             <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                 {u.role === 'user' && (
                                                                     <button
-                                                                        onClick={() => {
-                                                                            if (window.confirm(`Are you sure you want to reset password for ${u.full_name}?`)) {
-                                                                                showNotification('Advanced user management required for remote reset', 'info');
+                                                                        onClick={async () => {
+                                                                            if (window.confirm(`Are you sure you want to reset password for ${u.full_name}? Their password will be reset to the default.`)) {
+                                                                                try {
+                                                                                    await resetUserPassword(u.id);
+                                                                                    showNotification(`Password for ${u.full_name} has been reset to: password123`, 'success');
+                                                                                } catch (error: any) {
+                                                                                    showNotification(error.message || 'Failed to reset password', 'error');
+                                                                                }
                                                                             }
                                                                         }}
                                                                         className="size-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-90"
@@ -336,13 +390,25 @@ const Configuration: React.FC = () => {
                                             <h2 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">System Audit Log</h2>
                                             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Tracking administrative operations (Excluding self)</p>
                                         </div>
-                                        <button
-                                            onClick={fetchLogs}
-                                            disabled={isLoading}
-                                            className="size-12 flex items-center justify-center rounded-2xl bg-white dark:bg-white/10 text-slate-600 dark:text-white border border-slate-200/60 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/20 transition-all active:scale-95 disabled:opacity-50"
-                                        >
-                                            <span className={`material-symbols-outlined ${isLoading ? 'animate-spin' : ''}`}>refresh</span>
-                                        </button>
+                                        <div className="flex items-center gap-3">
+                                            {isSuperAdmin && (
+                                                <button
+                                                    onClick={() => setIsClearLogsModalOpen(true)}
+                                                    disabled={isLoading || auditLogs.length === 0}
+                                                    className="h-12 px-6 flex items-center justify-center gap-2 rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all active:scale-95 disabled:opacity-50 font-bold text-xs uppercase tracking-wider"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">delete_sweep</span>
+                                                    Clear All
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={fetchLogs}
+                                                disabled={isLoading}
+                                                className="size-12 flex items-center justify-center rounded-2xl bg-white dark:bg-white/10 text-slate-600 dark:text-white border border-slate-200/60 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/20 transition-all active:scale-95 disabled:opacity-50"
+                                            >
+                                                <span className={`material-symbols-outlined ${isLoading ? 'animate-spin' : ''}`}>refresh</span>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur-sm shadow-inner">
@@ -352,6 +418,7 @@ const Configuration: React.FC = () => {
                                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Timestamp / Identity</th>
                                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Operation performed</th>
                                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Target Entity</th>
+                                                    {isSuperAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-200/40 dark:divide-white/5">
@@ -375,6 +442,17 @@ const Configuration: React.FC = () => {
                                                                 {log.entity_name}
                                                             </span>
                                                         </td>
+                                                        {isSuperAdmin && (
+                                                            <td className="px-8 py-6 text-right">
+                                                                <button
+                                                                    onClick={() => setLogToDelete(log.id)}
+                                                                    className="size-8 inline-flex items-center justify-center rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                                                    title="Delete Log"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                                                </button>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -400,6 +478,32 @@ const Configuration: React.FC = () => {
                         setIsUserModalOpen(false);
                         fetchUsers();
                     }}
+                />
+            )}
+
+            {/* Delete Single Log Modal */}
+            {logToDelete && (
+                <ConfirmationModal
+                    isOpen={!!logToDelete}
+                    onClose={() => setLogToDelete(null)}
+                    onConfirm={handleDeleteLog}
+                    title="Delete Audit Log"
+                    message="Are you sure you want to delete this audit log entry? This action cannot be undone."
+                    isDanger={true}
+                    isLoading={isDeleting}
+                />
+            )}
+
+            {/* Clear All Logs Modal */}
+            {isClearLogsModalOpen && (
+                <ConfirmationModal
+                    isOpen={isClearLogsModalOpen}
+                    onClose={() => setIsClearLogsModalOpen(false)}
+                    onConfirm={handleClearLogs}
+                    title="Clear All Audit Logs"
+                    message="Are you sure you want to delete ALL audit logs? This action is irreversible and will wipe the entire history."
+                    isDanger={true}
+                    isLoading={isDeleting}
                 />
             )}
 
@@ -546,6 +650,69 @@ function UserCreateModal({ onClose, onSuccess }: { onClose: () => void, onSucces
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ConfirmationModal({
+    isOpen,
+    onClose,
+    onConfirm,
+    title,
+    message,
+    isDanger = false,
+    isLoading = false
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+    isDanger?: boolean;
+    isLoading?: boolean;
+}) {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-700">
+                <div className="p-8 flex flex-col items-center text-center">
+                    <div className={`size-16 rounded-2xl flex items-center justify-center mb-6 ${isDanger ? 'bg-rose-500/10 text-rose-500' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
+                        <span className="material-symbols-outlined text-3xl">
+                            {isDanger ? 'warning' : 'help'}
+                        </span>
+                    </div>
+
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
+                        {title}
+                    </h3>
+
+                    <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                        {message}
+                    </p>
+                </div>
+
+                <div className="p-6 bg-slate-50 dark:bg-white/5 flex gap-4">
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="flex-1 py-3.5 px-6 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:shadow-md transition-all disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                        className={`flex-1 py-3.5 px-6 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2 ${isDanger
+                            ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/25'
+                            : 'bg-indigo-500 hover:bg-indigo-600 shadow-indigo-500/25'
+                            }`}
+                    >
+                        {isLoading && <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>}
+                        {isDanger ? 'Delete' : 'Confirm'}
+                    </button>
                 </div>
             </div>
         </div>

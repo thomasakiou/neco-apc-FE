@@ -38,6 +38,12 @@ export function PasswordChangeModal({ onClose }: { onClose: () => void }) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (passwords.new.length < 8) {
+            showNotification('New password must be at least 8 characters long', 'error');
+            return;
+        }
+
         if (passwords.new !== passwords.confirm) {
             showNotification('New passwords do not match', 'error');
             return;

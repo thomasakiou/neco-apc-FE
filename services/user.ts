@@ -58,3 +58,15 @@ export const getAuditLogs = async (
 
     return response.json();
 };
+
+export const resetUserPassword = async (userId: number): Promise<void> => {
+    const response = await fetch(`${USERS_URL}/${userId}/reset-password`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to reset password' }));
+        throw new Error(errorData.detail || 'Failed to reset password');
+    }
+};

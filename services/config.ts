@@ -13,18 +13,42 @@ export interface ModuleLockUpdate {
 }
 
 export const getModuleLocks = async (): Promise<ModuleLocksResponse> => {
+    console.log('[ConfigService] Fetching module locks from:', `${CONFIG_URL}/module-locks`);
     const response = await fetch(`${CONFIG_URL}/module-locks`, {
         headers: getAuthHeaders(),
     });
 
     if (!response.ok) {
-        throw new Error('Failed to fetch module locks');
+        console.error('[ConfigService] Failed to fetch module locks:', response.status, response.statusText);
+        throw new Error(`Failed to fetch module locks: ${response.status} ${response.statusText}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('[ConfigService] Received module locks raw data:', data);
+
+    // If backend returns an array of objects like [{module_name: 'apc', is_locked: true}]
+    if (Array.isArray(data)) {
+        console.log('[ConfigService] Normalizing array response to object map');
+        return data.reduce((acc, item) => {
+            if (item.module_name) {
+                acc[item.module_name] = !!item.is_locked;
+            }
+            return acc;
+        }, {} as ModuleLocksResponse);
+    }
+
+    // If backend returns a wrapped object like { module_locks: { ... } }
+    if (data && typeof data === 'object' && 'module_locks' in data) {
+        console.log('[ConfigService] Normalizing wrapped object response');
+        return data.module_locks as ModuleLocksResponse;
+    }
+
+    console.log('[ConfigService] Returning data as is (assumed map)');
+    return data as ModuleLocksResponse;
 };
 
 export const updateModuleLock = async (data: ModuleLockUpdate): Promise<void> => {
+    console.log('[ConfigService] Updating module lock:', data);
     const response = await fetch(`${CONFIG_URL}/module-locks`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -33,6 +57,8 @@ export const updateModuleLock = async (data: ModuleLockUpdate): Promise<void> =>
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to update module lock' }));
+        console.error('[ConfigService] Failed to update module lock:', errorData);
         throw new Error(errorData.detail || 'Failed to update module lock');
     }
+    console.log('[ConfigService] Module lock update successful');
 };

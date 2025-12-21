@@ -23,12 +23,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
     const [moduleLocks, setModuleLocks] = useState<Record<string, boolean>>({});
 
+    console.log('[AuthContext] AuthProvider rendered. User:', user?.username, 'Loading:', isLoading);
+
     const fetchModuleLocks = useCallback(async () => {
+        console.log('[AuthContext] Fetching module locks...');
         try {
             const locks = await configService.getModuleLocks();
+            console.log('[AuthContext] Fetched module locks successfully:', locks);
             setModuleLocks(locks);
         } catch (error) {
-            console.error('Failed to fetch module locks:', error);
+            console.error('[AuthContext] Failed to fetch module locks:', error);
         }
     }, []);
 
@@ -93,8 +97,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [moduleLocks]);
 
     const isModuleLocked = useCallback((moduleName: string) => {
-        const locked = !!moduleLocks[moduleName];
-        // console.log(`[AuthContext] Checking lock for ${moduleName}:`, locked);
+        if (!moduleName) return false;
+
+        // Handle potential case mismatches (e.g. backend returns "APC" but frontend asks for "apc")
+        const lowerName = moduleName.toLowerCase();
+        const locks = Object.keys(moduleLocks).reduce((acc, key) => {
+            acc[key.toLowerCase()] = moduleLocks[key];
+            return acc;
+        }, {} as Record<string, boolean>);
+
+        const locked = !!locks[lowerName];
+        console.log(`[AuthContext] Checking lock for ${moduleName}:`, locked, 'Current locks:', moduleLocks);
         return locked;
     }, [moduleLocks]);
 

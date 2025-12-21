@@ -24,26 +24,52 @@ export const getStaffList = async (page: number = 1, limit: number = 10, search:
     return response.json();
 };
 
+const cleanPayload = (data: any) => {
+    const cleaned = { ...data };
+    const nullableFields = ['dob', 'dofa', 'doan', 'dopa', 'email', 'phone', 'station', 'qualification', 'rank', 'conr', 'state', 'lga', 'remark', 'sex'];
+
+    nullableFields.forEach(field => {
+        if (cleaned[field] === '') {
+            cleaned[field] = null;
+        }
+    });
+
+    // Ensure active is boolean as per schema
+    if (cleaned.active !== undefined) {
+        cleaned.active = Boolean(cleaned.active);
+    }
+
+    return cleaned;
+};
+
 export const createStaff = async (data: StaffCreate): Promise<Staff> => {
+    const payload = cleanPayload(data);
+
     const response = await fetch(API_URL, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
     });
     if (!response.ok) {
-        throw new Error('Failed to create staff');
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Create Staff Error:', response.status, errorData);
+        throw new Error(errorData.detail ? JSON.stringify(errorData.detail) : 'Failed to create staff');
     }
     return response.json();
 };
 
 export const updateStaff = async (id: string, data: StaffUpdate): Promise<Staff> => {
+    const payload = cleanPayload(data);
+
     const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
     });
     if (!response.ok) {
-        throw new Error('Failed to update staff');
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Update Staff Error:', response.status, errorData);
+        throw new Error(errorData.detail ? JSON.stringify(errorData.detail) : 'Failed to update staff');
     }
     return response.json();
 };
