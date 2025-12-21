@@ -56,9 +56,9 @@ const App: React.FC = () => {
               <Route path="dashboard" element={<AdminDashboard />} />
 
               <Route path="apc/generate" element={<ProtectedRoute moduleName="apc"><APCGenerate /></ProtectedRoute>} />
-              <Route path="apc/modes" element={<ProtectedRoute moduleName="apc"><PostingModes /></ProtectedRoute>} />
+              <Route path="apc/modes" element={<ProtectedRoute moduleName="posting"><PostingModes /></ProtectedRoute>} />
               <Route path="apc/list" element={<ProtectedRoute moduleName="apc"><APCList /></ProtectedRoute>} />
-              <Route path="apc/annual" element={<ProtectedRoute moduleName="apc"><AnnualPostings /></ProtectedRoute>} />
+              <Route path="apc/annual" element={<ProtectedRoute moduleName="posting"><AnnualPostings /></ProtectedRoute>} />
 
               <Route path="states" element={<ProtectedRoute moduleName="metadata"><StateManagement /></ProtectedRoute>} />
               <Route path="stations" element={<ProtectedRoute moduleName="metadata"><StationManagement /></ProtectedRoute>} />

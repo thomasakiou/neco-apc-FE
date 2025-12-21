@@ -14,8 +14,26 @@ export const downloadDatabaseBackup = async (): Promise<void> => {
         throw new Error(errorData.detail || 'Failed to generate backup');
     }
 
+    // Check content type
+    const contentType = response.headers.get('content-type') || '';
+    let sqlText: string;
+
+    if (contentType.includes('application/json')) {
+        const jsonResponse = await response.json();
+        sqlText = jsonResponse.sql || jsonResponse.data || JSON.stringify(jsonResponse, null, 2);
+    } else {
+        sqlText = await response.text();
+    }
+
+    // Clean up meta-commands that might break standard pgAdmin restoration/execution
+    // (Common in DigitalOcean or cloud managed DB exports)
+    const cleanedSql = sqlText
+        .replace(/^\\restrict\s+.+$/gm, '-- Removed restrict meta-command')
+        .replace(/^\\unrestrict\s+.+$/gm, '-- Removed unrestrict meta-command');
+
+    const blob = new Blob([cleanedSql], { type: 'application/sql' });
+
     // Handle file download
-    const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -27,7 +45,7 @@ export const downloadDatabaseBackup = async (): Promise<void> => {
     if (contentDisposition) {
         const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
         if (fileNameMatch && fileNameMatch.length > 1) {
-            fileName = fileNameMatch[1];
+            fileName = fileNameMatch[1].replace(/"/g, ''); // Clean quotes
         }
     }
 

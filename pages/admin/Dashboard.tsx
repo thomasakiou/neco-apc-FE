@@ -162,7 +162,8 @@ const AdminDashboard: React.FC = () => {
                       />
                       <Tooltip
                         cursor={{ fill: 'rgba(59, 130, 246, 0.05)', radius: [10, 10, 0, 0] }}
-                        content={({ active, payload }) => {
+                        content={(props) => {
+                          const { active, payload } = props;
                           if (active && payload && payload.length) {
                             return (
                               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3 rounded-2xl shadow-2xl backdrop-blur-xl">
@@ -223,7 +224,7 @@ const AdminDashboard: React.FC = () => {
                             />
                           ))}
                         </Pie>
-                        <Tooltip content={<div className="hidden"></div>} />
+                        <Tooltip content={() => null} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">

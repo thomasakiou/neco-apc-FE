@@ -25,12 +25,16 @@ export interface DashboardStats {
     };
 }
 
-// Helper to swallow errors and return a default value
-async function safeFetch<T>(promise: Promise<T>, fallback: T): Promise<T> {
+// Helper to swallow errors and return a default value with timeout
+async function safeFetch<T>(promise: Promise<T>, fallback: T, timeoutMs: number = 30000): Promise<T> {
+    const timeoutPromise = new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error('Fetch timeout')), timeoutMs)
+    );
+
     try {
-        return await promise;
+        return await Promise.race([promise, timeoutPromise]);
     } catch (error) {
-        console.warn('Dashboard specific metric fetch failed:', error);
+        console.warn('Dashboard metric fetch failed or timed out:', error);
         return fallback;
     }
 }
@@ -47,6 +51,7 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
     }
 
     // 1. Fetch EVERYTHING in parallel
+    // We fetch counts separately and heavy data separately to avoid blocking everything if charts fail
     const [
         staffData,
         apcData,
@@ -54,10 +59,7 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         venueData,
         nceeData,
         ssceCustodians,
-        beceCustodians,
-        allStaff,
-        allPostings,
-        allAPCs
+        beceCustodians
     ] = await Promise.all([
         safeFetch(getStaffList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }),
         safeFetch(getAllAPC(0, 1), { items: [], total: 0, skip: 0, limit: 1 }),
@@ -65,10 +67,14 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         safeFetch(getMarkingVenueList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }),
         safeFetch(getAllNCEECenters(), []),
         safeFetch(getAllSSCECustodians(), []),
-        safeFetch(getAllBECECustodians(), []),
-        safeFetch(getAllStaff(), []),
-        safeFetch(getAllPostingRecords(), []),
-        safeFetch(getAllAPC(0, 100000, '', true).then(res => res.items), [])
+        safeFetch(getAllBECECustodians(), [])
+    ]);
+
+    // Heavy data for charts - fetched with longer timeout but separately
+    const [allStaff, allPostings, allAPCs] = await Promise.all([
+        safeFetch(getAllStaff(), [], 60000),
+        safeFetch(getAllPostingRecords(), [], 60000),
+        safeFetch(getAllAPC(0, 50000, '', true).then(res => res.items), []) // Reduced limit to 50k as 100k is overkill and slow
     ]);
 
     // Parse counts

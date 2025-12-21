@@ -21,8 +21,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<UserResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [moduleLocks, setModuleLocks] = useState<Record<string, boolean>>(() => {
-        const saved = localStorage.getItem('moduleLocks');
-        return saved ? JSON.parse(saved) : {};
+        try {
+            const saved = localStorage.getItem('neco_apcic_module_locks');
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            console.error('Failed to parse module locks from localStorage:', e);
+            return {};
+        }
     });
 
     const checkAuth = useCallback(async () => {
@@ -48,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [checkAuth]);
 
     useEffect(() => {
-        localStorage.setItem('moduleLocks', JSON.stringify(moduleLocks));
+        localStorage.setItem('neco_apcic_module_locks', JSON.stringify(moduleLocks));
     }, [moduleLocks]);
 
     const login = async (username: string, password: string) => {
@@ -61,16 +66,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
     };
 
-    const toggleModuleLock = (moduleName: string) => {
-        setModuleLocks(prev => ({
-            ...prev,
-            [moduleName]: !prev[moduleName]
-        }));
-    };
+    const toggleModuleLock = useCallback((moduleName: string) => {
+        setModuleLocks(prev => {
+            const newState = {
+                ...prev,
+                [moduleName]: !prev[moduleName]
+            };
+            return newState;
+        });
+    }, []);
 
-    const isModuleLocked = (moduleName: string) => {
-        return !!moduleLocks[moduleName];
-    };
+    const isModuleLocked = useCallback((moduleName: string) => {
+        const locked = !!moduleLocks[moduleName];
+        // console.log(`[AuthContext] Checking lock for ${moduleName}:`, locked);
+        return locked;
+    }, [moduleLocks]);
 
     const value = {
         user,
