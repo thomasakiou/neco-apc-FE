@@ -58,9 +58,14 @@ const Configuration: React.FC = () => {
         }
     };
 
-    const handleToggleLock = (moduleName: string) => {
-        toggleModuleLock(moduleName);
-        showNotification(`${moduleName.toUpperCase()} module ${moduleLocks[moduleName] ? 'unlocked' : 'locked'} successfully`, 'success');
+    const handleToggleLock = async (moduleName: string) => {
+        try {
+            const isCurrentlyLocked = !!moduleLocks[moduleName];
+            await toggleModuleLock(moduleName);
+            showNotification(`${moduleName.toUpperCase()} module ${isCurrentlyLocked ? 'unlocked' : 'locked'} successfully`, 'success');
+        } catch (error: any) {
+            showNotification(error.message || `Failed to toggle lock for ${moduleName}`, 'error');
+        }
     };
 
     const handleDownloadBackup = async () => {
