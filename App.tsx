@@ -6,7 +6,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import StationManagement from './pages/admin/StationManagement';
 import StateManagement from './pages/admin/StateManagement';
 import MarkingVenueManagement from './pages/admin/MarkingVenueManagement';
-import APCGenerate from './pages/admin/APCGenerate';
+
 import PostingModes from './pages/admin/PostingModes';
 import AnnualPostings from './pages/admin/AnnualPostings';
 import APCList from './pages/admin/APCList';
@@ -21,6 +21,7 @@ import SDLPage from './pages/admin/metadata/SDLPage';
 import ComparePage from './pages/admin/metadata/ComparePage';
 import AuditLog from './pages/admin/AuditLog';
 import RandomizedPost from './pages/admin/RandomizedPost';
+import HODApcList from './pages/admin/HODApcList';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import AdminLayout from './components/AdminLayout';
@@ -55,9 +56,10 @@ const App: React.FC = () => {
             }>
               <Route path="dashboard" element={<AdminDashboard />} />
 
-              <Route path="apc/generate" element={<ProtectedRoute moduleName="apc"><APCGenerate /></ProtectedRoute>} />
+
               <Route path="apc/modes" element={<ProtectedRoute moduleName="posting"><PostingModes /></ProtectedRoute>} />
               <Route path="apc/list" element={<ProtectedRoute moduleName="apc"><APCList /></ProtectedRoute>} />
+              <Route path="apc/hod" element={<ProtectedRoute moduleName="apc"><HODApcList /></ProtectedRoute>} />
               <Route path="apc/annual" element={<ProtectedRoute moduleName="posting"><AnnualPostings /></ProtectedRoute>} />
 
               <Route path="states" element={<ProtectedRoute moduleName="metadata"><StateManagement /></ProtectedRoute>} />

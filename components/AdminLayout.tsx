@@ -53,11 +53,13 @@ const AdminLayout: React.FC = () => {
           <nav className="flex flex-col gap-2">
             <NavItem to="/admin/dashboard" icon="dashboard" label="Dashboard" active={isActive('/admin/dashboard')} />
 
-            <NavItem to="/admin/apc/list" icon="table_view" label="APC" active={isActive('/admin/apc/list')} isLocked={isModuleLocked('apc') && !isSuperAdmin} />
-
-
-            <NavItem to="/admin/metadata/sdl" icon="fact_check" label="SDL" active={isActive('/admin/metadata/sdl')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
-            <NavItem to="/admin/metadata/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/metadata/compare')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
+            <CollapsibleNavSection title="STAFF DATA" icon="badge" active={
+              isActive('/admin/metadata/sdl') ||
+              isActive('/admin/metadata/compare')
+            }>
+              <NavItem to="/admin/metadata/sdl" icon="fact_check" label="SDL" active={isActive('/admin/metadata/sdl')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
+              <NavItem to="/admin/metadata/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/metadata/compare')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
+            </CollapsibleNavSection>
 
             <CollapsibleNavSection title="Meta Data" icon="dataset" isLocked={isModuleLocked('metadata') && !isSuperAdmin} active={
               isActive('/admin/states') ||
@@ -81,9 +83,11 @@ const AdminLayout: React.FC = () => {
 
 
             <CollapsibleNavSection title="APC Management" icon="work" isLocked={isModuleLocked('apc') && !isSuperAdmin} active={
-              isActive('/admin/apc/generate')
+              isActive('/admin/apc/list') ||
+              isActive('/admin/apc/hod')
             }>
-              <NavItem to="/admin/apc/generate" icon="calendar_add_on" label="Generate APC" active={isActive('/admin/apc/generate')} isLocked={isModuleLocked('apc') && !isSuperAdmin} />
+              <NavItem to="/admin/apc/list" icon="table_view" label="Staff APC" active={isActive('/admin/apc/list')} isLocked={isModuleLocked('apc') && !isSuperAdmin} />
+              <NavItem to="/admin/apc/hod" icon="assignment_ind" label="HOD's APC" active={isActive('/admin/apc/hod')} isLocked={isModuleLocked('apc') && !isSuperAdmin} />
             </CollapsibleNavSection>
 
 

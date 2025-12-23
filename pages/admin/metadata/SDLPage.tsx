@@ -19,6 +19,10 @@ const SDLPage: React.FC = () => {
     const [selectedRank, setSelectedRank] = useState('All');
     const [selectedConr, setSelectedConr] = useState('All');
     const [selectedState, setSelectedState] = useState('All');
+    const [selectedHOD, setSelectedHOD] = useState('All');
+    const [selectedStateCoord, setSelectedStateCoord] = useState('All');
+    const [selectedDirector, setSelectedDirector] = useState('All');
+    const [selectedEducation, setSelectedEducation] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     // New state for collapsible rows
@@ -29,14 +33,25 @@ const SDLPage: React.FC = () => {
     const uniqueConrs = Array.from(new Set(allStaff.map(s => s.conr).filter(Boolean))) as string[];
     const uniqueStates = Array.from(new Set(allStaff.map(s => s.state).filter(Boolean))).sort() as string[];
 
-    const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All';
+    const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
+        selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All';
 
     const filteredStaff = staffList.filter(staff => {
         const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
         const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
         const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
         const matchesState = selectedState === 'All' || staff.state === selectedState;
-        return matchesStation && matchesRank && matchesConr && matchesState;
+
+        const remarkLower = (staff.remark || '').toLowerCase();
+        const qualLower = (staff.qualification || '').toLowerCase();
+        const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
+        const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
+        const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? remarkLower.includes('hod') : !remarkLower.includes('hod'));
+        const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? staff.is_state_coordinator : !staff.is_state_coordinator);
+        const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? remarkLower.includes('director') : !remarkLower.includes('director'));
+        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? hasEducationQual : !hasEducationQual);
+
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
     });
 
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -62,7 +77,17 @@ const SDLPage: React.FC = () => {
         const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
         const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
         const matchesState = selectedState === 'All' || staff.state === selectedState;
-        return matchesStation && matchesRank && matchesConr && matchesState;
+
+        const remarkLower = (staff.remark || '').toLowerCase();
+        const qualLower = (staff.qualification || '').toLowerCase();
+        const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
+        const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
+        const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? remarkLower.includes('hod') : !remarkLower.includes('hod'));
+        const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? staff.is_state_coordinator : !staff.is_state_coordinator);
+        const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? remarkLower.includes('director') : !remarkLower.includes('director'));
+        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? hasEducationQual : !hasEducationQual);
+
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -264,7 +289,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStation, selectedRank, selectedConr, selectedState]);
+    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -280,7 +305,17 @@ const SDLPage: React.FC = () => {
                     const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
                     const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
                     const matchesState = selectedState === 'All' || staff.state === selectedState;
-                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState;
+
+                    const remarkLower = (staff.remark || '').toLowerCase();
+                    const qualLower = (staff.qualification || '').toLowerCase();
+                    const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
+                    const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
+                    const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? remarkLower.includes('hod') : !remarkLower.includes('hod'));
+                    const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? staff.is_state_coordinator : !staff.is_state_coordinator);
+                    const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? remarkLower.includes('director') : !remarkLower.includes('director'));
+                    const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? hasEducationQual : !hasEducationQual);
+
+                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
                 });
 
                 const startIndex = (page - 1) * limit;
@@ -310,7 +345,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [page, searchTerm, limit, selectedStation, selectedRank, selectedConr, selectedState]);
+    }, [page, searchTerm, limit, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation]);
 
     useEffect(() => {
         fetchAllStaff();
@@ -469,7 +504,8 @@ const SDLPage: React.FC = () => {
     const downloadCsvTemplate = () => {
         const headers = [
             'fileno', 'full_name', 'station', 'qualification', 'sex',
-            'dob', 'dofa', 'doan', 'dopa', 'rank', 'conr', 'state', 'lga', 'email', 'phone', 'remark'
+            'dob', 'dofa', 'doan', 'dopa', 'rank', 'conr', 'state', 'lga', 'email', 'phone', 'remark',
+            'is_hod', 'is_state_coordinator', 'is_director', 'is_education'
         ];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
@@ -503,6 +539,10 @@ const SDLPage: React.FC = () => {
                 'DOAN': staff.doan,
                 'DOPA': staff.dopa,
                 'Active': staff.active ? 'Yes' : 'No',
+                'HOD': staff.is_hod ? 'Yes' : 'No',
+                'State Coord': staff.is_state_coordinator ? 'Yes' : 'No',
+                'Director': staff.is_director ? 'Yes' : 'No',
+                'Education': staff.is_education ? 'Yes' : 'No',
                 'Remark': staff.remark
             }));
 
@@ -525,8 +565,13 @@ const SDLPage: React.FC = () => {
                 { wch: 8 },  // Sex
                 { wch: 12 }, // DOB
                 { wch: 12 }, // DOFA
+                { wch: 12 }, // DOAN
                 { wch: 12 }, // DOPA
                 { wch: 8 },  // Active
+                { wch: 8 },  // HOD
+                { wch: 8 },  // State Coord
+                { wch: 8 },  // Director
+                { wch: 8 },  // Education
                 { wch: 30 }  // Remark
             ];
             ws['!cols'] = colWidths;
@@ -712,6 +757,30 @@ const SDLPage: React.FC = () => {
                             value={selectedState}
                             options={uniqueStates}
                             onChange={setSelectedState}
+                        />
+                        <FilterSelect
+                            label="HOD"
+                            value={selectedHOD}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedHOD}
+                        />
+                        <FilterSelect
+                            label="State Coord"
+                            value={selectedStateCoord}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedStateCoord}
+                        />
+                        <FilterSelect
+                            label="Director"
+                            value={selectedDirector}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedDirector}
+                        />
+                        <FilterSelect
+                            label="Education"
+                            value={selectedEducation}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedEducation}
                         />
                         {/* Button moved to header */}
                     </div>
@@ -929,6 +998,12 @@ const StaffRow: React.FC<{
                             {staff.full_name.charAt(0)}
                         </div>
                         <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{staff.full_name}</span>
+                        <div className="flex gap-1">
+                            {staff.is_hod && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase" title="Head of Department">HOD</span>}
+                            {staff.is_state_coordinator && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 uppercase" title="State Coordinator">COORD</span>}
+                            {staff.is_director && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase" title="Director">DIR</span>}
+                            {staff.is_education && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase" title="Education Department">EDU</span>}
+                        </div>
                     </div>
                 </td>
                 <td className="px-4 py-4">
@@ -995,8 +1070,17 @@ const StaffRow: React.FC<{
                                 <span>{staff.dopa || '-'}</span>
                             </div>
                             <div className="col-span-2 md:col-span-4">
+                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-2 border-b border-slate-200 dark:border-gray-700 pb-1">Quick Roles & Designation</span>
+                                <div className="flex flex-wrap gap-4">
+                                    <RoleIndicator label="Head of Department" active={staff.is_hod} icon="account_balance" color="purple" />
+                                    <RoleIndicator label="State Coordinator" active={staff.is_state_coordinator} icon="location_on" color="amber" />
+                                    <RoleIndicator label="Director" active={staff.is_director} icon="grade" color="blue" />
+                                    <RoleIndicator label="Education Dept" active={staff.is_education} icon="school" color="indigo" />
+                                </div>
+                            </div>
+                            <div className="col-span-2 md:col-span-4 mt-2">
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">Remark</span>
-                                <span>{staff.remark || '-'}</span>
+                                <span className="italic text-slate-500">{staff.remark || 'No remarks provided.'}</span>
                             </div>
                         </div>
                     </td>
@@ -1017,6 +1101,19 @@ const ActionBtn = ({ icon, isDanger, onClick, tooltip }: { icon: string; isDange
     >
         <span className="material-symbols-outlined text-[20px]">{icon}</span>
     </button>
+);
+
+const RoleIndicator = ({ label, active, icon, color }: { label: string; active: boolean; icon: string; color: string }) => (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 ${active
+        ? `bg-${color}-50 dark:bg-${color}-900/20 border-${color}-200 dark:border-${color}-800 text-${color}-700 dark:text-${color}-300 shadow-sm shadow-${color}-500/10`
+        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-gray-800 text-slate-400 dark:text-slate-600 grayscale opacity-60'
+        }`}>
+        <span className={`material-symbols-outlined text-lg ${active ? `text-${color}-500 dark:text-${color}-400` : ''}`}>{icon}</span>
+        <span className="text-xs font-bold uppercase tracking-wide">{label}</span>
+        {active && (
+            <span className={`material-symbols-outlined text-sm ml-1 text-${color}-500 dark:text-${color}-400 animate-pulse`}>check_circle</span>
+        )}
+    </div>
 );
 
 export default SDLPage;

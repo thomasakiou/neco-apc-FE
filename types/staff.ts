@@ -15,6 +15,10 @@ export interface Staff {
     email?: string | null;
     phone?: string | null;
     remark?: string | null;
+    is_hod: boolean;
+    is_state_coordinator: boolean;
+    is_director: boolean;
+    is_education: boolean;
     active: boolean;
     id: string;
     created_at?: string | null;
@@ -47,6 +51,10 @@ export interface StaffCreate {
     email?: string | null;
     phone?: string | null;
     remark?: string | null;
+    is_hod?: boolean;
+    is_state_coordinator?: boolean;
+    is_director?: boolean;
+    is_education?: boolean;
     active?: boolean;
 }
 
