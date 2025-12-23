@@ -49,6 +49,19 @@ export const createHODPosting = async (data: PostingCreate): Promise<PostingResp
     return response.json();
 };
 
+export const updateHODPosting = async (id: string, data: Partial<PostingCreate>): Promise<PostingResponse> => {
+    const response = await fetch(`${REQUEST_URL}/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to update HOD posting record');
+    }
+    postingCache = null; // Invalidate cache
+    return response.json();
+};
+
 export const bulkCreateHODPostings = async (request: BulkPostingCreateRequest): Promise<BulkUploadResponse> => {
     const response = await fetch(`${REQUEST_URL}/bulk`, {
         method: 'POST',

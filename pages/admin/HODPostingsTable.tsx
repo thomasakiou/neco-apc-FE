@@ -8,6 +8,11 @@ import { getAllAssignments } from '../../services/assignment';
 import { PostingResponse } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
 import { useNotification } from '../../context/NotificationContext';
+import { getAllAPCRecords, updateAPC } from '../../services/apc'; // Assuming standard APC service can be used or we need HOD specific
+import { HODApcRecord } from '../../types/hodApc';
+import { updateHODApc, getAllHODApc } from '../../services/hodApc'; // Use HOD specific APC update
+import { updateHODPosting, bulkCreateHODPostings, deleteHODPosting } from '../../services/hodPosting';
+import { PostingCreate } from '../../types/posting';
 
 interface ReportField {
     id: string;
@@ -40,8 +45,29 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'posted_for', label: 'POSTED FOR', accessor: r => r.posted_for || 0, default: false, pdfWidth: 20 },
     { id: 'to_be_posted', label: 'TO BE POSTED', accessor: r => r.to_be_posted || 0, default: false, pdfWidth: 20 },
     { id: 'description', label: 'DESCRIPTION', accessor: r => r.description || '-', default: false, pdfWidth: 50 },
-    { id: 'year', label: 'YEAR', accessor: r => r.year || '-', default: false, pdfWidth: 20 }
+    { id: 'year', label: 'YEAR', accessor: r => r.year || '-', default: false, pdfWidth: 20 },
+    // Action column is handled manually in the table
 ];
+
+const assignmentFieldMap: Record<string, string> = {
+    'SDL': 'active', // Should not happen for posting assignment usually
+    'JUXTAPOSE': 'active',
+    'TT': 'tt',
+    'MAR-ACCR': 'mar_accr',
+    'NCEE': 'ncee',
+    'GIFTED': 'gifted',
+    'BECEP': 'becep',
+    'BECE-MRKP': 'bece_mrkp',
+    'SSCE-INT': 'ssce_int',
+    'SWAPPING': 'swapping',
+    'SSCE-INT-MRK': 'ssce_int_mrk',
+    'OCT-ACCR': 'oct_accr',
+    'SSCE-EXT': 'ssce_ext',
+    'SSCE-EXT-MRK': 'ssce_ext_mrk',
+    'PUR-SAMP': 'pur_samp',
+    'INT-AUDIT': 'int_audit',
+    'STOCK-TK': 'stock_tk'
+};
 
 const HODPostingsTable: React.FC = () => {
     const { success, error } = useNotification();
@@ -67,6 +93,13 @@ const HODPostingsTable: React.FC = () => {
 
     // Selection State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Action States
+    const [swapSource, setSwapSource] = useState<PostingResponse | null>(null);
+    const [replacementSource, setReplacementSource] = useState<PostingResponse | null>(null);
+    const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
+    const [replacementPool, setReplacementPool] = useState<HODApcRecord[]>([]);
+
 
     // Report Customization
     const [orderedFieldIds, setOrderedFieldIds] = useState<string[]>(
@@ -95,13 +128,159 @@ const HODPostingsTable: React.FC = () => {
             ]);
             setPostings(postingsData || []);
             setAssignments(assignmentsData || []);
+            setLoading(false);
         } catch (err) {
             console.error("Failed to fetch data", err);
             error('Failed to load HOD postings.');
-        } finally {
             setLoading(false);
         }
     }, [error]);
+
+    const handleExecuteSwap = useCallback(async (target: PostingResponse) => {
+        if (!swapSource) return;
+        try {
+            setLoading(true);
+
+            // 1. Mandate Validation
+            const sourceMandates = swapSource.mandates.map(m => typeof m === 'string' ? m : m.mandate || m.code);
+            const targetMandates = target.mandates.map(m => typeof m === 'string' ? m : m.mandate || m.code);
+            const sharedMandates = sourceMandates.filter(m => targetMandates.includes(m));
+
+            if (sharedMandates.length === 0) {
+                throw new Error(`Staff members must share the same mandate to swap venues. ${swapSource.name} and ${target.name} do not share any mandates.`);
+            }
+
+            // 2. Prepare New Posting Records (Venue-based Swap)
+            // Strictly swap assignment_venue arrays.
+            const isSameCount = swapSource.assignments.length === target.assignments.length;
+            if (!isSameCount) {
+                // For now, adhere to same count rule or warn? AnnualPostings enforces it.
+                throw new Error(`Staff members must have the same number of assignments to swap venues.`);
+            }
+
+            await Promise.all([
+                updateHODPosting(swapSource.id, { assignment_venue: [...target.assignment_venue] }),
+                updateHODPosting(target.id, { assignment_venue: [...swapSource.assignment_venue] })
+            ]);
+
+            setSwapSource(null);
+            await fetchData();
+            success(`Successfully swapped venues between ${swapSource.name} and ${target.name}.`);
+        } catch (err: any) {
+            console.error("Swap failed", err);
+            error(err.message || "Failed to execute swap.");
+        } finally {
+            setLoading(false);
+        }
+    }, [swapSource, fetchData, success, error]);
+
+    const handleExecuteReplacement = useCallback(async (targetAPC: HODApcRecord) => {
+        if (!replacementSource) return;
+        try {
+            setLoading(true);
+
+            // Fetch Source Staff HOD APC Record
+            const { items: allHods } = await getAllHODApc(0, 100000, replacementSource.file_no);
+            const sourceAPC = allHods.find(a => a.file_no === replacementSource.file_no);
+
+            if (!sourceAPC) throw new Error("Original staff not found in HOD APC database.");
+
+            // Prepare New Posting
+            const newTargetRecord: PostingCreate = {
+                file_no: targetAPC.file_no,
+                name: targetAPC.name,
+                station: targetAPC.station,
+                conraiss: targetAPC.conraiss,
+                year: replacementSource.year,
+                count: replacementSource.count, // Note: HOD posting interface might differ slightly? No, looks same `PostingResponse`.
+                posted_for: replacementSource.assignments.length,
+                to_be_posted: (targetAPC.count || 1) - replacementSource.assignments.length,
+                assignments: replacementSource.assignments,
+                mandates: replacementSource.mandates,
+                assignment_venue: replacementSource.assignment_venue,
+                description: replacementSource.description
+            };
+
+            // Update Source APC (Return to Pool)
+            const updatesSource: any = { ...sourceAPC };
+            replacementSource.assignments.forEach((a: any) => {
+                const code = typeof a === 'string' ? a : a.code;
+                const field = assignmentFieldMap[code];
+                if (field) updatesSource[field] = 'Returned';
+            });
+            // Clean fields
+            const { id: sId, created_at: sC, updated_at: sU, created_by: sCB, updated_by: sUB, ...cleanSource } = updatesSource;
+            await updateHODApc(sourceAPC.id, cleanSource);
+
+            // Update Target APC (Assign Posting)
+            const updatesTarget: any = { ...targetAPC };
+            replacementSource.assignments.forEach((a: any, idx: number) => {
+                const code = typeof a === 'string' ? a : a.code;
+                const field = assignmentFieldMap[code];
+                if (field) {
+                    updatesTarget[field] = replacementSource.assignment_venue[idx] || '';
+                }
+            });
+            const { id: tId, created_at: tC, updated_at: tU, created_by: tCB, updated_by: tUB, ...cleanTarget } = updatesTarget;
+            await updateHODApc(targetAPC.id, cleanTarget);
+
+            // Mod Postings
+            await Promise.all([
+                deleteHODPosting(replacementSource.id),
+                bulkCreateHODPostings({ items: [newTargetRecord] })
+            ]);
+
+            success(`Successfully replaced ${replacementSource.name} with ${targetAPC.name}`);
+            setIsReplacementModalOpen(false);
+            setReplacementSource(null);
+            await fetchData();
+
+        } catch (err: any) {
+            console.error("Replacement failed", err);
+            error(err.message || "Failed to replace staff.");
+        } finally {
+            setLoading(false);
+        }
+    }, [replacementSource, fetchData, success, error]);
+
+    const handleSingleDelete = useCallback(async (record: PostingResponse) => {
+        if (!window.confirm(`Are you sure you want to delete the posting for ${record.name}? This will return them to the pool.`)) return;
+
+        try {
+            setLoading(true);
+            // Return to pool logic
+            const { items: allHods } = await getAllHODApc(0, 100000, record.file_no);
+            const apcRecord = allHods.find(a => a.file_no === record.file_no);
+
+            if (apcRecord && record.assignments && record.assignments.length > 0) {
+                const updates: any = { ...apcRecord };
+                let hasChanges = false;
+                record.assignments.forEach((a: any) => {
+                    const code = typeof a === 'string' ? a : a.code;
+                    const field = assignmentFieldMap[code];
+                    if (field) {
+                        updates[field] = 'Returned';
+                        hasChanges = true;
+                    }
+                });
+
+                if (hasChanges) {
+                    const { id, created_at, updated_at, created_by, updated_by, ...clean } = updates;
+                    await updateHODApc(apcRecord.id, clean);
+                }
+            }
+
+            await deleteHODPosting(record.id);
+            success("Posting deleted and staff returned to pool.");
+            // Remove from local list or refetch
+            await fetchData();
+        } catch (err: any) {
+            console.error("Delete failed", err);
+            error(`Failed to delete posting: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    }, [fetchData, success, error]);
 
     useEffect(() => {
         fetchData();
@@ -937,6 +1116,7 @@ const HODPostingsTable: React.FC = () => {
                                 <th className="px-4 py-3">Assignment</th>
                                 <th className="px-4 py-3">Venue</th>
                                 <th className="px-4 py-3">Mandate</th>
+                                <th className="px-4 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
@@ -989,6 +1169,78 @@ const HODPostingsTable: React.FC = () => {
                                         <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                                             {p.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-'}
                                         </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                {/* Swap Button */}
+                                                <button
+                                                    onClick={() => {
+                                                        if (swapSource?.id === p.id) {
+                                                            setSwapSource(null);
+                                                        } else if (swapSource) {
+                                                            handleExecuteSwap(p);
+                                                        } else {
+                                                            setSwapSource(p);
+                                                            success(`Select another staff member to swap venues with ${p.name}`);
+                                                        }
+                                                    }}
+                                                    className={`p-2 rounded-lg transition-all duration-300 ${swapSource?.id === p.id
+                                                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600'
+                                                            : swapSource
+                                                                ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                                                : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                        }`}
+                                                    title={swapSource?.id === p.id ? "Cancel Swap" : swapSource ? "Swap Venue with this Staff" : "Swap Staff Venue"}
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">
+                                                        {swapSource?.id === p.id ? 'sync' : swapSource ? 'published_with_changes' : 'swap_horiz'}
+                                                    </span>
+                                                </button>
+
+                                                {/* Replace Button */}
+                                                <button
+                                                    onClick={async () => {
+                                                        setReplacementSource(p);
+                                                        setLoading(true);
+                                                        try {
+                                                            const { items: allStaff } = await getAllHODApc(0, 100000, '', true);
+                                                            const postedCounts = new Map<string, number>();
+                                                            postings.forEach(post => {
+                                                                const count = (post.assignments || []).length;
+                                                                postedCounts.set(post.file_no, (postedCounts.get(post.file_no) || 0) + count);
+                                                            });
+
+                                                            const eligible = allStaff.filter(s => {
+                                                                if (s.file_no === p.file_no) return false;
+                                                                const currentPosted = postedCounts.get(s.file_no) || 0;
+                                                                const max = s.count || 0;
+                                                                const needed = p.assignments.length;
+                                                                return (currentPosted + needed) <= max;
+                                                            });
+
+                                                            setReplacementPool(eligible);
+                                                            setIsReplacementModalOpen(true);
+                                                        } catch (e) {
+                                                            error("Failed to load eligible replacement staff.");
+                                                        } finally {
+                                                            setLoading(false);
+                                                        }
+                                                    }}
+                                                    className="p-2 text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                                    title="Replace Staff"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">person_search</span>
+                                                </button>
+
+                                                {/* Delete Button */}
+                                                <button
+                                                    onClick={() => handleSingleDelete(p)}
+                                                    className="p-2 text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                                    title="Delete Assignment"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -1029,7 +1281,83 @@ const HODPostingsTable: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </div>
+
+
+            {/* Staff Replacement Modal */}
+            {
+                isReplacementModalOpen && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-fadeIn">
+                        <div className="bg-white dark:bg-[#121b25] w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-gray-800 flex flex-col max-h-[90vh] overflow-hidden">
+                            <div className="p-6 border-b border-slate-100 dark:border-gray-800 flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">Replace Posted Staff</h3>
+                                    <p className="text-xs font-medium text-slate-500 mt-1 uppercase tracking-wider">
+                                        Source: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{replacementSource?.name}</span>
+                                    </p>
+                                </div>
+                                <button onClick={() => setIsReplacementModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
+                                    <span className="material-symbols-outlined text-slate-400">close</span>
+                                </button>
+                            </div>
+
+                            <div className="p-6 overflow-y-auto space-y-4">
+                                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-4 rounded-2xl flex items-start gap-3">
+                                    <span className="material-symbols-outlined text-amber-500 mt-0.5">info</span>
+                                    <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                                        This will return <span className="font-bold underline">{replacementSource?.name}</span> to the eligible pool and transfer their assignments to the person you select below.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Select Replacement Staff ({replacementPool.length} Eligible)</span>
+                                    {replacementPool.length === 0 ? (
+                                        <div className="p-12 text-center text-slate-500 italic bg-slate-50 dark:bg-slate-900/20 rounded-2xl border border-dashed border-slate-200 dark:border-gray-800">
+                                            No eligible staff found in the pool for this assignment.
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {replacementPool.map(staff => (
+                                                <button
+                                                    key={staff.id}
+                                                    onClick={() => handleExecuteReplacement(staff)}
+                                                    className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 dark:border-gray-800 bg-white dark:bg-[#0f161d] hover:border-indigo-500 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-all text-left"
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-500">
+                                                            {staff.name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-tight">{staff.name}</p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-black text-slate-500 uppercase">{staff.file_no}</span>
+                                                                <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded font-black text-indigo-600 dark:text-indigo-400 uppercase">CON {staff.conraiss}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-[10px] block font-black text-emerald-500 uppercase tracking-tight">Available</span>
+                                                        <span className="text-xs text-slate-400 font-medium">{staff.station}</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="p-6 border-t border-slate-100 dark:border-gray-800 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setIsReplacementModalOpen(false)}
+                                    className="px-6 py-2 rounded-xl border border-slate-200 dark:border-gray-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 

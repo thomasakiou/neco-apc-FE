@@ -402,7 +402,7 @@ const Configuration: React.FC = () => {
                                     <div className="flex justify-between items-center bg-slate-50/50 dark:bg-white/5 p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-inner">
                                         <div>
                                             <h2 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">System Audit Log</h2>
-                                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Tracking administrative operations (Excluding self)</p>
+                                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Tracking administrative operations</p>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             {isSuperAdmin && (
