@@ -295,11 +295,25 @@ const Configuration: React.FC = () => {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <ModuleToggle
+                                            label="Staff Data Module"
+                                            description="Lock/Unlock access to SDL and Juxtapose features."
+                                            isLocked={moduleLocks['staff_data']}
+                                            onToggle={() => handleToggleLock('staff_data')}
+                                            icon="badge"
+                                        />
+                                        <ModuleToggle
                                             label="APC Module"
                                             description="Lock/Unlock access to Generate APC, Posting Modes, and APC List."
                                             isLocked={moduleLocks['apc']}
                                             onToggle={() => handleToggleLock('apc')}
                                             icon="assignment_ind"
+                                        />
+                                        <ModuleToggle
+                                            label="HODs Management Module"
+                                            description="Lock/Unlock access to HOD's APC and HOD Posting features."
+                                            isLocked={moduleLocks['hod']}
+                                            onToggle={() => handleToggleLock('hod')}
+                                            icon="supervisor_account"
                                         />
                                         <ModuleToggle
                                             label="Meta Data Module"
@@ -477,43 +491,49 @@ const Configuration: React.FC = () => {
                 </div>
             </div>
 
-            {isUserModalOpen && (
-                <UserCreateModal
-                    onClose={() => setIsUserModalOpen(false)}
-                    onSuccess={() => {
-                        setIsUserModalOpen(false);
-                        fetchUsers();
-                    }}
-                />
-            )}
+            {
+                isUserModalOpen && (
+                    <UserCreateModal
+                        onClose={() => setIsUserModalOpen(false)}
+                        onSuccess={() => {
+                            setIsUserModalOpen(false);
+                            fetchUsers();
+                        }}
+                    />
+                )
+            }
 
             {/* Delete Single Log Modal */}
-            {logToDelete && (
-                <ConfirmationModal
-                    isOpen={!!logToDelete}
-                    onClose={() => setLogToDelete(null)}
-                    onConfirm={handleDeleteLog}
-                    title="Delete Audit Log"
-                    message="Are you sure you want to delete this audit log entry? This action cannot be undone."
-                    isDanger={true}
-                    isLoading={isDeleting}
-                />
-            )}
+            {
+                logToDelete && (
+                    <ConfirmationModal
+                        isOpen={!!logToDelete}
+                        onClose={() => setLogToDelete(null)}
+                        onConfirm={handleDeleteLog}
+                        title="Delete Audit Log"
+                        message="Are you sure you want to delete this audit log entry? This action cannot be undone."
+                        isDanger={true}
+                        isLoading={isDeleting}
+                    />
+                )
+            }
 
             {/* Clear All Logs Modal */}
-            {isClearLogsModalOpen && (
-                <ConfirmationModal
-                    isOpen={isClearLogsModalOpen}
-                    onClose={() => setIsClearLogsModalOpen(false)}
-                    onConfirm={handleClearLogs}
-                    title="Clear All Audit Logs"
-                    message="Are you sure you want to delete ALL audit logs? This action is irreversible and will wipe the entire history."
-                    isDanger={true}
-                    isLoading={isDeleting}
-                />
-            )}
+            {
+                isClearLogsModalOpen && (
+                    <ConfirmationModal
+                        isOpen={isClearLogsModalOpen}
+                        onClose={() => setIsClearLogsModalOpen(false)}
+                        onConfirm={handleClearLogs}
+                        title="Clear All Audit Logs"
+                        message="Are you sure you want to delete ALL audit logs? This action is irreversible and will wipe the entire history."
+                        isDanger={true}
+                        isLoading={isDeleting}
+                    />
+                )
+            }
 
-        </div>
+        </div >
     );
 };
 

@@ -5,6 +5,8 @@ import { getAllHODApc, updateHODApc, deleteHODApc, bulkDeleteHODApc, syncHODApc,
 import { getAllAssignments } from '../../services/assignment';
 import { Assignment } from '../../types/assignment';
 import AlertModal from '../../components/AlertModal';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 const HODApcList: React.FC = () => {
@@ -40,6 +42,10 @@ const HODApcList: React.FC = () => {
         details?: any;
         onConfirm?: () => void;
     }>({ isOpen: false, title: '', type: 'info' });
+
+    // Report State
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportTitle, setReportTitle] = useState('2025 APC FOR HODS');
 
     const assignmentFieldMap: Record<string, string> = {
         'TT': 'tt',
@@ -294,6 +300,134 @@ const HODApcList: React.FC = () => {
         }
     }, [filteredRecords]);
 
+    const handlePDFExport = async () => {
+        try {
+            setLoading(true);
+            const doc = new jsPDF('l', 'mm', 'a4');
+            const width = doc.internal.pageSize.getWidth();
+            const height = doc.internal.pageSize.getHeight();
+
+            // Load Logo and Signature
+            const logoUrl = '/images/neco.png';
+            const signatureUrl = '/images/signature.png';
+
+            const [logoImg, signatureImg] = await Promise.all([
+                new Promise<HTMLImageElement>((resolve, reject) => {
+                    const img = new Image();
+                    img.src = logoUrl;
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                }),
+                new Promise<HTMLImageElement>((resolve, reject) => {
+                    const img = new Image();
+                    img.src = signatureUrl;
+                    img.onload = () => resolve(img);
+                    // Resolve with null if signature fails to load, so we can still generate report without it
+                    img.onerror = () => resolve(null as any);
+                })
+            ]);
+
+            const drawPageHeader = (data: any) => {
+                const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+                const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+
+                // --- Header ---
+                const aspectRatio = logoImg.width / logoImg.height;
+                doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
+
+                doc.setTextColor(0, 128, 0); // Green for NECO
+                doc.setFontSize(18);
+                doc.setFont("helvetica", "bold");
+                doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", width / 2, 18, { align: 'center' });
+
+                doc.setTextColor(0);
+                doc.setFontSize(14);
+                doc.text(reportTitle.toUpperCase(), width / 2, 26, { align: 'center' });
+
+                // --- Signature ---
+                const signatureY = pageHeight - 20;
+
+                // Add actual signature image if available
+                if (signatureImg) {
+                    const sigWidth = 35;
+                    const sigAspectRatio = signatureImg.width / signatureImg.height;
+                    const sigH = sigWidth / sigAspectRatio;
+                    // Position it above the name with better spacing (8 units gap)
+                    doc.addImage(signatureImg, 'PNG', 15, signatureY - sigH - 8, sigWidth, sigH);
+                }
+
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(0);
+                doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
+                doc.setFontSize(10);
+                doc.text("REG/CE", 15, signatureY + 5);
+
+                // --- Footer ---
+                doc.setFontSize(8);
+                doc.setTextColor(100);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Generated ${new Date().toLocaleDateString()} By NECO APCIC Manager`, 15, pageHeight - 10);
+                doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+            };
+
+            const tableColumn = ["S/N", "FILE NO", "NAME", "CONRAISS", "ASSIGNMENT"];
+
+            // Create a map for code to name lookup
+            const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
+
+            // Prepare Data
+            const tableRows = filteredRecords.map((record, index) => {
+                // Aggregate Assignments
+                const assignments: string[] = [];
+                Object.entries(assignmentFieldMap).forEach(([key, field]) => {
+                    const val = record[field as keyof HODApcRecord];
+                    if (val && val.toString().trim() !== '') {
+                        // Use full name if available, fallback to code
+                        assignments.push(assignmentNameMap.get(key) || key);
+                    }
+                });
+
+                return [
+                    index + 1,
+                    record.file_no,
+                    record.name,
+                    record.conraiss,
+                    assignments.join('\n')
+                ];
+            });
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 35,
+                margin: { top: 35, bottom: 50 },
+                theme: 'grid',
+                styles: { fontSize: 10, cellPadding: 1.5, minCellHeight: 6 },
+                bodyStyles: { fontStyle: 'bold' },
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green header
+                columnStyles: {
+                    0: { cellWidth: 15, halign: 'center' }, // S/N
+                    1: { cellWidth: 35 }, // File No - Increased width for landscape
+                    2: { cellWidth: 80 }, // Name - Increased width for landscape
+                    3: { cellWidth: 30, halign: 'center' }, // CONRAISS - Increased width for landscape
+                    4: { cellWidth: 'auto' } // Assignment
+                },
+                alternateRowStyles: { fillColor: [240, 253, 244] },
+                didDrawPage: (data) => drawPageHeader(data)
+            });
+
+            doc.save(`HOD_APC_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+            setShowReportModal(false);
+            setAlertModal({ isOpen: true, title: 'Success', message: 'PDF Report generated successfully.', type: 'success' });
+        } catch (error: any) {
+            console.error("PDF Export failed:", error);
+            setAlertModal({ isOpen: true, title: 'Error', message: `Failed to generate PDF: ${error.message}`, type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleEdit = useCallback((record: HODApcRecord) => {
         setEditingRecord(record);
         setShowAddModal(true);
@@ -364,6 +498,13 @@ const HODApcList: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">auto_fix_high</span>
                         Generate Assignments
+                    </button>
+                    <button
+                        onClick={() => setShowReportModal(true)}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-rose-400 to-rose-600 dark:from-rose-300 dark:to-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
+                        Print Report
                     </button>
                     <button
                         onClick={handleExport}
@@ -495,6 +636,43 @@ const HODApcList: React.FC = () => {
                 details={alertModal.details}
                 onConfirm={alertModal.onConfirm}
             />
+
+            {showReportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200 dark:border-gray-800 animate-in zoom-in-95 duration-200">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Report Configuration</h3>
+
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                                Report Title
+                            </label>
+                            <input
+                                type="text"
+                                value={reportTitle}
+                                onChange={(e) => setReportTitle(e.target.value)}
+                                className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                placeholder="e.g. 2025 APC FOR HODS"
+                            />
+                            <p className="text-xs text-slate-400 mt-2">This title will appear at the top of the generated PDF report.</p>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setShowReportModal(false)}
+                                className="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-sm transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handlePDFExport}
+                                className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition-all"
+                            >
+                                Generate PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showAddModal && (
                 <HODAPCModal
@@ -911,16 +1089,19 @@ const AssignmentGeneratorModal: React.FC<{
                 });
 
                 // Add education-only assignments for qualified HODs
+                // MUTUAL EXCLUSIVITY: Pick randomly between MAR-ACCR and OCT-ACCR, but only ONE.
                 if (isEducationQualified(record.qualification)) {
-                    educationOnlyAssignments.forEach(assignment => {
-                        const val = record[assignment as keyof HODApcRecord];
-                        if (!val || val.toString().trim() === '') {
-                            if (currentCount + newAssignments < 5) {
-                                (newData as Record<string, string>)[assignment] = 'Post';
-                                newAssignments++;
-                            }
+                    // Pick one random assignment from the list (MAR-ACCR or OCT-ACCR)
+                    const randomAccr = educationOnlyAssignments[Math.floor(Math.random() * educationOnlyAssignments.length)];
+                    const val = record[randomAccr as keyof HODApcRecord];
+
+                    // Check if the chosen one is empty
+                    if (!val || val.toString().trim() === '') {
+                        if (currentCount + newAssignments < 5) {
+                            (newData as Record<string, string>)[randomAccr] = 'Post';
+                            newAssignments++;
                         }
-                    });
+                    }
                 }
 
                 // Fill remaining slots with optional assignments (randomized)

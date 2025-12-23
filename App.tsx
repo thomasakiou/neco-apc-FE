@@ -22,6 +22,8 @@ import ComparePage from './pages/admin/metadata/ComparePage';
 import AuditLog from './pages/admin/AuditLog';
 import RandomizedPost from './pages/admin/RandomizedPost';
 import HODApcList from './pages/admin/HODApcList';
+import HODPostings from './pages/admin/HODPostings';
+import HODPostingsTable from './pages/admin/HODPostingsTable';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import AdminLayout from './components/AdminLayout';
@@ -78,6 +80,8 @@ const App: React.FC = () => {
 
               <Route path="assignments/board" element={<ProtectedRoute moduleName="posting"><PersonalizedPost /></ProtectedRoute>} />
               <Route path="assignments/random" element={<ProtectedRoute moduleName="posting"><RandomizedPost /></ProtectedRoute>} />
+              <Route path="assignments/hod" element={<ProtectedRoute moduleName="posting"><HODPostings /></ProtectedRoute>} />
+              <Route path="assignments/hod/table" element={<ProtectedRoute moduleName="posting"><HODPostingsTable /></ProtectedRoute>} />
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />
 
