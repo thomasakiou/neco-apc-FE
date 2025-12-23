@@ -419,6 +419,15 @@ const HODPostingsTable: React.FC = () => {
             })
         ]).then(([logoImg, signatureImg]) => {
             const drawPageHeader = (data: any) => {
+                // Watermark
+                doc.saveGraphicsState();
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const wmWidth = 120; // Adjusted for landscape
+                const imgAspectRatio = logoImg.width / logoImg.height;
+                const wmHeight = wmWidth / imgAspectRatio;
+                doc.addImage(logoImg, 'PNG', (pageWidth - wmWidth) / 2, (pageHeight - wmHeight) / 2, wmWidth, wmHeight);
+                doc.restoreGraphicsState();
+
                 // Logo on the left
                 const aspectRatio = logoImg.width / logoImg.height;
                 doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
@@ -1184,10 +1193,10 @@ const HODPostingsTable: React.FC = () => {
                                                         }
                                                     }}
                                                     className={`p-2 rounded-lg transition-all duration-300 ${swapSource?.id === p.id
-                                                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600'
-                                                            : swapSource
-                                                                ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                                                                : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600'
+                                                        : swapSource
+                                                            ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                                            : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                                                         }`}
                                                     title={swapSource?.id === p.id ? "Cancel Swap" : swapSource ? "Swap Venue with this Staff" : "Swap Staff Venue"}
                                                 >

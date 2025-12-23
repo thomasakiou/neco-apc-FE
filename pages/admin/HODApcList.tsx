@@ -331,6 +331,15 @@ const HODApcList: React.FC = () => {
                 const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
                 const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
 
+                // Watermark
+                doc.saveGraphicsState();
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const wmWidth = 120;
+                const imgAspectRatio = logoImg.width / logoImg.height;
+                const wmHeight = wmWidth / imgAspectRatio;
+                doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmHeight) / 2, wmWidth, wmHeight);
+                doc.restoreGraphicsState();
+
                 // --- Header ---
                 const aspectRatio = logoImg.width / logoImg.height;
                 doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
@@ -371,7 +380,7 @@ const HODApcList: React.FC = () => {
                 doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
             };
 
-            const tableColumn = ["S/N", "FILE NO", "NAME", "CONRAISS", "ASSIGNMENT"];
+            const tableColumn = ["S/N", "FILE NO", "NAME", "CONRAISS", "STATION", "ASSIGNMENT"];
 
             // Create a map for code to name lookup
             const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
@@ -393,6 +402,7 @@ const HODApcList: React.FC = () => {
                     record.file_no,
                     record.name,
                     record.conraiss,
+                    record.station || '-',
                     assignments.join('\n')
                 ];
             });
@@ -407,11 +417,12 @@ const HODApcList: React.FC = () => {
                 bodyStyles: { fontStyle: 'bold' },
                 headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green header
                 columnStyles: {
-                    0: { cellWidth: 15, halign: 'center' }, // S/N
-                    1: { cellWidth: 35 }, // File No - Increased width for landscape
-                    2: { cellWidth: 80 }, // Name - Increased width for landscape
-                    3: { cellWidth: 30, halign: 'center' }, // CONRAISS - Increased width for landscape
-                    4: { cellWidth: 'auto' } // Assignment
+                    0: { cellWidth: 12, halign: 'center' }, // S/N
+                    1: { cellWidth: 25 }, // File No
+                    2: { cellWidth: 70 }, // Name
+                    3: { cellWidth: 20, halign: 'center' }, // CONRAISS
+                    4: { cellWidth: 40 }, // Station
+                    5: { cellWidth: 'auto' } // Assignment
                 },
                 alternateRowStyles: { fillColor: [240, 253, 244] },
                 didDrawPage: (data) => drawPageHeader(data)
