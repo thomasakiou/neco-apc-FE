@@ -470,8 +470,9 @@ const HODPostingsTable: React.FC = () => {
                     fontSize: 10
                 },
                 bodyStyles: {
-                    fontSize: 9,
-                    cellPadding: 3
+                    fontSize: 10.5,
+                    cellPadding: 3,
+                    fontStyle: 'bold'
                 },
                 columnStyles: {
                     0: { cellWidth: 12 },
@@ -482,7 +483,7 @@ const HODPostingsTable: React.FC = () => {
                     5: { cellWidth: 60 },
                     6: { cellWidth: 45 }
                 },
-                margin: { top: 35, bottom: 30 },
+                margin: { top: 35, bottom: 45 },
                 didDrawPage: drawPageHeader
             });
 
@@ -662,9 +663,26 @@ const HODPostingsTable: React.FC = () => {
                 doc.setTextColor(100, 100, 100);
                 doc.text(`Page ${data.pageNumber}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
 
-                // Generated Date
-                doc.setFontSize(8);
                 doc.text(`Generated: ${new Date().toLocaleString()}`, 15, pageHeight - 10);
+
+                // --- Signature (Every Page) ---
+                const signatureY = pageHeight - 20;
+
+                // Add actual signature image if available
+                if (signatureImg) {
+                    const sigWidth = 35;
+                    const sigAspectRatio = signatureImg.width / signatureImg.height;
+                    const sigH = sigWidth / sigAspectRatio;
+                    // Position it above the name with better spacing (8 units gap)
+                    doc.addImage(signatureImg, 'PNG', 15, signatureY - sigH - 8, sigWidth, sigH);
+                }
+
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(0);
+                doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
+                doc.setFontSize(10);
+                doc.text("REG/CE", 15, signatureY + 5);
             };
 
             // --- ACCREDITATION FORMAT (Group by State) ---
@@ -727,9 +745,9 @@ const HODPostingsTable: React.FC = () => {
                             fontStyle: 'bold',
                             fontSize: 10
                         },
-                        bodyStyles: { fontSize: 9, cellPadding: 3 },
+                        bodyStyles: { fontSize: 10.5, cellPadding: 3, fontStyle: 'bold' },
                         columnStyles: { 0: { cellWidth: 15 } }, // Assume first col is S/N-like or small
-                        margin: { top: 40, bottom: 30 },
+                        margin: { top: 40, bottom: 45 },
                         didDrawPage: drawPageHeader
                     });
 
@@ -761,25 +779,14 @@ const HODPostingsTable: React.FC = () => {
                         fontStyle: 'bold',
                         fontSize: 10
                     },
-                    bodyStyles: { fontSize: 9, cellPadding: 3 },
+                    bodyStyles: { fontSize: 10.5, cellPadding: 3, fontStyle: 'bold' },
                     columnStyles,
-                    margin: { top: 40, bottom: 30 },
+                    margin: { top: 40, bottom: 45 },
                     didDrawPage: drawPageHeader
                 });
             }
 
-            // Signature area (on last page)
-            const signatureY = pageHeight - 25;
-            if (signatureImg) {
-                doc.addImage(signatureImg, 'PNG', 15, signatureY - 15, 30, 15);
-            }
-            doc.setFontSize(10);
-            doc.setTextColor(0, 0, 0);
-            doc.setFont("helvetica", "bold");
-            doc.text("_______________________", 15, signatureY + 5);
-            doc.setFont("helvetica", "normal");
-            doc.text("Registrar", 15, signatureY + 10);
-            doc.text("National Examinations Council", 15, signatureY + 15);
+            // Signature block moved to drawPageHeader to appear on every page
 
             doc.save(`HOD_Posting_Report_${reportTemplate}_${new Date().toISOString().split('T')[0]}.pdf`);
             success(`${reportTemplate} report generated successfully!`);

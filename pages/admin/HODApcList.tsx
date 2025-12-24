@@ -676,9 +676,11 @@ const HODApcList: React.FC = () => {
                             </button>
                             <button
                                 onClick={handlePDFExport}
-                                className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition-all"
+                                disabled={loading}
+                                className={`px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
-                                Generate PDF
+                                {loading && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
+                                {loading ? 'Generating...' : 'Generate PDF'}
                             </button>
                         </div>
                     </div>
