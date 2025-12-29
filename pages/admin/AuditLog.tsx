@@ -190,8 +190,8 @@ const AuditLog: React.FC = () => {
                                              {event.action}
                                           </span>
                                        </td>
-                                       <td className="px-8 py-6 max-w-[300px]">
-                                          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-help" title={event.details || ''}>
+                                       <td className="px-8 py-6 max-w-[500px]">
+                                          <p className="text-sm text-slate-600 dark:text-slate-300 font-semibold leading-relaxed line-clamp-2 hover:line-clamp-none transition-all cursor-help" title={event.details || ''}>
                                              {event.details || '---'}
                                           </p>
                                        </td>

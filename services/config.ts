@@ -13,22 +13,18 @@ export interface ModuleLockUpdate {
 }
 
 export const getModuleLocks = async (): Promise<ModuleLocksResponse> => {
-    console.log('[ConfigService] Fetching module locks from:', `${CONFIG_URL}/module-locks`);
     const response = await fetch(`${CONFIG_URL}/module-locks`, {
         headers: getAuthHeaders(),
     });
 
     if (!response.ok) {
-        console.error('[ConfigService] Failed to fetch module locks:', response.status, response.statusText);
         throw new Error(`Failed to fetch module locks: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('[ConfigService] Received module locks raw data:', data);
 
-    // If backend returns an array of objects like [{module_name: 'apc', is_locked: true}]
+    // Normalizing different possible backend response formats
     if (Array.isArray(data)) {
-        console.log('[ConfigService] Normalizing array response to object map');
         return data.reduce((acc, item) => {
             if (item.module_name) {
                 acc[item.module_name] = !!item.is_locked;
@@ -37,13 +33,10 @@ export const getModuleLocks = async (): Promise<ModuleLocksResponse> => {
         }, {} as ModuleLocksResponse);
     }
 
-    // If backend returns a wrapped object like { module_locks: { ... } }
     if (data && typeof data === 'object' && 'module_locks' in data) {
-        console.log('[ConfigService] Normalizing wrapped object response');
         return data.module_locks as ModuleLocksResponse;
     }
 
-    console.log('[ConfigService] Returning data as is (assumed map)');
     return data as ModuleLocksResponse;
 };
 

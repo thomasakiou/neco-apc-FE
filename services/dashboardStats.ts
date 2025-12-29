@@ -50,8 +50,7 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         return dashboardCache;
     }
 
-    // 1. Fetch EVERYTHING in parallel
-    // We fetch counts separately and heavy data separately to avoid blocking everything if charts fail
+    // 1. Fetch BASIC COUNTS first (Parallel & Optimized)
     const [
         staffData,
         apcData,
@@ -61,23 +60,15 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         ssceCustodians,
         beceCustodians
     ] = await Promise.all([
-        safeFetch(getStaffList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }),
-        safeFetch(getAllAPC(0, 1), { items: [], total: 0, skip: 0, limit: 1 }),
-        safeFetch(getStateList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }),
-        safeFetch(getMarkingVenueList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }),
-        safeFetch(getAllNCEECenters(), []),
-        safeFetch(getAllSSCECustodians(), []),
-        safeFetch(getAllBECECustodians(), [])
+        safeFetch(getStaffList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
+        safeFetch(getAllAPC(0, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
+        safeFetch(getStateList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
+        safeFetch(getMarkingVenueList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
+        safeFetch(getAllNCEECenters(), [], 10000),
+        safeFetch(getAllSSCECustodians(), [], 10000),
+        safeFetch(getAllBECECustodians(), [], 10000)
     ]);
 
-    // Heavy data for charts - fetched with longer timeout but separately
-    const [allStaff, allPostings, allAPCs] = await Promise.all([
-        safeFetch(getAllStaff(), [], 60000),
-        safeFetch(getAllPostingRecords(), [], 60000),
-        safeFetch(getAllAPC(0, 50000, '', true).then(res => res.items), []) // Reduced limit to 50k as 100k is overkill and slow
-    ]);
-
-    // Parse counts
     const staffCount = staffData.total || 0;
     const apcCount = apcData.total || 0;
     const statesCount = stateData.total || 0;
@@ -86,23 +77,25 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
     const ssceCount = ssceCustodians.length;
     const beceCount = beceCustodians.length;
 
-    // 2. Optimized Data Processing
+    // 2. Fetch HEAVY DATA for charts (with longer timeout and graceful failure)
+    const [allStaff, allPostings, allAPCs] = await Promise.all([
+        safeFetch(getAllStaff(), [], 60000),
+        safeFetch(getAllPostingRecords(), [], 60000),
+        safeFetch(getAllAPC(0, 50000, '', true).then(res => res.items).catch(() => []), [])
+    ]);
 
-    // a) Staff Distribution
+    // Data Processing for Charts with null checks
     const stationCounts: Record<string, number> = {};
-    for (let i = 0; i < allStaff.length; i++) {
-        const staff = allStaff[i];
-        if (!staff.station) continue;
-        let stationName = staff.station.trim();
-
-        if (
-            stationName.toLowerCase().includes('hq') ||
-            stationName.toLowerCase().includes('headquarter') ||
-            stationName.toLowerCase() === 'minna'
-        ) {
-            stationName = 'HQ';
+    if (allStaff.length > 0) {
+        for (let i = 0; i < allStaff.length; i++) {
+            const staff = allStaff[i];
+            if (!staff?.station) continue;
+            let stationName = staff.station.trim();
+            if (stationName.toLowerCase().includes('hq') || stationName.toLowerCase().includes('headquarter') || stationName.toLowerCase() === 'minna') {
+                stationName = 'HQ';
+            }
+            stationCounts[stationName] = (stationCounts[stationName] || 0) + 1;
         }
-        stationCounts[stationName] = (stationCounts[stationName] || 0) + 1;
     }
 
     const staffDistribution = Object.entries(stationCounts)
@@ -110,39 +103,41 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         .sort((a, b) => b.value - a.value)
         .slice(0, 10);
 
-    // b) Posting Status
     let notPosted = 0;
     let pending = 0;
     let completed = 0;
 
-    const postingMap = new Map();
-    for (let i = 0; i < allPostings.length; i++) {
-        postingMap.set(allPostings[i].file_no, allPostings[i]);
-    }
+    if (allAPCs.length > 0) {
+        const postingMap = new Map();
+        for (let i = 0; i < allPostings.length; i++) {
+            if (allPostings[i]?.file_no) postingMap.set(allPostings[i].file_no, allPostings[i]);
+        }
 
-    for (let i = 0; i < allAPCs.length; i++) {
-        const apc = allAPCs[i];
-        const posting = postingMap.get(apc.file_no);
-        const allotted = apc.count || 0;
+        for (let i = 0; i < allAPCs.length; i++) {
+            const apc = allAPCs[i];
+            if (!apc) continue;
+            const posting = postingMap.get(apc.file_no);
+            const allotted = apc.count || 0;
 
-        if (!posting) {
-            notPosted++;
-        } else {
-            const mandatesCount = posting.mandates ? posting.mandates.length : 0;
-            if (mandatesCount === 0) {
+            if (!posting) {
                 notPosted++;
-            } else if (mandatesCount >= allotted || (posting.to_be_posted !== null && Number(posting.to_be_posted) <= 0)) {
-                completed++;
             } else {
-                pending++;
+                const mandatesCount = posting.mandates ? posting.mandates.length : 0;
+                if (mandatesCount === 0) {
+                    notPosted++;
+                } else if (mandatesCount >= allotted || (posting.to_be_posted !== null && Number(posting.to_be_posted) <= 0)) {
+                    completed++;
+                } else {
+                    pending++;
+                }
             }
         }
     }
 
     const postingStatus = [
-        { name: 'Completed', value: completed, color: '#10b981' }, // Tailwind Emerald-500
-        { name: 'Partial', value: pending, color: '#f59e0b' },   // Tailwind Amber-500
-        { name: 'Not Posted', value: notPosted, color: '#ef4444' } // Tailwind Rose-500
+        { name: 'Completed', value: completed, color: '#10b981' },
+        { name: 'Partial', value: pending, color: '#f59e0b' },
+        { name: 'Not Posted', value: notPosted, color: '#ef4444' }
     ];
 
     const result = {
@@ -163,9 +158,7 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         }
     };
 
-    // Update Cache
     dashboardCache = result;
     lastCacheTime = now;
-
     return result;
 };
