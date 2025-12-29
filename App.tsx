@@ -24,6 +24,7 @@ import RandomizedPost from './pages/admin/RandomizedPost';
 import HODApcList from './pages/admin/HODApcList';
 import HODPostings from './pages/admin/HODPostings';
 import HODPostingsTable from './pages/admin/HODPostingsTable';
+import TTCenters from './pages/admin/TTCenters';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import AdminLayout from './components/AdminLayout';
@@ -68,6 +69,7 @@ const App: React.FC = () => {
               <Route path="stations" element={<ProtectedRoute moduleName="metadata"><StationManagement /></ProtectedRoute>} />
               <Route path="marking-venues" element={<ProtectedRoute moduleName="metadata"><MarkingVenueManagement /></ProtectedRoute>} />
               <Route path="ncee-centers" element={<ProtectedRoute moduleName="metadata"><NCEECenters /></ProtectedRoute>} />
+              <Route path="tt-centers" element={<ProtectedRoute moduleName="metadata"><TTCenters /></ProtectedRoute>} />
               <Route path="bece-custodians" element={<ProtectedRoute moduleName="metadata"><BECECustodians /></ProtectedRoute>} />
               <Route path="ssce-custodians" element={<ProtectedRoute moduleName="metadata"><SSCECustodians /></ProtectedRoute>} />
 

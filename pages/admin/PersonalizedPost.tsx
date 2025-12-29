@@ -11,6 +11,7 @@ import { getAllSchools } from '../../services/school';
 import { getAllNCEECenters } from '../../services/nceeCenter';
 import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
 import { getAllMarkingVenues } from '../../services/markingVenue';
+import { getAllTTCenters } from '../../services/ttCenter';
 import CsvUploadModal from '../../components/CsvUploadModal';
 import SearchableSelect from '../../components/SearchableSelect';
 
@@ -190,11 +191,12 @@ const PersonalizedPost: React.FC = () => {
             else if (type === 'bece_custodian') data = await getAllBECECustodians(true);
             else if (type === 'ssce_custodian') data = await getAllSSCECustodians(true);
             else if (type === 'ncee_center') data = await getAllNCEECenters(true);
+            else if (type === 'tt_center') data = await getAllTTCenters(true);
             else data = await getAllMarkingVenues(true);
 
             setStationOptions(data.map(s => ({
                 id: s.id,
-                name: `${s.code ? `(${s.code}) ` : ''}${s.name || s.station || s.venue_name || ''}`,
+                name: `${(s.code || s.sch_no) ? `(${(s.code || s.sch_no)}) ` : ''}${s.name || s.sch_name || s.station || s.venue_name || ''}`,
                 type
             })));
             setManualStationType(type);

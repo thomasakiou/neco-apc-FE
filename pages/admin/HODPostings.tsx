@@ -15,6 +15,7 @@ import StationTypeSelectionModal from '../../components/StationTypeSelectionModa
 import { getAllSchools } from '../../services/school';
 import { getAllNCEECenters } from '../../services/nceeCenter';
 import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
+import { getAllTTCenters } from '../../services/ttCenter';
 import { State } from '../../types/state';
 import { getAllStations } from '../../services/station';
 import { Station } from '../../types/station';
@@ -125,7 +126,8 @@ const HODPostings: React.FC = () => {
                         type === 'bece_custodian' ? getAllBECECustodians(true) :
                             type === 'ssce_custodian' ? getAllSSCECustodians(true) :
                                 type === 'ncee_center' ? getAllNCEECenters(true) :
-                                    getAllMarkingVenues(true)
+                                    type === 'tt_center' ? getAllTTCenters(true) :
+                                        getAllMarkingVenues(true)
                 ]);
                 const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
 
@@ -134,8 +136,8 @@ const HODPostings: React.FC = () => {
                     if (s.state_id) stateObj = statesData.find(st => st.id === s.state_id);
                     else if (s.state) stateObj = stateNameMap.get(s.state.toLowerCase());
                     const stateName = stateObj?.name || s.state || '';
-                    const code = s.code || s.state_code || '';
-                    const displayName = `${s.name}${code ? ` (${code})` : ''}`;
+                    const code = s.code || s.state_code || s.sch_no || '';
+                    const displayName = `${s.name || s.sch_name}${code ? ` (${code})` : ''}`;
 
                     return {
                         id: s.id,

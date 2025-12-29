@@ -15,6 +15,7 @@ import { PostingResponse } from '../../types/posting';
 import { getAllNCEECenters } from '../../services/nceeCenter';
 import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
 import { getAllStates } from '../../services/state';
+import { getAllTTCenters } from '../../services/ttCenter';
 import { getAllStations } from '../../services/station';
 import { Station } from '../../types/station';
 import { State } from '../../types/state';
@@ -170,7 +171,8 @@ const RandomizedPost: React.FC = () => {
                         type === 'bece_custodian' ? getAllBECECustodians(true) :
                             type === 'ssce_custodian' ? getAllSSCECustodians(true) :
                                 type === 'ncee_center' ? getAllNCEECenters(true) :
-                                    getAllMarkingVenues(true)
+                                    type === 'tt_center' ? getAllTTCenters(true) :
+                                        getAllMarkingVenues(true)
                 ]);
 
                 const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
@@ -182,17 +184,17 @@ const RandomizedPost: React.FC = () => {
                     else if (s.state) stateObj = stateNameMap.get(s.state.toLowerCase());
 
                     const stateName = stateObj?.name || s.state || '';
-                    const code = s.code || s.state_code || '';
+                    const code = s.code || s.state_code || s.sch_no || '';
 
                     // Value format: (CODE) | NAME | STATE
                     const parts = [];
                     parts.push(code ? `(${code})` : '');
-                    parts.push(s.name);
+                    parts.push(s.name || s.sch_name);
                     parts.push(stateName);
 
                     // Display format: NAME
                     const displayParts = [];
-                    displayParts.push(s.name);
+                    displayParts.push(s.name || s.sch_name);
 
                     return {
                         id: s.id,

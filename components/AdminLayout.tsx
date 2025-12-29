@@ -66,6 +66,7 @@ const AdminLayout: React.FC = () => {
               isActive('/admin/stations') ||
               isActive('/admin/marking-venues') ||
               isActive('/admin/ncee-centers') ||
+              isActive('/admin/tt-centers') ||
               isActive('/admin/bece-custodians') ||
               isActive('/admin/ssce-custodians') ||
               isActive('/admin/mandates/config') ||
@@ -75,6 +76,7 @@ const AdminLayout: React.FC = () => {
               <NavItem to="/admin/stations" icon="location_on" label="Stations" active={isActive('/admin/stations')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/marking-venues" icon="edit_location" label="Marking Venues" active={isActive('/admin/marking-venues')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/ncee-centers" icon="school" label="NCEE Centers" active={isActive('/admin/ncee-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
+              <NavItem to="/admin/tt-centers" icon="science" label="TT Centers" active={isActive('/admin/tt-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/bece-custodians" icon="security" label="BECE Custodians" active={isActive('/admin/bece-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/ssce-custodians" icon="verified_user" label="SSCE Custodians" active={isActive('/admin/ssce-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/mandates/config" icon="admin_panel_settings" label="Mandates" active={isActive('/admin/mandates/config')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
