@@ -898,6 +898,7 @@ const GeneratePage: React.FC = () => {
                             <option value="">Select a Title or Leave Blank</option>
                             {[
                                 "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)",
+                                "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE EXTERNAL)",
                                 "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)",
                                 "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE)",
                                 "2026 ACCREDITATION EXERCISE"
