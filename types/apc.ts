@@ -75,6 +75,7 @@ export interface StaffMandateAssignment {
     staff_name: string;
     rank: string;
     current_station: string;
+    qualification?: string;
     conr?: string;
     apc_id?: string; // ID of the APC record if assigned
     mandate_id?: string | null; // ID of the mandate if assigned

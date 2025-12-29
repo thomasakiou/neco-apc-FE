@@ -109,8 +109,8 @@ const GeneratePage: React.FC = () => {
 
     // Report Customization
     const [reportTitle1, setReportTitle1] = useState('');
-
     const [reportTitle2, setReportTitle2] = useState('');
+    const [reportTitle3, setReportTitle3] = useState('');
     const [reportTemplate, setReportTemplate] = useState('SSCE');
 
     // Dynamic Fields
@@ -474,12 +474,13 @@ const GeneratePage: React.FC = () => {
 
                 doc.setTextColor(0);
                 doc.setFontSize(14);
-                const t1 = reportTitle1 || config.defaultTitle1;
-                if (t1) doc.text(t1.toUpperCase(), width / 2, 28, { align: 'center' });
+                if (reportTitle1?.trim()) doc.text(reportTitle1.toUpperCase(), width / 2, 28, { align: 'center' });
 
                 doc.setFontSize(12);
-                const t2 = reportTitle2 || config.defaultTitle2;
-                if (t2) doc.text(t2.toUpperCase(), width / 2, 34, { align: 'center' });
+                if (reportTitle2?.trim()) doc.text(reportTitle2.toUpperCase(), width / 2, 34, { align: 'center' });
+
+                doc.setFontSize(11); // Slightly smaller for T3 if needed
+                if (reportTitle3?.trim()) doc.text(reportTitle3.toUpperCase(), width / 2, 39, { align: 'center' });
 
                 // --- Signature ---
                 const signatureY = pageHeight - 20;
@@ -886,16 +887,24 @@ const GeneratePage: React.FC = () => {
                 </div>
 
                 {/* Report Titles */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Report Title 1</label>
-                        <input
-                            type="text"
+                        <select
                             className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
                             value={reportTitle1}
                             onChange={(e) => setReportTitle1(e.target.value)}
-                            placeholder="e.g. 2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)"
-                        />
+                        >
+                            <option value="">Select a Title or Leave Blank</option>
+                            {[
+                                "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)",
+                                "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)",
+                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE)",
+                                "2026 ACCREDITATION EXERCISE"
+                            ].map(val => (
+                                <option key={val} value={val}>{val}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Report Title 2</label>
@@ -904,7 +913,17 @@ const GeneratePage: React.FC = () => {
                             className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
                             value={reportTitle2}
                             onChange={(e) => setReportTitle2(e.target.value)}
-                            placeholder="e.g. SSCE CUSTODIAN OFFICERS POSTING"
+                            placeholder="e.g. OFFICERS POSTING"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Report Title 3</label>
+                        <input
+                            type="text"
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={reportTitle3}
+                            onChange={(e) => setReportTitle3(e.target.value)}
+                            placeholder="e.g. FINAL LIST"
                         />
                     </div>
                 </div>

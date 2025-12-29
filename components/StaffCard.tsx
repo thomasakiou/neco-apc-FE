@@ -61,6 +61,12 @@ export const StaffCard = React.memo<StaffCardProps>(({ staff, onDragStart, onCli
                     <span className="material-symbols-outlined text-[14px] text-blue-500">location_on</span>
                     <span className="truncate">{staff.current_station || 'No Station'}</span>
                 </div>
+                {staff.qualification && (
+                    <div className="flex items-start gap-1.5" title="Qualification">
+                        <span className="material-symbols-outlined text-[14px] text-amber-500 mt-0.5">school</span>
+                        <span className="italic font-medium leading-tight">{staff.qualification}</span>
+                    </div>
+                )}
                 <div className="flex items-center justify-between mt-1">
                     {staff.conr && (
                         <div className="flex items-center gap-1.5" title="CONRAISS">

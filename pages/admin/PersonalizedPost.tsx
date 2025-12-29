@@ -219,19 +219,25 @@ const PersonalizedPost: React.FC = () => {
 
     const filteredPool = useMemo(() => {
         if (!boardData) return [];
+        const search = poolSearch.toLowerCase();
         return boardData.unassignedStaff.filter(s =>
-            s.staff_name.toLowerCase().includes(poolSearch.toLowerCase()) ||
-            s.staff_no.includes(poolSearch)
+            s.staff_name.toLowerCase().includes(search) ||
+            s.staff_no.includes(search) ||
+            s.current_station.toLowerCase().includes(search) ||
+            s.qualification?.toLowerCase().includes(search)
         );
     }, [boardData?.unassignedStaff, poolSearch]);
 
     const filteredBoard = useMemo(() => {
         if (!boardData) return [];
+        const search = boardSearch.toLowerCase();
         return boardData.mandateColumns.map(col => ({
             ...col,
             staff: col.staff.filter(s =>
-                s.staff_name.toLowerCase().includes(boardSearch.toLowerCase()) ||
-                s.staff_no.includes(boardSearch)
+                s.staff_name.toLowerCase().includes(search) ||
+                s.staff_no.includes(search) ||
+                s.current_station.toLowerCase().includes(search) ||
+                s.qualification?.toLowerCase().includes(search)
             )
         }));
     }, [boardData?.mandateColumns, boardSearch]);
