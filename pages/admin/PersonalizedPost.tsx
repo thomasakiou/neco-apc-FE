@@ -277,13 +277,17 @@ const PersonalizedPost: React.FC = () => {
                             className="w-full sm:min-w-[240px] flex-1"
                         />
 
-                        <button
-                            onClick={() => setIsStationModalOpen(true)}
-                            className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-inner flex-shrink-0"
-                            title="Filter Station Types"
-                        >
-                            <span className="material-symbols-outlined text-xl font-bold">tune</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-indigo-500 dark:text-indigo-400 animate-point text-lg">pan_tool_alt</span>
+                            <button
+                                onClick={() => setIsStationModalOpen(true)}
+                                className="pick-station-btn h-9 px-3 flex items-center justify-center rounded-xl bg-indigo-600 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all gap-1.5 flex-shrink-0"
+                                title="Filter Station Types"
+                            >
+                                <span className="material-symbols-outlined text-sm">hub</span>
+                                Pick Station
+                            </button>
+                        </div>
 
                         <input
                             type="text"
@@ -293,14 +297,17 @@ const PersonalizedPost: React.FC = () => {
                             className="h-10 px-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-indigo-500 outline-none transition-all w-full sm:min-w-[200px] flex-1"
                         />
 
-                        <input
-                            type="number"
-                            placeholder="Nights..."
-                            min="0"
-                            value={numberOfNights}
-                            onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
-                            className="h-10 px-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-indigo-500 outline-none transition-all w-20 sm:w-24"
-                        />
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1 ml-1">Nights</label>
+                            <input
+                                type="number"
+                                placeholder="Nights..."
+                                min="0"
+                                value={numberOfNights}
+                                onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
+                                className="h-10 px-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-indigo-500 outline-none transition-all w-20 sm:w-24"
+                            />
+                        </div>
 
                     </div>
                 </div>

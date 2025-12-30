@@ -570,9 +570,16 @@ const HODPostings: React.FC = () => {
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
                                         <label className="block text-xs font-bold uppercase text-slate-500">Venue</label>
-                                        <button onClick={() => setIsStationModalOpen(true)} className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded">
-                                            Pick Type
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-indigo-500 dark:text-indigo-400 animate-point text-lg">pan_tool_alt</span>
+                                            <button
+                                                onClick={() => setIsStationModalOpen(true)}
+                                                className="pick-station-btn text-[10px] font-black text-white bg-indigo-600 dark:bg-indigo-500 px-3 py-1 rounded-lg shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:bg-indigo-700 transition-all flex items-center gap-1"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">hub</span>
+                                                Pick Station
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <select

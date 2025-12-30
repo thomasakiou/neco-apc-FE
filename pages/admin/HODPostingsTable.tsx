@@ -99,6 +99,9 @@ const HODPostingsTable: React.FC = () => {
     const [replacementSource, setReplacementSource] = useState<PostingResponse | null>(null);
     const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
     const [replacementPool, setReplacementPool] = useState<HODApcRecord[]>([]);
+    const [modalSearchFileNo, setModalSearchFileNo] = useState('');
+    const [modalSearchName, setModalSearchName] = useState('');
+    const [modalSearchConraiss, setModalSearchConraiss] = useState('');
 
 
     // Report Customization
@@ -185,6 +188,11 @@ const HODPostingsTable: React.FC = () => {
 
             if (!sourceAPC) throw new Error("Original staff not found in HOD APC database.");
 
+            // Calculate target's current total posted assignments
+            const targetCurrentPosted = postings
+                .filter(p => p.file_no === targetAPC.file_no)
+                .reduce((sum, p) => sum + (p.assignments?.length || 0), 0);
+
             // Prepare New Posting
             const newTargetRecord: PostingCreate = {
                 file_no: targetAPC.file_no,
@@ -194,7 +202,7 @@ const HODPostingsTable: React.FC = () => {
                 year: replacementSource.year,
                 count: replacementSource.count, // Note: HOD posting interface might differ slightly? No, looks same `PostingResponse`.
                 posted_for: replacementSource.assignments.length,
-                to_be_posted: (targetAPC.count || 1) - replacementSource.assignments.length,
+                to_be_posted: (targetAPC.count || 0) - (targetCurrentPosted + replacementSource.assignments.length),
                 assignments: replacementSource.assignments,
                 mandates: replacementSource.mandates,
                 assignment_venue: replacementSource.assignment_venue,
@@ -242,6 +250,15 @@ const HODPostingsTable: React.FC = () => {
             setLoading(false);
         }
     }, [replacementSource, fetchData, success, error]);
+
+    const filteredReplacementPool = useMemo(() => {
+        return replacementPool.filter(staff => {
+            const matchesFileNo = !modalSearchFileNo || staff.file_no.toLowerCase().includes(modalSearchFileNo.toLowerCase());
+            const matchesName = !modalSearchName || staff.name.toLowerCase().includes(modalSearchName.toLowerCase());
+            const matchesConraiss = !modalSearchConraiss || staff.conraiss?.toLowerCase().includes(modalSearchConraiss.toLowerCase());
+            return matchesFileNo && matchesName && matchesConraiss;
+        });
+    }, [replacementPool, modalSearchFileNo, modalSearchName, modalSearchConraiss]);
 
     const handleSingleDelete = useCallback(async (record: PostingResponse) => {
         if (!window.confirm(`Are you sure you want to delete the posting for ${record.name}? This will return them to the pool.`)) return;
@@ -1311,9 +1328,49 @@ const HODPostingsTable: React.FC = () => {
                                         Source: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{replacementSource?.name}</span>
                                     </p>
                                 </div>
-                                <button onClick={() => setIsReplacementModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
+                                <button onClick={() => {
+                                    setIsReplacementModalOpen(false);
+                                    setModalSearchFileNo('');
+                                    setModalSearchName('');
+                                    setModalSearchConraiss('');
+                                }} className="w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
                                     <span className="material-symbols-outlined text-slate-400">close</span>
                                 </button>
+                            </div>
+
+                            <div className="px-6 py-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/50 dark:bg-slate-900/10">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">tag</span>
+                                        <input
+                                            type="text"
+                                            placeholder="File No..."
+                                            value={modalSearchFileNo}
+                                            onChange={(e) => setModalSearchFileNo(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0f161d] text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">person</span>
+                                        <input
+                                            type="text"
+                                            placeholder="Name..."
+                                            value={modalSearchName}
+                                            onChange={(e) => setModalSearchName(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0f161d] text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">grade</span>
+                                        <input
+                                            type="text"
+                                            placeholder="Conraiss..."
+                                            value={modalSearchConraiss}
+                                            onChange={(e) => setModalSearchConraiss(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0f161d] text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="p-6 overflow-y-auto space-y-4">
@@ -1325,14 +1382,14 @@ const HODPostingsTable: React.FC = () => {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Select Replacement Staff ({replacementPool.length} Eligible)</span>
-                                    {replacementPool.length === 0 ? (
+                                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Select Replacement Staff ({filteredReplacementPool.length} Match)</span>
+                                    {filteredReplacementPool.length === 0 ? (
                                         <div className="p-12 text-center text-slate-500 italic bg-slate-50 dark:bg-slate-900/20 rounded-2xl border border-dashed border-slate-200 dark:border-gray-800">
-                                            No eligible staff found in the pool for this assignment.
+                                            {replacementPool.length === 0 ? 'No eligible staff found in the pool.' : 'No staff matches your search criteria.'}
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 gap-2">
-                                            {replacementPool.map(staff => (
+                                            {filteredReplacementPool.map(staff => (
                                                 <button
                                                     key={staff.id}
                                                     onClick={() => handleExecuteReplacement(staff)}
@@ -1363,7 +1420,12 @@ const HODPostingsTable: React.FC = () => {
 
                             <div className="p-6 border-t border-slate-100 dark:border-gray-800 flex justify-end gap-3">
                                 <button
-                                    onClick={() => setIsReplacementModalOpen(false)}
+                                    onClick={() => {
+                                        setIsReplacementModalOpen(false);
+                                        setModalSearchFileNo('');
+                                        setModalSearchName('');
+                                        setModalSearchConraiss('');
+                                    }}
                                     className="px-6 py-2 rounded-xl border border-slate-200 dark:border-gray-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all"
                                 >
                                     Cancel
