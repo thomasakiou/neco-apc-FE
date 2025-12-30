@@ -19,6 +19,7 @@ import PersonalizedPost from './pages/admin/PersonalizedPost';
 import AssignmentHistory from './pages/admin/AssignmentHistory';
 import SDLPage from './pages/admin/metadata/SDLPage';
 import ComparePage from './pages/admin/metadata/ComparePage';
+import FlaggedStaffPage from './pages/admin/metadata/FlaggedStaffPage';
 import AuditLog from './pages/admin/AuditLog';
 import RandomizedPost from './pages/admin/RandomizedPost';
 import HODApcList from './pages/admin/HODApcList';
@@ -79,6 +80,7 @@ const App: React.FC = () => {
               {/* Meta Data Routes */}
               <Route path="metadata/sdl" element={<ProtectedRoute moduleName="metadata"><SDLPage /></ProtectedRoute>} />
               <Route path="metadata/compare" element={<ProtectedRoute moduleName="metadata"><ComparePage /></ProtectedRoute>} />
+              <Route path="metadata/flagged" element={<ProtectedRoute moduleName="metadata"><FlaggedStaffPage /></ProtectedRoute>} />
 
               <Route path="assignments/board" element={<ProtectedRoute moduleName="posting"><PersonalizedPost /></ProtectedRoute>} />
               <Route path="assignments/random" element={<ProtectedRoute moduleName="posting"><RandomizedPost /></ProtectedRoute>} />

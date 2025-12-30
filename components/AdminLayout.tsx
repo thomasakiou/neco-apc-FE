@@ -55,10 +55,12 @@ const AdminLayout: React.FC = () => {
 
             <CollapsibleNavSection title="STAFF DATA" icon="badge" isLocked={isModuleLocked('staff_data') && !isSuperAdmin} active={
               isActive('/admin/metadata/sdl') ||
-              isActive('/admin/metadata/compare')
+              isActive('/admin/metadata/compare') ||
+              isActive('/admin/metadata/flagged')
             }>
               <NavItem to="/admin/metadata/sdl" icon="fact_check" label="SDL" active={isActive('/admin/metadata/sdl')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} />
               <NavItem to="/admin/metadata/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/metadata/compare')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} />
+              <NavItem to="/admin/metadata/flagged" icon="flag" label="Flagged Staff" active={isActive('/admin/metadata/flagged')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} />
             </CollapsibleNavSection>
 
             <CollapsibleNavSection title="Meta Data" icon="dataset" isLocked={isModuleLocked('metadata') && !isSuperAdmin} active={
