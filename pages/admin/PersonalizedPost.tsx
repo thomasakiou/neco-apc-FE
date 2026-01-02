@@ -14,6 +14,8 @@ import { getAllMarkingVenues } from '../../services/markingVenue';
 import { getAllTTCenters } from '../../services/ttCenter';
 import CsvUploadModal from '../../components/CsvUploadModal';
 import SearchableSelect from '../../components/SearchableSelect';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 
 const PersonalizedPost: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -29,6 +31,7 @@ const PersonalizedPost: React.FC = () => {
     const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string>>(new Set());
     const [poolSearch, setPoolSearch] = useState('');
     const [boardSearch, setBoardSearch] = useState('');
+    const [showHelp, setShowHelp] = useState(false);
 
     // Modals & UI
     const [isStationModalOpen, setIsStationModalOpen] = useState(false);
@@ -253,6 +256,14 @@ const PersonalizedPost: React.FC = () => {
                         <h1 className="text-lg md:text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
                             Board Workspace
                             {hasUnsavedChanges && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Unsaved Changes"></span>}
+                            <button
+                                onClick={() => setShowHelp(true)}
+                                className="ml-2 flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm font-bold text-xs"
+                                title="Board Guide"
+                            >
+                                <span className="material-symbols-outlined text-sm">help</span>
+                                Help
+                            </button>
                         </h1>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Personnel Distribution Engine</p>
                     </div>
@@ -541,6 +552,12 @@ const PersonalizedPost: React.FC = () => {
             {loading && (
                 <div className="fixed inset-0 bg-white/10 dark:bg-black/10 backdrop-blur-[1px] z-50 pointer-events-none"></div>
             )}
+
+            <HelpModal
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                helpData={helpContent.personalizedPost}
+            />
         </div>
     );
 };

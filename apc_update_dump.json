@@ -1,0 +1,312 @@
+{
+  "properties": {
+    "file_no": {
+      "type": "string",
+      "maxLength": 50,
+      "title": "File No",
+      "description": "File Number"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 255,
+      "title": "Name",
+      "description": "Name"
+    },
+    "conraiss": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Conraiss",
+      "description": "Conraiss"
+    },
+    "station": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 255
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Station",
+      "description": "Station"
+    },
+    "qualification": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Qualification",
+      "description": "Qualification"
+    },
+    "sex": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 10
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Sex",
+      "description": "Sex"
+    },
+    "tt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tt",
+      "description": "TT"
+    },
+    "mar_accr": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Mar Accr",
+      "description": "MAR-ACCR"
+    },
+    "ncee": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Ncee",
+      "description": "NCEE"
+    },
+    "gifted": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Gifted",
+      "description": "GIFTED"
+    },
+    "becep": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Becep",
+      "description": "BECEP"
+    },
+    "bece_mrkp": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Bece Mrkp",
+      "description": "BECE-MRKP"
+    },
+    "ssce_int": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Ssce Int",
+      "description": "SSCE-INT"
+    },
+    "swapping": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Swapping",
+      "description": "SWAPPING"
+    },
+    "ssce_int_mrk": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Ssce Int Mrk",
+      "description": "SSCE-INT-MRK"
+    },
+    "oct_accr": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Oct Accr",
+      "description": "OCT-ACCR"
+    },
+    "ssce_ext": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Ssce Ext",
+      "description": "SSEC-EXT"
+    },
+    "ssce_ext_mrk": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Ssce Ext Mrk",
+      "description": "SSCE-EXT-MRK"
+    },
+    "pur_samp": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Pur Samp",
+      "description": "PUR-SAMP"
+    },
+    "int_audit": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Int Audit",
+      "description": "INT-AUDIT"
+    },
+    "stock_tk": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Stock Tk",
+      "description": "STOCK-TK"
+    },
+    "count": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Count",
+      "description": "Count",
+      "default": 0
+    },
+    "remark": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Remark",
+      "description": "Remark"
+    },
+    "year": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 10
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Year",
+      "description": "Year"
+    },
+    "active": {
+      "type": "boolean",
+      "title": "Active",
+      "description": "Active status",
+      "default": true
+    }
+  },
+  "type": "object",
+  "required": [
+    "file_no",
+    "name"
+  ],
+  "title": "APCUpdate"
+}

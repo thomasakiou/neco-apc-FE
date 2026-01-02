@@ -46,10 +46,10 @@ const SDLPage: React.FC = () => {
         const qualLower = (staff.qualification || '').toLowerCase();
         const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
         const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
-        const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? remarkLower.includes('hod') : !remarkLower.includes('hod'));
-        const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? staff.is_state_coordinator : !staff.is_state_coordinator);
-        const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? remarkLower.includes('director') : !remarkLower.includes('director'));
-        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? hasEducationQual : !hasEducationQual);
+        const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
+        const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
+        const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
+        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
 
         return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
     });
@@ -82,10 +82,10 @@ const SDLPage: React.FC = () => {
         const qualLower = (staff.qualification || '').toLowerCase();
         const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
         const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
-        const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? remarkLower.includes('hod') : !remarkLower.includes('hod'));
-        const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? staff.is_state_coordinator : !staff.is_state_coordinator);
-        const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? remarkLower.includes('director') : !remarkLower.includes('director'));
-        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? hasEducationQual : !hasEducationQual);
+        const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
+        const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
+        const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
+        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
 
         return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
     });
@@ -310,10 +310,10 @@ const SDLPage: React.FC = () => {
                     const qualLower = (staff.qualification || '').toLowerCase();
                     const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
                     const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
-                    const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? remarkLower.includes('hod') : !remarkLower.includes('hod'));
-                    const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? staff.is_state_coordinator : !staff.is_state_coordinator);
-                    const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? remarkLower.includes('director') : !remarkLower.includes('director'));
-                    const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? hasEducationQual : !hasEducationQual);
+                    const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
+                    const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
+                    const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
+                    const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
 
                     return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
                 });
@@ -999,10 +999,10 @@ const StaffRow: React.FC<{
                         </div>
                         <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{staff.full_name}</span>
                         <div className="flex gap-1">
-                            {staff.is_hod && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase" title="Head of Department">HOD</span>}
-                            {staff.is_state_coordinator && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 uppercase" title="State Coordinator">COORD</span>}
-                            {staff.is_director && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase" title="Director">DIR</span>}
-                            {staff.is_education && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase" title="Education Department">EDU</span>}
+                            {!!staff.is_hod && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase" title="Head of Division">HOD</span>}
+                            {!!staff.is_state_coordinator && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 uppercase" title="State Coordinator">COORD</span>}
+                            {!!staff.is_director && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase" title="Director">DIR</span>}
+                            {!!staff.is_education && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase" title="Education">EDU</span>}
                         </div>
                     </div>
                 </td>
@@ -1072,10 +1072,10 @@ const StaffRow: React.FC<{
                             <div className="col-span-2 md:col-span-4">
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-2 border-b border-slate-200 dark:border-gray-700 pb-1">Quick Roles & Designation</span>
                                 <div className="flex flex-wrap gap-4">
-                                    <RoleIndicator label="Head of Department" active={staff.is_hod} icon="account_balance" color="purple" />
+                                    <RoleIndicator label="Head of Division" active={staff.is_hod} icon="account_balance" color="purple" />
                                     <RoleIndicator label="State Coordinator" active={staff.is_state_coordinator} icon="location_on" color="amber" />
                                     <RoleIndicator label="Director" active={staff.is_director} icon="grade" color="blue" />
-                                    <RoleIndicator label="Education Dept" active={staff.is_education} icon="school" color="indigo" />
+                                    <RoleIndicator label="Education" active={staff.is_education} icon="school" color="indigo" />
                                 </div>
                             </div>
                             <div className="col-span-2 md:col-span-4 mt-2">

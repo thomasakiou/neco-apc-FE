@@ -20,10 +20,13 @@ import { getAllStations } from '../../services/station';
 import { Station } from '../../types/station';
 import { State } from '../../types/state';
 import { useNotification } from '../../context/NotificationContext';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 
 const RandomizedPost: React.FC = () => {
     // Notifications
     const { success, error, warning, info } = useNotification();
+    const [showHelp, setShowHelp] = useState(false);
 
     // Data States
     const [allAPC, setAllAPC] = useState<APCRecord[]>([]);
@@ -58,6 +61,39 @@ const RandomizedPost: React.FC = () => {
     // Generated Preview
     const [generatedPostings, setGeneratedPostings] = useState<PostingCreate[]>([]);
     const [previewMode, setPreviewMode] = useState(false);
+
+    // Preview Mode Filters
+    const [previewSearchName, setPreviewSearchName] = useState('');
+    const [previewSearchFileNo, setPreviewSearchFileNo] = useState('');
+    const [previewSearchStation, setPreviewSearchStation] = useState('');
+    const [previewSearchState, setPreviewSearchState] = useState('');
+    const [previewSearchZone, setPreviewSearchZone] = useState('');
+
+    const [previewPage, setPreviewPage] = useState(1);
+    const [previewLimit, setPreviewLimit] = useState(10);
+
+    useEffect(() => {
+        setPreviewPage(1);
+    }, [previewSearchName, previewSearchFileNo, previewSearchStation, previewSearchState, previewSearchZone, previewLimit]);
+
+    const filteredGeneratedPostings = useMemo(() => {
+        return generatedPostings.filter(p => {
+            const matchName = p.name.toLowerCase().includes(previewSearchName.toLowerCase());
+            const matchFileNo = p.file_no.toLowerCase().includes(previewSearchFileNo.toLowerCase());
+            const matchStation = (p.station || '').toLowerCase().includes(previewSearchStation.toLowerCase());
+            const matchState = ((p as any).state_name || '').toLowerCase().includes(previewSearchState.toLowerCase());
+            const matchZone = ((p as any).zone || '').toLowerCase().includes(previewSearchZone.toLowerCase());
+
+            return matchName && matchFileNo && matchStation && matchState && matchZone;
+        });
+    }, [generatedPostings, previewSearchName, previewSearchFileNo, previewSearchStation, previewSearchState, previewSearchZone]);
+
+    const paginatedGeneratedPostings = useMemo(() => {
+        const start = (previewPage - 1) * previewLimit;
+        return filteredGeneratedPostings.slice(start, start + previewLimit);
+    }, [filteredGeneratedPostings, previewPage, previewLimit]);
+
+    const totalPreviewPages = Math.ceil(filteredGeneratedPostings.length / previewLimit);
 
     // Memoized Eligible Staff Count and Breakdown for Selected Assignment
     const eligibleStaffData = useMemo(() => {
@@ -489,9 +525,9 @@ const RandomizedPost: React.FC = () => {
                                     station: staff.station,
                                     conraiss: staff.conraiss,
                                     year: new Date().getFullYear().toString(),
-                                    count: numberOfNights,
+                                    count: numberOfNights, // Use explicit number of nights (default 0)
                                     posted_for: 1,
-                                    to_be_posted: newToBePosted,
+                                    to_be_posted: Math.max(0, (staff.count || 0) - (totalPostedSoFar + 1)),
                                     assignments: [assignmentCode],
                                     mandates: [targetMandate],
                                     assignment_venue: [vq.venue.name],
@@ -570,7 +606,7 @@ const RandomizedPost: React.FC = () => {
                         const { id, created_at, updated_at, created_by, updated_by, ...cleanRecord } = apcRecord;
                         updates.push(updateAPC(id, {
                             ...cleanRecord,
-                            [apcField]: '', // Clear the assignment field
+                            [apcField]: '', // Clear the assignment field in APC (Standardized for Add)
                         } as any));
                     }
                 }
@@ -598,7 +634,12 @@ const RandomizedPost: React.FC = () => {
         return (
             <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-4 md:p-8 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 w-full max-w-7xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl md:text-2xl lg:text-3xl font-bold">Generated Preview ({generatedPostings.length})</h2>
+                    <h2 className="text-xl md:text-2xl lg:text-3xl font-bold">
+                        Generated Preview
+                        <span className="text-base font-normal text-slate-500 ml-2">
+                            (Showing {filteredGeneratedPostings.length} of {generatedPostings.length})
+                        </span>
+                    </h2>
                     <div className="flex gap-3">
                         <button onClick={() => setPreviewMode(false)} className="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold">Back to Config</button>
                         <button
@@ -618,6 +659,55 @@ const RandomizedPost: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Search Filters */}
+                <div className="bg-white dark:bg-[#121b25] p-4 rounded-xl border border-slate-200 dark:border-gray-800 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <input
+                        type="text"
+                        placeholder="Filter by Name..."
+                        value={previewSearchName}
+                        onChange={(e) => setPreviewSearchName(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Filter by File No..."
+                        value={previewSearchFileNo}
+                        onChange={(e) => setPreviewSearchFileNo(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Filter by Station..."
+                        value={previewSearchStation}
+                        onChange={(e) => setPreviewSearchStation(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Filter by Venue State..."
+                        value={previewSearchState}
+                        onChange={(e) => setPreviewSearchState(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Filter by Zone..."
+                        value={previewSearchZone}
+                        onChange={(e) => setPreviewSearchZone(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    />
+                    <select
+                        value={previewLimit}
+                        onChange={(e) => setPreviewLimit(Number(e.target.value))}
+                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                        <option value={10}>10 Rows</option>
+                        <option value={25}>25 Rows</option>
+                        <option value={50}>50 Rows</option>
+                        <option value={100}>100 Rows</option>
+                    </select>
+                </div>
+
                 <div className="bg-white dark:bg-[#121b25] rounded-xl border border-slate-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[600px]">
                     <div className="overflow-x-auto overflow-y-auto flex-1">
                         <table className="w-full text-left border-collapse relative">
@@ -635,7 +725,7 @@ const RandomizedPost: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-base">
-                                {generatedPostings.map((p, idx) => (
+                                {paginatedGeneratedPostings.map((p, idx) => (
                                     <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
                                         <td className="p-3 font-mono font-bold text-slate-700 dark:text-slate-300 text-sm">{p.file_no}</td>
                                         <td className="p-3 font-medium text-slate-800 dark:text-slate-100">{p.name}</td>
@@ -656,6 +746,31 @@ const RandomizedPost: React.FC = () => {
                         </table>
                     </div>
                 </div>
+
+                {/* Pagination Controls */}
+                {totalPreviewPages > 1 && (
+                    <div className="flex justify-between items-center mt-4 bg-white dark:bg-[#121b25] p-3 rounded-xl border border-slate-200 dark:border-gray-800">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-2">
+                            Page {previewPage} of {totalPreviewPages}
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={previewPage === 1}
+                                onClick={() => setPreviewPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                disabled={previewPage === totalPreviewPages}
+                                onClick={() => setPreviewPage(p => Math.min(totalPreviewPages, p + 1))}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -663,13 +778,22 @@ const RandomizedPost: React.FC = () => {
     return (
         <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-4 md:p-8 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm">
-                    Randomized Post Generator
-                </h1>
-                <p className="mt-2 text-slate-500 dark:text-slate-400 font-medium">
-                    Configure quotas and randomly assign staff to venues.
-                </p>
+            <div className="mb-8 flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm">
+                        Randomized Post Generator
+                    </h1>
+                    <p className="mt-2 text-slate-500 dark:text-slate-400 font-medium">
+                        Configure quotas and randomly assign staff to venues.
+                    </p>
+                </div>
+                <button
+                    onClick={() => setShowHelp(true)}
+                    className="flex items-center justify-center p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm"
+                    title="Guide"
+                >
+                    <span className="material-symbols-outlined text-2xl">help</span>
+                </button>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto items-start">
@@ -846,19 +970,18 @@ const RandomizedPost: React.FC = () => {
                         )}
                     </button>
                     {/* Assignment Specific configurations (like Number of Nights) */}
-                    {selectedAssignment && (
-                        <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 mt-4">
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Number of Nights</label>
-                            <input
-                                type="number"
-                                min="0"
-                                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-medium text-sm"
-                                value={numberOfNights}
-                                onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
-                                placeholder="Enter number of nights..."
-                            />
-                        </div>
-                    )}
+                    {/* Assignment Specific configurations (like Number of Nights) */}
+                    <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 mt-4">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Number of Nights</label>
+                        <input
+                            type="number"
+                            min="0"
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-medium text-sm"
+                            value={numberOfNights}
+                            onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
+                            placeholder="Enter number of nights..."
+                        />
+                    </div>
 
                     {/* Description Input */}
                     <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 mt-4">
@@ -919,6 +1042,44 @@ const RandomizedPost: React.FC = () => {
                 isOpen={isStationModalOpen}
                 onClose={() => setIsStationModalOpen(false)}
                 onSelect={handleStationTypeSelect}
+            />
+
+            <HelpModal
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                helpData={{
+                    title: 'Randomized Post Generator',
+                    description: 'Configure quotas and randomly assign staff to venues.',
+                    sections: [
+                        {
+                            title: 'How it works',
+                            icon: 'lightbulb',
+                            content: 'This tool randomly assigns eligible staff to marking venues or monitoring stations based on your defined quotas. It ensures staff are not double-booked and respects their CONRAISS levels.',
+                            tips: ['Staff must be marked "Active" in the APC List to be eligible.']
+                        },
+                        {
+                            title: 'Step 1: Criteria',
+                            icon: 'filter_alt',
+                            content: 'Select the Assignment (e.g., SSCE INT) and the specific Mandate (e.g., TEAM LEADER). Only staff who are eligible for this assignment and not already posted for this mandate will be considered.',
+                        },
+                        {
+                            title: 'Step 2: Venues',
+                            icon: 'location_on',
+                            content: 'Select the target venue type (e.g., Marking Venue, School). You can run this for "All Venues" at once, or focus on a specific venue.',
+                            tips: ['Running for "All Venues" will attempt to fill quotas for every single venue in the list.']
+                        },
+                        {
+                            title: 'Step 3: Quotas',
+                            icon: 'pie_chart',
+                            content: 'Set the "Target / Venue" - this is the total number of staff you want per venue. Then, distribute this total across different CONRAISS levels. The system will try to match this distribution as closely as possible.',
+                        },
+                        {
+                            title: 'Preview',
+                            icon: 'visibility',
+                            content: 'Click "Generate Preview" to see the proposed postings without saving them. You can review, search, and filter the results. Once satisfied, click "Confirm and Post" to save them to the database.',
+                        }
+                    ]
+                }}
             />
         </div>
     );

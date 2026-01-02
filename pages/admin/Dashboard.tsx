@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { getDashboardStats, DashboardStats } from '../../services/dashboardStats';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const fetchStats = async (force = false) => {
     if (force) setIsRefreshing(true);
@@ -65,7 +68,16 @@ const AdminDashboard: React.FC = () => {
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">NECO APCIC Posting Ecosystem</p>
         </div>
 
+
         <div className="flex items-center justify-between sm:justify-end gap-4 md:gap-6 w-full sm:w-auto">
+          <button
+            onClick={() => setShowHelp(true)}
+            className="flex items-center justify-center p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm"
+            title="Dashboard Guide"
+          >
+            <span className="material-symbols-outlined text-xl">help</span>
+          </button>
+
           <button
             onClick={() => fetchStats(true)}
             className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-[10px] md:text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
@@ -87,6 +99,12 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </header>
+
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        helpData={helpContent.dashboard}
+      />
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-12">
         <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-10">

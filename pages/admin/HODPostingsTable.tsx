@@ -13,6 +13,8 @@ import { HODApcRecord } from '../../types/hodApc';
 import { updateHODApc, getAllHODApc } from '../../services/hodApc'; // Use HOD specific APC update
 import { updateHODPosting, bulkCreateHODPostings, deleteHODPosting } from '../../services/hodPosting';
 import { PostingCreate } from '../../types/posting';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 
 interface ReportField {
     id: string;
@@ -114,6 +116,7 @@ const HODPostingsTable: React.FC = () => {
     const [reportTitle2, setReportTitle2] = useState('');
     const [reportTemplate, setReportTemplate] = useState('SSCE');
     const [exportType, setExportType] = useState<'pdf' | 'csv' | 'xlsx' | null>(null);
+    const [showHelp, setShowHelp] = useState(false);
 
     const activeFields = useMemo(() => {
         const fieldMap = new Map(REPORT_FIELDS.map(f => [f.id, f]));
@@ -273,7 +276,7 @@ const HODPostingsTable: React.FC = () => {
                 const updates: any = { ...apcRecord };
                 let hasChanges = false;
                 record.assignments.forEach((a: any) => {
-                    const code = typeof a === 'string' ? a : a.code;
+                    const code = (typeof a === 'string' ? a : a.code || a.name || '').trim().toUpperCase();
                     const field = assignmentFieldMap[code];
                     if (field) {
                         updates[field] = 'Returned';
@@ -846,6 +849,14 @@ const HODPostingsTable: React.FC = () => {
                             Delete ({selectedIds.size})
                         </button>
                     )}
+                    <button
+                        onClick={() => setShowHelp(true)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm font-bold text-xs"
+                        title="Table Guide"
+                    >
+                        <span className="material-symbols-outlined text-lg">help</span>
+                        Help
+                    </button>
                     <button
                         onClick={() => fetchData(true)}
                         disabled={loading}
@@ -1435,6 +1446,12 @@ const HODPostingsTable: React.FC = () => {
                     </div>
                 )
             }
+
+            <HelpModal
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                helpData={helpContent.hodPostingsTable}
+            />
         </div >
     );
 };

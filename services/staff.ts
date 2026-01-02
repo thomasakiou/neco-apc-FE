@@ -5,6 +5,92 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const API_URL = `${API_BASE_URL}/staff`;
 
+/**
+ * Maps backend staff object to frontend Staff object.
+ */
+const mapApiStaffToStaff = (apiStaff: any): Staff => {
+    if (!apiStaff) return apiStaff;
+
+    // Robust boolean parsing - handles true, 1, '1', 'true', 'True', 'TRUE', etc.
+    const toBool = (val: any): boolean => {
+        if (val === undefined || val === null) return false;
+        if (typeof val === 'boolean') return val;
+        if (typeof val === 'number') return val === 1;
+        if (typeof val === 'string') {
+            const lower = val.toLowerCase().trim();
+            return lower === 'true' || lower === '1' || lower === 'yes';
+        }
+        return Boolean(val);
+    };
+
+    return {
+        ...apiStaff,
+        is_hod: toBool(apiStaff.is_hod),
+        is_director: toBool(apiStaff.is_director),
+        is_education: toBool(apiStaff.is_education),
+        active: toBool(apiStaff.active),
+        // Backend uses 'is_state_cordinator' (with typo)
+        is_state_coordinator: toBool(apiStaff.is_state_cordinator ?? apiStaff.is_state_coordinator),
+    } as Staff;
+};
+
+/**
+ * Cleans the payload to match the backend expectations.
+ * Backend schema specifies these as boolean types so we send true/false.
+ */
+const cleanPayload = (data: any, id?: string) => {
+    const schemaFields = [
+        'fileno', 'full_name', 'station', 'qualification', 'sex',
+        'dob', 'dofa', 'doan', 'dopa', 'rank', 'conr',
+        'state', 'lga', 'email', 'phone', 'remark'
+    ];
+
+    const cleaned: any = {};
+
+    // Include ID if provided (some backends require it in body for PUT)
+    if (id) {
+        cleaned.id = id;
+    }
+
+    // Copy base fields
+    schemaFields.forEach(field => {
+        // Send values if they exist, but omit nulls to be safe
+        if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+            cleaned[field] = data[field];
+        } else if (data[field] === null || data[field] === '') {
+            cleaned[field] = null; // Explicit null if they want to clear it
+        }
+    });
+
+    // Handle Booleans as proper booleans (schema specifies boolean type)
+    const toBool = (val: any): boolean => {
+        if (val === undefined || val === null) return false;
+        if (typeof val === 'boolean') return val;
+        if (typeof val === 'number') return val === 1;
+        if (typeof val === 'string') {
+            const lower = val.toLowerCase().trim();
+            return lower === 'true' || lower === '1' || lower === 'yes';
+        }
+        return Boolean(val);
+    };
+
+    if (data.active !== undefined) cleaned.active = toBool(data.active);
+    if (data.is_hod !== undefined) cleaned.is_hod = toBool(data.is_hod);
+    if (data.is_education !== undefined) cleaned.is_education = toBool(data.is_education);
+    if (data.is_director !== undefined) cleaned.is_director = toBool(data.is_director);
+
+    // Send ONLY the correct field name used by backend (is_state_cordinator)
+    const stateCoordVal = data.is_state_coordinator ?? data.is_state_cordinator;
+    if (stateCoordVal !== undefined) {
+        const val = toBool(stateCoordVal);
+        // Backend uses 'is_state_cordinator' (with typo)
+        cleaned.is_state_cordinator = val;
+    }
+
+    console.log('[Staff Service] Final Payload:', JSON.stringify(cleaned, null, 2));
+    return cleaned;
+};
+
 export const getStaffList = async (page: number = 1, limit: number = 10, search: string = ''): Promise<StaffListResponse> => {
     const skip = (page - 1) * limit;
     const params = new URLSearchParams({
@@ -21,25 +107,11 @@ export const getStaffList = async (page: number = 1, limit: number = 10, search:
     if (!response.ok) {
         throw new Error('Failed to fetch staff list');
     }
-    return response.json();
-};
-
-const cleanPayload = (data: any) => {
-    const cleaned = { ...data };
-    const nullableFields = ['dob', 'dofa', 'doan', 'dopa', 'email', 'phone', 'station', 'qualification', 'rank', 'conr', 'state', 'lga', 'remark', 'sex'];
-
-    nullableFields.forEach(field => {
-        if (cleaned[field] === '') {
-            cleaned[field] = null;
-        }
-    });
-
-    // Ensure active is boolean as per schema
-    if (cleaned.active !== undefined) {
-        cleaned.active = Boolean(cleaned.active);
+    const data = await response.json();
+    if (data.items) {
+        data.items = data.items.map(mapApiStaffToStaff);
     }
-
-    return cleaned;
+    return data;
 };
 
 export const createStaff = async (data: StaffCreate): Promise<Staff> => {
@@ -53,13 +125,14 @@ export const createStaff = async (data: StaffCreate): Promise<Staff> => {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
         console.error('Create Staff Error:', response.status, errorData);
-        throw new Error(errorData.detail ? JSON.stringify(errorData.detail) : 'Failed to create staff');
+        throw new Error(errorData.detail ? (typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail)) : 'Failed to create staff');
     }
-    return response.json();
+    const result = await response.json();
+    return mapApiStaffToStaff(result);
 };
 
 export const updateStaff = async (id: string, data: StaffUpdate): Promise<Staff> => {
-    const payload = cleanPayload(data);
+    const payload = cleanPayload(data, id);
 
     const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
@@ -69,9 +142,10 @@ export const updateStaff = async (id: string, data: StaffUpdate): Promise<Staff>
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
         console.error('Update Staff Error:', response.status, errorData);
-        throw new Error(errorData.detail ? JSON.stringify(errorData.detail) : 'Failed to update staff');
+        throw new Error(errorData.detail ? (typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail)) : 'Failed to update staff');
     }
-    return response.json();
+    const result = await response.json();
+    return mapApiStaffToStaff(result);
 };
 
 export const deleteStaff = async (id: string): Promise<void> => {
@@ -110,7 +184,7 @@ export const getAllStaff = async (onlyActive: boolean = false): Promise<Staff[]>
         throw new Error('Failed to fetch all staff');
     }
     const data: StaffListResponse = await response.json();
-    let items = data.items;
+    let items = (data.items || []).map(mapApiStaffToStaff);
     if (onlyActive) {
         items = items.filter(item => item.active);
     }
@@ -127,4 +201,3 @@ export const bulkDeleteStaff = async (ids: string[]): Promise<void> => {
         throw new Error('Failed to bulk delete staff records');
     }
 };
-

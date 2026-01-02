@@ -17,6 +17,7 @@ export interface Staff {
     remark?: string | null;
     is_hod: boolean;
     is_state_coordinator: boolean;
+    is_state_cordinator?: boolean; // Backend typo mapping
     is_director: boolean;
     is_education: boolean;
     active: boolean;
@@ -53,6 +54,7 @@ export interface StaffCreate {
     remark?: string | null;
     is_hod?: boolean;
     is_state_coordinator?: boolean;
+    is_state_cordinator?: boolean; // Backend typo mapping
     is_director?: boolean;
     is_education?: boolean;
     active?: boolean;

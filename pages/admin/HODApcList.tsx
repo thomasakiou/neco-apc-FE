@@ -1,19 +1,22 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { HODApcRecord, HODApcCreate } from '../../types/hodApc';
-import { getAllHODApc, updateHODApc, deleteHODApc, bulkDeleteHODApc, syncHODApc, getAllHODApcRecords } from '../../services/hodApc';
+import { getAllHODApc, updateHODApc, deleteHODApc, bulkDeleteHODApc, syncHODApc, getAllHODApcRecords, assignmentFieldMap } from '../../services/hodApc';
 import { getAllAssignments } from '../../services/assignment';
 import { Assignment } from '../../types/assignment';
 import AlertModal from '../../components/AlertModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 
 const HODApcList: React.FC = () => {
     const [allRecords, setAllRecords] = useState<HODApcRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
+    const [showHelp, setShowHelp] = useState(false);
 
     const [sortField, setSortField] = useState<keyof HODApcRecord | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -47,23 +50,7 @@ const HODApcList: React.FC = () => {
     const [showReportModal, setShowReportModal] = useState(false);
     const [reportTitle, setReportTitle] = useState('2025 APC FOR HODS');
 
-    const assignmentFieldMap: Record<string, string> = {
-        'TT': 'tt',
-        'MAR-ACCR': 'mar_accr',
-        'NCEE': 'ncee',
-        'GIFTED': 'gifted',
-        'BECEP': 'becep',
-        'BECE-MRKP': 'bece_mrkp',
-        'SSCE-INT': 'ssce_int',
-        'SWAPPING': 'swapping',
-        'SSCE-INT-MRK': 'ssce_int_mrk',
-        'OCT-ACCR': 'oct_accr',
-        'SSCE-EXT': 'ssce_ext',
-        'SSCE-EXT-MRK': 'ssce_ext_mrk',
-        'PUR-SAMP': 'pur_samp',
-        'INT-AUDIT': 'int_audit',
-        'STOCK-TK': 'stock_tk'
-    };
+
 
     useEffect(() => {
         setPage(1);
@@ -148,14 +135,104 @@ const HODApcList: React.FC = () => {
         }
     }, []);
 
+    const handleClearAssignments = async () => {
+        if (!window.confirm('Are you sure you want to clear ALL assignment data from HOD APC records? This action cannot be undone.')) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const allHODs = await getAllHODApcRecords(false);
+            const updates: Promise<any>[] = [];
+
+            // Fields to clear
+            const fields = Object.values(assignmentFieldMap);
+
+            allHODs.forEach(hod => {
+                let hasData = false;
+                const updateData: any = {};
+
+                fields.forEach(field => {
+                    const val = (hod as any)[field];
+                    if (val && val.toString().trim() !== '') {
+                        hasData = true;
+                        updateData[field] = ''; // Clear it
+                    }
+                });
+
+                if (hasData) {
+                    const { id, created_at, updated_at, created_by, updated_by, ...clean } = hod;
+                    updates.push(updateHODApc(id, { ...clean, ...updateData }));
+                }
+            });
+
+            if (updates.length > 0) {
+                await Promise.all(updates);
+                setAlertModal({
+                    isOpen: true,
+                    title: 'Success',
+                    message: `Successfully cleared assignment data from ${updates.length} records.`,
+                    type: 'success'
+                });
+                fetchAllRecords();
+            } else {
+                setAlertModal({
+                    isOpen: true,
+                    title: 'Info',
+                    message: 'No assignment data found to clear.',
+                    type: 'info'
+                });
+            }
+
+        } catch (err: any) {
+            console.error('Clear failed', err);
+            setAlertModal({
+                isOpen: true,
+                title: 'Error',
+                message: 'Failed to clear assignments: ' + err.message,
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSync = async () => {
         setLoading(true);
         try {
+            // 1. Run Backend Sync (Adds new/updates existing)
             const result = await syncHODApc();
+
+            // 2. Run Clean-up (Removes invalid entries)
+            // Fetch all current HOD records and all Staff records
+            const [currentHODs, allStaff] = await Promise.all([
+                getAllHODApcRecords(false),
+                import('../../services/staff').then(m => m.getAllStaff(false))
+            ]);
+
+            const staffMap = new Map(allStaff.map(s => [s.fileno, s]));
+            const idsToDelete: string[] = [];
+
+            currentHODs.forEach(hod => {
+                const staff = staffMap.get(hod.file_no);
+                // Delete if:
+                // 1. Staff no longer exists in main list
+                // 2. Staff exists but is_hod is false
+                if (!staff || !staff.is_hod) {
+                    idsToDelete.push(hod.id);
+                }
+            });
+
+            let cleanupMsg = '';
+            if (idsToDelete.length > 0) {
+                await bulkDeleteHODApc(idsToDelete);
+                cleanupMsg = ` Cleaned up ${idsToDelete.length} invalid HOD(s).`;
+            }
+
             setAlertModal({
                 isOpen: true,
                 title: 'Sync Successful',
-                message: `Successfully synchronized HOD data from SDL. ${result.created_count} records were processed.`,
+                message: `Successfully synchronized HOD data from SDL. ${result.created_count} records were processed.${cleanupMsg}`,
                 type: 'success'
             });
             fetchAllRecords();
@@ -481,8 +558,16 @@ const HODApcList: React.FC = () => {
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-gray-800">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight flex items-center gap-2">
                         HOD's APC Table
+                        <button
+                            onClick={() => setShowHelp(true)}
+                            className="ml-2 flex items-center gap-2 px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm font-bold text-base"
+                            title="Help Guide"
+                        >
+                            <span className="material-symbols-outlined text-lg">help</span>
+                            Help
+                        </button>
                     </h1>
                     <p className="text-sm md:text-base lg:text-lg text-slate-500 dark:text-slate-400 font-medium">Manage mandates for Heads of Departments synchronized from SDL.</p>
                 </div>
@@ -496,13 +581,25 @@ const HODApcList: React.FC = () => {
                             Delete Selected ({selectedIds.size})
                         </button>
                     )}
-                    <button
-                        onClick={handleSync}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all duration-200"
-                    >
-                        <span className="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform">sync</span>
-                        Sync with SDL
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleClearAssignments}
+                            disabled={loading}
+                            className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl font-bold hover:bg-red-100 transition-all text-sm border border-red-200"
+                            title="Clear all assignment columns"
+                        >
+                            <span className="material-symbols-outlined text-lg">layers_clear</span>
+                            Clear APC
+                        </button>
+                        <button
+                            onClick={handleSync}
+                            disabled={loading}
+                            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all text-sm"
+                        >
+                            {loading ? <span className="material-symbols-outlined animate-spin text-lg">sync</span> : <span className="material-symbols-outlined text-lg">sync</span>}
+                            Sync with SDL
+                        </button>
+                    </div>
                     <button
                         onClick={() => setShowGeneratorModal(true)}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:-translate-y-0.5 transition-all duration-200"
@@ -772,6 +869,12 @@ const HODApcList: React.FC = () => {
                     }}
                 />
             )}
+
+            <HelpModal
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                helpData={helpContent.hodApcList}
+            />
         </div>
     );
 };
@@ -1085,58 +1188,99 @@ const AssignmentGeneratorModal: React.FC<{
         try {
             const updates: { id: string; data: Partial<HODApcCreate>; fileNo: string }[] = [];
 
-            records.forEach(record => {
-                const currentCount = countAssignments(record);
-                const newData: Partial<HODApcCreate> = {};
-                let newAssignments = 0;
+            // Define strict lists
+            const universalList = ['ssce_int', 'ssce_int_mrk', 'ssce_ext'];
+            const educationList = ['mar_accr', 'oct_accr'];
+            // Pool for non-education random pick (pick 2)
+            const randomPool = ['bece_mrkp', 'becep', 'ssce_ext_mrk'];
 
-                // Add mandatory assignments if not present
-                mandatoryAssignments.forEach(assignment => {
-                    const val = record[assignment as keyof HODApcRecord];
-                    if (!val || val.toString().trim() === '') {
-                        if (currentCount + newAssignments < 5) {
-                            (newData as Record<string, string>)[assignment] = 'Post';
-                            newAssignments++;
-                        }
+            records.forEach(record => {
+                const newData: Record<string, string | number> = {};
+                let assignedCount = 0;
+
+                // 1. Apply Universal Assignments (3) - Mandatory for ALL
+                universalList.forEach(assignment => {
+                    // Check if already present? The user implies "This means that all HODs... will have..."
+                    // We should enforce it.
+                    const existing = record[assignment as keyof HODApcRecord];
+                    if (!existing || existing.toString().trim() === '') {
+                        newData[assignment] = 'Post';
                     }
+                    assignedCount++;
                 });
 
-                // Add education-only assignments for qualified HODs
-                // MUTUAL EXCLUSIVITY: Pick randomly between MAR-ACCR and OCT-ACCR, but only ONE.
+                // 2. Determine Type: Education vs Non-Education
                 if (isEducationQualified(record.qualification)) {
-                    // Pick one random assignment from the list (MAR-ACCR or OCT-ACCR)
-                    const randomAccr = educationOnlyAssignments[Math.floor(Math.random() * educationOnlyAssignments.length)];
-                    const val = record[randomAccr as keyof HODApcRecord];
-
-                    // Check if the chosen one is empty
-                    if (!val || val.toString().trim() === '') {
-                        if (currentCount + newAssignments < 5) {
-                            (newData as Record<string, string>)[randomAccr] = 'Post';
-                            newAssignments++;
+                    // Education HODs: Add MAR-ACCR and OCT-ACCR (Total 5)
+                    educationList.forEach(assignment => {
+                        const existing = record[assignment as keyof HODApcRecord];
+                        if (!existing || existing.toString().trim() === '') {
+                            newData[assignment] = 'Post';
                         }
-                    }
+                        assignedCount++;
+                    });
+                } else {
+                    // Non-Education HODs: Add 2 Random from RandomPool (Total 5)
+                    // We need to pick 2 unique randoms
+                    const shuffled = [...randomPool].sort(() => 0.5 - Math.random());
+                    const selected = shuffled.slice(0, 2);
+
+                    selected.forEach(assignment => {
+                        const existing = record[assignment as keyof HODApcRecord];
+                        if (!existing || existing.toString().trim() === '') {
+                            newData[assignment] = 'Post';
+                        }
+                        assignedCount++;
+                    });
                 }
 
-                // Fill remaining slots with optional assignments (randomized)
-                const shuffledOptional = [...optionalAssignments].sort(() => Math.random() - 0.5);
-                shuffledOptional.forEach(assignment => {
-                    const val = record[assignment as keyof HODApcRecord];
-                    if (!val || val.toString().trim() === '') {
-                        if (currentCount + newAssignments < 5) {
-                            (newData as Record<string, string>)[assignment] = 'Post';
-                            newAssignments++;
-                        }
-                    }
-                });
-
                 if (Object.keys(newData).length > 0) {
-                    (newData as any).count = currentCount + newAssignments;
-                    updates.push({ id: record.id, data: newData, fileNo: record.file_no });
+                    // Calculate total new count (Universals + Specifics should be 5 roughly, 
+                    // but we should just count non-empty fields in record + new ones)
+
+                    // Helper to check if a field is active (either in record or being added)
+                    const isActive = (key: string) => {
+                        return newData[key] === 'Post' || (record[key as keyof HODApcRecord] && record[key as keyof HODApcRecord]?.toString().trim() !== '');
+                    }
+
+                    // Recalculate full count based on the fields we care about
+                    const allRelevantFields = [...universalList, ...educationList, ...randomPool];
+                    // Also check for any others that might exist although we aren't assigning them (just to be safe on count)
+                    const totalCount = Object.values(assignmentFieldMap).reduce((acc, field) => {
+                        if (isActive(field)) return acc + 1;
+                        return acc;
+                    }, 0);
+
+                    // Actually, simpler to just trust the logic: we added what was needed.
+                    // But we need to save the 'count' field.
+                    // Let's just update the count based on the number of non-empty assignment fields after update.
+
+                    let newRealCount = 0;
+                    Object.values(assignmentFieldMap).forEach(field => {
+                        if (newData[field] === 'Post') {
+                            newRealCount++;
+                        } else {
+                            const val = record[field as keyof HODApcRecord];
+                            if (val && val.toString().trim() !== '') {
+                                newRealCount++;
+                            }
+                        }
+                    });
+
+                    newData.count = newRealCount;
+                    updates.push({ id: record.id, data: newData as any, fileNo: record.file_no });
                 }
             });
 
-            await onApply(updates);
-            onClose();
+            if (updates.length > 0) {
+                await onApply(updates); // This likely processes the updates
+                // Refresh is usually handled by onApply or parent
+                onClose();
+            } else {
+                // Nothing to update
+                onClose();
+            }
+
         } catch (error) {
             console.error('Random generation failed:', error);
         } finally {
@@ -1151,11 +1295,6 @@ const AssignmentGeneratorModal: React.FC<{
         setLoading(true);
         try {
             const updates: { id: string; data: Partial<HODApcCreate>; fileNo: string }[] = [];
-            const skipInfo = {
-                alreadyHave: [] as string[],
-                maxReached: [] as string[],
-                notFound: [] as string[]
-            };
 
             // Track which file numbers were found
             const foundFileNos = new Set<string>();
@@ -1168,17 +1307,11 @@ const AssignmentGeneratorModal: React.FC<{
                     // Check if already has this assignment
                     const existingValue = record[selectedAssignment as keyof HODApcRecord];
                     if (existingValue && existingValue.toString().trim() !== '') {
-                        skipInfo.alreadyHave.push(record.file_no);
-                        return;
+                        return; // already has it
                     }
 
-                    // Check max assignments
-                    if (currentCount >= 5) {
-                        skipInfo.maxReached.push(record.file_no);
-                        return;
-                    }
 
-                    // Custom mode: No restrictions, apply to all matched HODs
+
                     updates.push({
                         id: record.id,
                         data: {
@@ -1190,14 +1323,7 @@ const AssignmentGeneratorModal: React.FC<{
                 }
             });
 
-            // Find file numbers that weren't in records
-            csvFileNumbers.forEach(fileNo => {
-                if (!foundFileNos.has(fileNo)) {
-                    skipInfo.notFound.push(fileNo);
-                }
-            });
-
-            await onApply(updates, skipInfo);
+            await onApply(updates);
             setCsvFileNumbers([]);
             onClose();
         } catch (error) {
@@ -1232,7 +1358,7 @@ const AssignmentGeneratorModal: React.FC<{
                         className={`flex-1 py-3 px-4 text-sm font-bold transition-all ${activeTab === 'random' ? 'text-amber-600 border-b-2 border-amber-600 bg-amber-50/50 dark:bg-amber-900/20' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
                     >
                         <span className="material-symbols-outlined text-lg align-middle mr-2">shuffle</span>
-                        Random Assignment
+                        Auto Generate
                     </button>
                     <button
                         onClick={() => setActiveTab('custom')}
@@ -1251,24 +1377,20 @@ const AssignmentGeneratorModal: React.FC<{
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-gray-700">
                                 <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
                                     <span className="material-symbols-outlined text-amber-500">rule</span>
-                                    Assignment Rules
+                                    Generation Rules
                                 </h3>
                                 <ul className="space-y-2 text-sm">
-                                    <li className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                                    <li className="flex items-start gap-2 text-emerald-600 dark:text-emerald-400">
                                         <span className="material-symbols-outlined text-lg">check_circle</span>
-                                        <span><b>All HODs:</b> SSCE-INT, SSCE-INT-MRK (mandatory)</span>
+                                        <span><b>Universal (All HODs):</b> SSCE-INT, SSCE-INT-MRK, SSCE-EXT</span>
                                     </li>
-                                    <li className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                                    <li className="flex items-start gap-2 text-blue-600 dark:text-blue-400">
                                         <span className="material-symbols-outlined text-lg">school</span>
-                                        <span><b>Education qualified:</b> + MAR-ACCR, OCT-ACCR</span>
+                                        <span><b>Education HODs:</b> Universal + MAR-ACCR, OCT-ACCR (Total 5)</span>
                                     </li>
-                                    <li className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
-                                        <span className="material-symbols-outlined text-lg">block</span>
-                                        <span><b>Excluded:</b> STOCK-TK, INT-AUDIT, PUR-SAMP, SWAPPING, NCEE, GIFTED</span>
-                                    </li>
-                                    <li className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                                        <span className="material-symbols-outlined text-lg">speed</span>
-                                        <span><b>Max 5</b> assignments per HOD</span>
+                                    <li className="flex items-start gap-2 text-indigo-600 dark:text-indigo-400">
+                                        <span className="material-symbols-outlined text-lg">shuffle</span>
+                                        <span><b>Non-Education HODs:</b> Universal + 2 Random from (BECE-MRK, BECE-EXAM, SSCE-EXT-MRK) (Total 5)</span>
                                     </li>
                                 </ul>
                             </div>

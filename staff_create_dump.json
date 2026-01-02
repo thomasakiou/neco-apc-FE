@@ -1,0 +1,235 @@
+{
+  "properties": {
+    "fileno": {
+      "type": "string",
+      "maxLength": 50,
+      "minLength": 1,
+      "title": "Fileno",
+      "description": "Staff file number"
+    },
+    "full_name": {
+      "type": "string",
+      "maxLength": 255,
+      "minLength": 1,
+      "title": "Full Name",
+      "description": "Staff full name"
+    },
+    "station": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 255
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Station",
+      "description": "Work station"
+    },
+    "qualification": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Qualification",
+      "description": "Educational qualification"
+    },
+    "sex": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 10
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Sex",
+      "description": "Gender (M/F)"
+    },
+    "dob": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Dob",
+      "description": "Date of birth"
+    },
+    "dofa": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Dofa",
+      "description": "Date of first appointment"
+    },
+    "doan": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Doan",
+      "description": "Date of Appointment to NECO"
+    },
+    "dopa": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Dopa",
+      "description": "Date of present appointment"
+    },
+    "rank": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rank",
+      "description": "Staff rank"
+    },
+    "conr": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Conr",
+      "description": "CONR"
+    },
+    "state": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "State",
+      "description": "State of origin"
+    },
+    "lga": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Lga",
+      "description": "Local government area"
+    },
+    "email": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 255
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Email",
+      "description": "Email address"
+    },
+    "phone": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 50
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Phone",
+      "description": "Phone number"
+    },
+    "remark": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Remark",
+      "description": "Remarks"
+    },
+    "active": {
+      "type": "boolean",
+      "title": "Active",
+      "description": "Active status (1=active, 0=inactive)",
+      "default": true
+    },
+    "is_hod": {
+      "type": "boolean",
+      "title": "Is Hod",
+      "description": "Is Head of Division",
+      "default": false
+    },
+    "is_education": {
+      "type": "boolean",
+      "title": "Is Education",
+      "description": "Is education staff",
+      "default": false
+    },
+    "is_state_cordinator": {
+      "type": "boolean",
+      "title": "Is State Cordinator",
+      "description": "Is state coordinator",
+      "default": false
+    },
+    "is_director": {
+      "type": "boolean",
+      "title": "Is Director",
+      "description": "Is director",
+      "default": false
+    }
+  },
+  "type": "object",
+  "required": [
+    "fileno",
+    "full_name"
+  ],
+  "title": "StaffCreate",
+  "description": "Schema for creating a new staff member."
+}

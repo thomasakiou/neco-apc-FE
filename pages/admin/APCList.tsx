@@ -8,12 +8,15 @@ import { PostingResponse } from '../../types/posting';
 import { assignmentFieldMap } from '../../services/personalizedPost';
 import { Assignment } from '../../types/assignment';
 import AlertModal from '../../components/AlertModal';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 import * as XLSX from 'xlsx';
 
 const APCList: React.FC = () => {
     const [allRecords, setAllRecords] = useState<APCRecord[]>([]);
     const [allPostings, setAllPostings] = useState<PostingResponse[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showHelp, setShowHelp] = useState(false);
     // Search and Filter States
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
@@ -80,7 +83,7 @@ const APCList: React.FC = () => {
             if (fieldName) {
                 result = result.filter(record => {
                     const val = record[fieldName as keyof APCRecord];
-                    return !!(val && val.toString().trim() !== '');
+                    return !!(val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED');
                 });
             }
         }
@@ -388,6 +391,13 @@ const APCList: React.FC = () => {
                     <p className="text-sm md:text-base lg:text-lg text-slate-500 dark:text-slate-400 font-medium">Manage staff mandate assignments and qualifications.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowHelp(true)}
+                        className="flex items-center justify-center p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm"
+                        title="Page Guide"
+                    >
+                        <span className="material-symbols-outlined text-xl">help</span>
+                    </button>
                     {selectedIds.size > 0 && (
                         <button
                             onClick={handleBulkDelete}
@@ -709,6 +719,12 @@ const APCList: React.FC = () => {
                     }
                 }}
                 initialData={editingRecord}
+            />
+
+            <HelpModal
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                helpData={helpContent.apcList}
             />
         </div>
     );

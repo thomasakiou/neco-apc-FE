@@ -20,6 +20,8 @@ import AssignmentHistory from './pages/admin/AssignmentHistory';
 import SDLPage from './pages/admin/metadata/SDLPage';
 import ComparePage from './pages/admin/metadata/ComparePage';
 import FlaggedStaffPage from './pages/admin/metadata/FlaggedStaffPage';
+import AssignmentValidationPage from './pages/admin/metadata/ValidationPage';
+import OutstandingPostingsPage from './pages/admin/metadata/OutstandingPostingsPage';
 import AuditLog from './pages/admin/AuditLog';
 import RandomizedPost from './pages/admin/RandomizedPost';
 import HODApcList from './pages/admin/HODApcList';
@@ -81,6 +83,8 @@ const App: React.FC = () => {
               <Route path="metadata/sdl" element={<ProtectedRoute moduleName="metadata"><SDLPage /></ProtectedRoute>} />
               <Route path="metadata/compare" element={<ProtectedRoute moduleName="metadata"><ComparePage /></ProtectedRoute>} />
               <Route path="metadata/flagged" element={<ProtectedRoute moduleName="metadata"><FlaggedStaffPage /></ProtectedRoute>} />
+              <Route path="metadata/validation" element={<ProtectedRoute moduleName="metadata"><AssignmentValidationPage /></ProtectedRoute>} />
+              <Route path="metadata/outstanding" element={<ProtectedRoute moduleName="metadata"><OutstandingPostingsPage /></ProtectedRoute>} />
 
               <Route path="assignments/board" element={<ProtectedRoute moduleName="posting"><PersonalizedPost /></ProtectedRoute>} />
               <Route path="assignments/random" element={<ProtectedRoute moduleName="posting"><RandomizedPost /></ProtectedRoute>} />

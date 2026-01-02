@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getAllHODApcRecords } from '../../services/hodApc';
+import { getAllHODApcRecords, assignmentFieldMap } from '../../services/hodApc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
@@ -20,14 +20,6 @@ import { State } from '../../types/state';
 import { getAllStations } from '../../services/station';
 import { Station } from '../../types/station';
 
-// Assignment field mapping for HOD APC records
-const assignmentFieldMap: Record<string, string> = {
-    'TT': 'tt', 'MAR-ACCR': 'mar_accr', 'NCEE': 'ncee', 'GIFTED': 'gifted',
-    'BECEP': 'becep', 'BECE-MRKP': 'bece_mrkp', 'SSCE-INT': 'ssce_int',
-    'SWAPPING': 'swapping', 'SSCE-INT-MRK': 'ssce_int_mrk', 'OCT-ACCR': 'oct_accr',
-    'SSCE-EXT': 'ssce_ext', 'SSCE-EXT-MRK': 'ssce_ext_mrk', 'PUR-SAMP': 'pur_samp',
-    'INT-AUDIT': 'int_audit', 'STOCK-TK': 'stock_tk'
-};
 
 const HODPostings: React.FC = () => {
     const { success, error, warning, info } = useNotification();

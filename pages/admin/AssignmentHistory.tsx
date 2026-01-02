@@ -11,6 +11,8 @@ import { PostingResponse } from '../../types/posting';
 import { NCEECenter } from '../../types/nceeCenter';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 
 interface FlatPostingRow {
     uniqueId: string; // composite of id + index
@@ -120,6 +122,7 @@ const GeneratePage: React.FC = () => {
     const [isConfigOpen, setIsConfigOpen] = useState(false);
     const [sortBy, setSortBy] = useState<string>(''); // empty means template default
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [showHelp, setShowHelp] = useState(false);
 
     const activeFields = useMemo(() => {
         const fieldMap = new Map(REPORT_FIELDS.map(f => [f.id, f]));
@@ -715,6 +718,14 @@ const GeneratePage: React.FC = () => {
                 </div>
                 <div className="flex gap-3">
                     <button
+                        onClick={() => setShowHelp(true)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm font-bold text-xs"
+                        title="Page Guide"
+                    >
+                        <span className="material-symbols-outlined text-lg">help</span>
+                        Help
+                    </button>
+                    <button
                         onClick={() => setIsConfigOpen(!isConfigOpen)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-bold text-xs shadow-sm transition-all ${isConfigOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white dark:bg-[#121b25] border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300'}`}
                     >
@@ -1120,6 +1131,12 @@ const GeneratePage: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <HelpModal
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                helpData={helpContent.assignmentHistory}
+            />
         </div >
     );
 };

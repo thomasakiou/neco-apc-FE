@@ -12,6 +12,9 @@ import { MarkingVenue } from '../../types/markingVenue';
 import { useNotification } from '../../context/NotificationContext';
 import SearchableSelect from '../../components/SearchableSelect';
 import CsvUploadModal from '../../components/CsvUploadModal';
+import HelpModal from '../../components/HelpModal';
+import PostingEditModal from '../../components/PostingEditModal';
+import { helpContent } from '../../data/helpContent';
 import { CSVPostingData, assignmentFieldMap } from '../../services/personalizedPost';
 
 interface CollapsibleRowProps {
@@ -22,6 +25,7 @@ interface CollapsibleRowProps {
   isSwapping: boolean;
   isSwapSource: boolean;
   onSwap: () => void;
+  onEdit: () => void;
 }
 
 const formatVenueName = (venue: string | null | undefined): string => {
@@ -51,7 +55,7 @@ const deduplicatePostings = (assignments: any[], mandates: any[], venues: any[])
   return { assignments: resAssignments, mandates: resMandates, venues: resVenues };
 };
 
-const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSelect, onDelete, onReplace, isSwapping, isSwapSource, onSwap }) => {
+const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSelect, onDelete, onReplace, isSwapping, isSwapSource, onSwap, onEdit }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -111,6 +115,13 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
               </span>
             </button>
             <button
+              onClick={onEdit}
+              className="p-2 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              title="Edit Posting"
+            >
+              <span className="material-symbols-outlined text-lg">edit</span>
+            </button>
+            <button
               onClick={onReplace}
               className="p-2 text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
               title="Replace Staff"
@@ -156,10 +167,17 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                   <span className="text-slate-700 dark:text-slate-300 font-bold">{record.qualification || '-'}</span>
                 </div>
                 <div>
-                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Posted For</span>
-                  <span className="inline-flex px-2 py-1 rounded text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 font-black">
-                    {record.posted_for || 0}
-                  </span>
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Posting Stats</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Nights:</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">{record.count || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Posted For:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 rounded">{record.posted_for || 0}</span>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</span>
@@ -180,6 +198,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
 const AnnualPostings: React.FC = () => {
   const [postings, setPostings] = useState<PostingResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
   const [deletionProgress, setDeletionProgress] = useState<{ current: number; total: number } | null>(null);
   const { success, error } = useNotification();
 
@@ -229,6 +248,15 @@ const AnnualPostings: React.FC = () => {
 
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Edit State
+  const [editingPosting, setEditingPosting] = useState<PostingResponse | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const handleEdit = useCallback((posting: PostingResponse) => {
+    setEditingPosting(posting);
+    setIsEditModalOpen(true);
+  }, []);
 
   const fetchInitialData = useCallback(async (force: boolean = false) => {
     try {
@@ -561,7 +589,7 @@ const AnnualPostings: React.FC = () => {
   const handleSingleDelete = useCallback(async (record: PostingResponse) => {
     try {
       setLoading(true);
-      const allAPC = await getAllAPCRecords(false);
+      const allAPC = await getAllAPCRecords(false, true);
       const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
 
       const normFileNo = record.file_no.toString().padStart(4, '0');
@@ -577,7 +605,7 @@ const AnnualPostings: React.FC = () => {
           const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
           const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
           if (fieldName) {
-            payload[fieldName] = 'Returned';
+            payload[fieldName] = codeOrName;
             hasChanges = true;
           }
         });
@@ -613,8 +641,8 @@ const AnnualPostings: React.FC = () => {
       setLoading(true);
       setDeletionProgress({ current: 0, total: totalCount });
 
-      // 1. Fetch all APC records to perform updates
-      const allAPC = await getAllAPCRecords(false);
+      // 1. Fetch all APC records to perform updates (Force fresh fetch to avoid stale cache)
+      const allAPC = await getAllAPCRecords(false, true);
       const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
 
       // 2. Process each selected posting to update APC
@@ -640,13 +668,13 @@ const AnnualPostings: React.FC = () => {
                 const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
                 const fieldName = assignmentFieldMap[codeOrName];
                 if (fieldName) {
-                  payload[fieldName] = 'Returned';
+                  payload[fieldName] = codeOrName;
                   hasChanges = true;
                 } else {
                   const upperKey = codeOrName?.toString().toUpperCase();
                   const fieldNameUpper = assignmentFieldMap[upperKey];
                   if (fieldNameUpper) {
-                    payload[fieldNameUpper] = 'Returned';
+                    payload[fieldNameUpper] = upperKey || codeOrName;
                     hasChanges = true;
                   }
                 }
@@ -784,6 +812,14 @@ const AnnualPostings: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowHelp(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm font-bold text-xs"
+              title="Page Guide"
+            >
+              <span className="material-symbols-outlined text-lg">help</span>
+              Help
+            </button>
             {selectedIds.size > 0 && (
               <button
                 onClick={handleBulkDelete}
@@ -794,7 +830,7 @@ const AnnualPostings: React.FC = () => {
               </button>
             )}
             <button
-              onClick={fetchInitialData}
+              onClick={() => fetchInitialData()}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-teal-600 dark:text-teal-400 font-bold text-xs shadow-sm hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
               title="Refresh Data"
             >
@@ -1034,15 +1070,9 @@ const AnnualPostings: React.FC = () => {
                         record={record}
                         selected={selectedIds.has(record.id)}
                         onSelect={(checked) => handleSelectOne(record.id, checked)}
-                        isSwapping={!!swapSource}
-                        isSwapSource={swapSource?.id === record.id}
-                        onSwap={() => {
-                          if (swapSource?.id === record.id) {
-                            setSwapSource(null);
-                          } else if (swapSource) {
-                            handleExecuteSwap(record);
-                          } else {
-                            setSwapSource(record);
+                        onDelete={() => {
+                          if (window.confirm(`Are you sure you want to delete posting for ${record.name}? This will return the staff to the pool.`)) {
+                            handleSingleDelete(record);
                           }
                         }}
                         onReplace={async () => {
@@ -1063,14 +1093,20 @@ const AnnualPostings: React.FC = () => {
                             const totalAllotted = (staff.count || 0);
                             return totalPosted < totalAllotted;
                           });
+
                           setReplacementPool(eligible);
                           setIsReplacementModalOpen(true);
                         }}
-                        onDelete={() => {
-                          if (window.confirm(`Are you sure you want to delete posting for ${record.name}? This will return the staff to the pool.`)) {
-                            handleSingleDelete(record);
+                        isSwapping={!!swapSource}
+                        isSwapSource={swapSource?.id === record.id}
+                        onSwap={() => {
+                          if (swapSource && swapSource.id !== record.id) {
+                            handleExecuteSwap(record);
+                          } else {
+                            setSwapSource(swapSource?.id === record.id ? null : record);
                           }
                         }}
+                        onEdit={() => handleEdit(record)}
                       />
                     ))
                   )}
@@ -1244,6 +1280,26 @@ const AnnualPostings: React.FC = () => {
             </div>
           </div>
         )}
+        <PostingEditModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          initialData={editingPosting}
+          onSubmit={async (data) => {
+            if (!editingPosting) return;
+            try {
+              await updatePosting(editingPosting.id, data);
+              success('Posting updated successfully');
+              fetchInitialData();
+            } catch (err: any) {
+              error(err.message || 'Failed to update posting');
+            }
+          }}
+        />
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          helpData={helpContent.annualPostings}
+        />
       </div>
     </div>
   );

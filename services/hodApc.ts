@@ -91,3 +91,12 @@ export const getAllHODApcRecords = async (onlyActive: boolean = false): Promise<
     }
     return items;
 };
+
+// Assignment field mapping for HOD APC records
+export const assignmentFieldMap: Record<string, string> = {
+    'TT': 'tt', 'MAR-ACCR': 'mar_accr', 'NCEE': 'ncee', 'GIFTED': 'gifted',
+    'BECEP': 'becep', 'BECE-MRKP': 'bece_mrkp', 'SSCE-INT': 'ssce_int',
+    'SWAPPING': 'swapping', 'SSCE-INT-MRK': 'ssce_int_mrk', 'OCT-ACCR': 'oct_accr',
+    'SSCE-EXT': 'ssce_ext', 'SSCE-EXT-MRK': 'ssce_ext_mrk', 'PUR-SAMP': 'pur_samp',
+    'INT-AUDIT': 'int_audit', 'STOCK-TK': 'stock_tk'
+};

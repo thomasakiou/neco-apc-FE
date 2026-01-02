@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { getAllAPCRecords } from '../../../services/apc';
-import { getAllPostingRecords } from '../../../services/posting';
 import { APCRecord } from '../../../types/apc';
-import { PostingResponse } from '../../../types/posting';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 interface FlaggedReason {
-    type: 'count_mismatch' | 'assignment_count_mismatch' | 'posting_reduction_mismatch';
+    type: 'count_mismatch' | 'assignment_count_mismatch';
     message: string;
 }
 
@@ -15,16 +16,13 @@ interface FlaggedStaff {
     name: string;
     conraiss: string;
     expectedCount: number;
-    actualApcCount: number;
-    textAssignmentCount: number;
-    postingCount: number;
+    apcCount: number;
     reasons: FlaggedReason[];
 }
 
 const FlaggedStaffPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [apcRecords, setApcRecords] = useState<APCRecord[]>([]);
-    const [postings, setPostings] = useState<PostingResponse[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(25);
@@ -33,15 +31,115 @@ const FlaggedStaffPage: React.FC = () => {
         fetchData();
     }, []);
 
+    const handleExportCSV = () => {
+        try {
+            const exportData = filteredData.map(s => ({
+                'File No': s.fileNo,
+                'Name': s.name,
+                'CONRAISS': s.conraiss,
+                'Expected': s.expectedCount,
+                'APC Count': s.apcCount,
+                'Reasons': s.reasons.map(r => r.message).join(' | ')
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Flagged Staff");
+            XLSX.writeFile(wb, `Flagged_Staff_${new Date().toISOString().split('T')[0]}.xlsx`);
+        } catch (error) {
+            console.error("CSV Export failed", error);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        try {
+            setLoading(true);
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const width = doc.internal.pageSize.getWidth();
+            const height = doc.internal.pageSize.getHeight();
+
+            // Load Logo
+            const logoUrl = '/images/neco.png';
+            const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image();
+                img.src = logoUrl;
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Logo load failed'));
+            });
+
+            const drawHeader = (data: any) => {
+                // Watermark
+                doc.saveGraphicsState();
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const wmWidth = 100;
+                const aspect = logoImg.width / logoImg.height;
+                const wmHeight = wmWidth / aspect;
+                doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmHeight) / 2, wmWidth, wmHeight);
+                doc.restoreGraphicsState();
+
+                // Header
+                const logoAspect = logoImg.width / logoImg.height;
+                doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / logoAspect);
+
+                doc.setTextColor(0, 128, 0); // Green
+                doc.setFontSize(18);
+                doc.setFont("helvetica", "bold");
+                doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", width / 2, 18, { align: 'center' });
+
+                doc.setTextColor(0);
+                doc.setFontSize(14);
+                doc.text("FLAGGED STAFF RECORDS REPORT", width / 2, 26, { align: 'center' });
+
+                doc.setFontSize(8);
+                doc.setTextColor(100);
+                doc.text(`Generated: ${new Date().toLocaleDateString()}`, 15, height - 10);
+                doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, width - 15, height - 10, { align: 'right' });
+            };
+
+            const columns = ["S/N", "FILE NO", "NAME", "CONR", "EXPECT", "FOUND", "REASONS"];
+            const rows = filteredData.map((s, i) => [
+                i + 1,
+                s.fileNo,
+                s.name,
+                s.conraiss,
+                s.expectedCount,
+                s.apcCount,
+                s.reasons.map(r => r.message).join('\n')
+            ]);
+
+            autoTable(doc, {
+                head: [columns],
+                body: rows,
+                startY: 40,
+                margin: { top: 40, bottom: 20 },
+                theme: 'grid',
+                headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: 'bold' }, // Rose 600
+                styles: { fontSize: 8 },
+                columnStyles: {
+                    0: { cellWidth: 10 },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 40 },
+                    3: { cellWidth: 15 },
+                    4: { cellWidth: 15 },
+                    5: { cellWidth: 15 },
+                    6: { cellWidth: 'auto' }
+                },
+                didDrawPage: (data) => drawHeader(data)
+            });
+
+            doc.save(`Flagged_Staff_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        } catch (error) {
+            console.error("PDF Export failed", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [apcList, postingList] = await Promise.all([
-                getAllAPCRecords(true, false),
-                getAllPostingRecords(false)
-            ]);
+            const apcList = await getAllAPCRecords(true, false);
             setApcRecords(apcList);
-            setPostings(postingList);
         } catch (error) {
             console.error("Error fetching flagging data:", error);
         } finally {
@@ -61,80 +159,25 @@ const FlaggedStaffPage: React.FC = () => {
         return 0;
     };
 
-    // Only the 15 specific assignment fields from TT to STOCK-TK
-    const assignmentFields = [
-        'tt', 'ssce_int', 'ssce_ext', 'ssce_int_mrk', 'ssce_ext_mrk',
-        'ncee', 'becep', 'bece_mrkp', 'mar_accr', 'oct_accr',
-        'pur_samp', 'gifted', 'swapping', 'int_audit', 'stock_tk'
-    ];
-
-    const getTextAssignmentCount = (record: APCRecord): number => {
-        let count = 0;
-        assignmentFields.forEach(field => {
-            const val = (record as any)[field];
-            if (val && val.toString().trim() !== '') {
-                count++;
-            }
-        });
-        return count;
-    };
-
     const flaggedStaffList = useMemo(() => {
         const results: FlaggedStaff[] = [];
-        const postingCountMap = new Map<string, number>();
-
-        // Count actual assignments per staff (not just row count)
-        postings.forEach(p => {
-            const fileNo = p.file_no.trim().padStart(4, '0');
-            // Use assignments array length or posted_for field to get actual assignment count
-            const assignmentCount = p.assignments?.length || p.posted_for || 0;
-            postingCountMap.set(fileNo, (postingCountMap.get(fileNo) || 0) + assignmentCount);
-        });
 
         apcRecords.forEach(apc => {
-            const fileNo = apc.file_no.trim().padStart(4, '0');
             const conraiss = apc.conraiss || '';
             const expectedBaseCount = getExpectedCount(conraiss);
 
             if (expectedBaseCount === 0) return; // Skip those not in the defined ranges
 
-            const actualApcCount = apc.count || 0;
-            const textAssignmentCount = getTextAssignmentCount(apc);
-            const postingCount = postingCountMap.get(fileNo) || 0;
-            const expectedReducedCount = Math.max(0, expectedBaseCount - postingCount);
+            const apcCount = apc.count || 0;
 
             const reasons: FlaggedReason[] = [];
 
-            // Condition 1: Basic count mismatch (APC count vs specified rule)
-            // Wait, the user said "conraiss 6,7 should have a count of 1... if any of these conditions is flaunted... i want that staff to be flagged"
-            // So if apc.count doesn't match expectedBaseCount, it's flagged?
-            // "conraiss 6,7 should have a count of 1 and only i assignment in APC table should have text in it"
-            if (actualApcCount !== expectedBaseCount) {
+            // Flagging Condition: Database count mismatch (APC 'count' field vs CONRAISS rule)
+            if (apcCount !== expectedBaseCount) {
                 reasons.push({
                     type: 'count_mismatch',
-                    message: `CONRAISS ${conraiss} expects count ${expectedBaseCount}, but APC record has ${actualApcCount}.`
+                    message: `CONRAISS grade rules expect ${expectedBaseCount} assignments, but APC Record specifies ${apcCount}.`
                 });
-            }
-
-            // Condition 2: Assignment count mismatch
-            if (textAssignmentCount !== expectedBaseCount) {
-                reasons.push({
-                    type: 'assignment_count_mismatch',
-                    message: `Expected ${expectedBaseCount} Assignments, but found ${textAssignmentCount}.`
-                });
-            }
-
-            // Condition 3: Posting reduction rule
-            // "if a staff for example has 3 counts and 3 assignment with text in APC and that staff exist in posting table, 
-            // meaning the assignment field text should have reduced to 2 or 3 depending on how many times the staff appears in posting table"
-            // Note: User said "reduced to 2 or 3", probably meant "reduced to 2 or 1" if they have 1 or 2 postings.
-            if (postingCount > 0) {
-                if (textAssignmentCount > expectedReducedCount) {
-                    reasons.push({
-                        type: 'posting_reduction_mismatch',
-                        message: `Staff appears ${postingCount} time(s) in postings. Expected assignments should reduce to ${expectedReducedCount}, but found ${textAssignmentCount}.`
-                    });
-                }
             }
 
             if (reasons.length > 0) {
@@ -144,16 +187,14 @@ const FlaggedStaffPage: React.FC = () => {
                     name: apc.name,
                     conraiss: conraiss,
                     expectedCount: expectedBaseCount,
-                    actualApcCount: actualApcCount,
-                    textAssignmentCount: textAssignmentCount,
-                    postingCount: postingCount,
+                    apcCount: apcCount,
                     reasons: reasons
                 });
             }
         });
 
         return results;
-    }, [apcRecords, postings]);
+    }, [apcRecords]);
 
     const filteredData = useMemo(() => {
         if (!searchQuery) return flaggedStaffList;
@@ -173,11 +214,32 @@ const FlaggedStaffPage: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
-            <div className="flex flex-col gap-2 pb-6 border-b border-slate-200">
-                <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-900 via-red-800 to-rose-700 dark:from-rose-400 dark:via-red-300 dark:to-rose-500 tracking-tight">
-                    Flagged Staff Records
-                </h1>
-                <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Identifying staff with assignment count violations based on CONRAISS and Postings.</p>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-200">
+                <div className="flex flex-col gap-2">
+                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-900 via-red-800 to-rose-700 dark:from-rose-400 dark:via-red-300 dark:to-rose-500 tracking-tight">
+                        Flagged Staff Records
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Identifying staff with assignment count violations based on CONRAISS grade rules.</p>
+                </div>
+
+                {!loading && filteredData.length > 0 && (
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleExportPDF}
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                        >
+                            <span className="material-symbols-outlined text-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
+                            Export PDF
+                        </button>
+                        <button
+                            onClick={handleExportCSV}
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                        >
+                            <span className="material-symbols-outlined text-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
+                            Export CSV
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
@@ -233,8 +295,7 @@ const FlaggedStaffPage: React.FC = () => {
                                     <th className="px-6 py-4">Staff Details</th>
                                     <th className="px-6 py-4">CONRAISS</th>
                                     <th className="px-6 py-4 text-center">Expected</th>
-                                    <th className="px-6 py-4 text-center">Found</th>
-                                    <th className="px-6 py-4 text-center">Postings</th>
+                                    <th className="px-6 py-4 text-center">APC Count</th>
                                     <th className="px-6 py-4">Flagging Reasons</th>
                                 </tr>
                             </thead>
@@ -254,7 +315,7 @@ const FlaggedStaffPage: React.FC = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-black text-slate-900 dark:text-white">{staff.name}</span>
-                                                    <span className="font-mono text-xs text-rose-500 font-bold uppercase">{staff.fileNo}</span>
+                                                    <span className="font-mono text-sm text-rose-500 font-bold uppercase">{staff.fileNo}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-bold text-slate-600 dark:text-slate-400">{staff.conraiss}</td>
@@ -262,11 +323,10 @@ const FlaggedStaffPage: React.FC = () => {
                                                 <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 font-black text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-gray-700">{staff.expectedCount}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-1 rounded font-black ${staff.textAssignmentCount === staff.expectedCount ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20'}`}>
-                                                    {staff.textAssignmentCount}
+                                                <span className={`px-2 py-1 rounded font-black ${staff.apcCount === staff.expectedCount ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20'}`}>
+                                                    {staff.apcCount}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center font-bold text-indigo-600 dark:text-indigo-400">{staff.postingCount}</td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-1">
                                                     {staff.reasons.map((r, i) => (

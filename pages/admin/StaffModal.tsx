@@ -165,7 +165,7 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                                 <input
                                     type="checkbox"
                                     name="is_hod"
-                                    checked={formData.is_hod === true}
+                                    checked={!!formData.is_hod}
                                     onChange={handleCheckboxChange}
                                     className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
                                 />
@@ -176,7 +176,7 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                                 <input
                                     type="checkbox"
                                     name="is_state_coordinator"
-                                    checked={formData.is_state_coordinator === true}
+                                    checked={!!formData.is_state_coordinator}
                                     onChange={handleCheckboxChange}
                                     className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-amber-600 focus:ring-amber-500 cursor-pointer"
                                 />
@@ -187,7 +187,7 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                                 <input
                                     type="checkbox"
                                     name="is_director"
-                                    checked={formData.is_director === true}
+                                    checked={!!formData.is_director}
                                     onChange={handleCheckboxChange}
                                     className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                 />
@@ -198,11 +198,11 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                                 <input
                                     type="checkbox"
                                     name="is_education"
-                                    checked={formData.is_education === true}
+                                    checked={!!formData.is_education}
                                     onChange={handleCheckboxChange}
                                     className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                 />
-                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Education Dept?</span>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Education?</span>
                             </label>
 
                             <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-2">
