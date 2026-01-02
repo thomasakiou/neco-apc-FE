@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { getDashboardStats, DashboardStats } from '../../services/dashboardStats';
+import { getRecentReactivations } from '../../services/apc';
+import { APCRecord } from '../../types/apc';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
 
@@ -9,6 +11,8 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [reactivatedStaff, setReactivatedStaff] = useState<APCRecord[]>([]);
+  const [showReactivationAlert, setShowReactivationAlert] = useState(true);
 
   const fetchStats = async (force = false) => {
     if (force) setIsRefreshing(true);
@@ -27,6 +31,8 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchStats();
+    // Fetch recent reactivations
+    getRecentReactivations().then(setReactivatedStaff).catch(console.error);
   }, []);
 
   if (loading) {
@@ -59,6 +65,36 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
+      {/* Auto-Reactivation Notification Banner */}
+      {showReactivationAlert && reactivatedStaff.length > 0 && (
+        <div className="flex-none bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-3 shadow-lg">
+          <div className="flex items-center justify-between max-w-[1600px] mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm">
+                <span className="material-symbols-outlined text-2xl animate-pulse">notifications_active</span>
+              </div>
+              <div>
+                <p className="font-bold text-sm">System Auto-Reactivation</p>
+                <p className="text-xs opacity-90">
+                  {reactivatedStaff.length} staff member{reactivatedStaff.length > 1 ? 's were' : ' was'} automatically reactivated:
+                  <span className="font-bold ml-1">
+                    {reactivatedStaff.slice(0, 3).map(s => s.name).join(', ')}
+                    {reactivatedStaff.length > 3 && ` and ${reactivatedStaff.length - 3} more`}
+                  </span>
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowReactivationAlert(false)}
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+              title="Dismiss"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Premium Header */}
       <header className="flex-none flex flex-col sm:flex-row sm:items-center justify-between px-6 md:px-10 py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20 gap-4">
         <div>

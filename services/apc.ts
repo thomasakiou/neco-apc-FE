@@ -51,12 +51,15 @@ export const createAPC = async (data: APCCreate): Promise<APCRecord> => {
 };
 
 export const updateAPC = async (id: string, data: APCUpdate): Promise<APCRecord> => {
+    console.log('updateAPC - Sending to API:', { id, data });
     const response = await fetch(`${REQUEST_URL}/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
+        const errorText = await response.text();
+        console.error('updateAPC failed:', response.status, errorText);
         throw new Error('Failed to update APC record');
     }
     apcCache = null; // Invalidate
@@ -131,4 +134,28 @@ export const getAllAPCRecords = async (onlyActive: boolean = false, force: boole
         items = items.filter(item => item.active);
     }
     return items;
+};
+
+/**
+ * Get recently auto-reactivated staff (reactivated within last 24 hours by the system).
+ * These are staff who are now active and had a reactivation_date that has passed.
+ */
+export const getRecentReactivations = async (): Promise<APCRecord[]> => {
+    try {
+        const allRecords = await getAllAPCRecords(false, true);
+        const now = new Date();
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+        // Find records that are active and have a reactivation_date in the recent past
+        // We look for reactivation_date between 24h ago and now
+        return allRecords.filter(record => {
+            if (!record.active || !record.reactivation_date) return false;
+
+            const reactivationDate = new Date(record.reactivation_date);
+            return reactivationDate > oneDayAgo && reactivationDate <= now;
+        });
+    } catch (error) {
+        console.error('Failed to get recent reactivations:', error);
+        return [];
+    }
 };

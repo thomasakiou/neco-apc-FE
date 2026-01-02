@@ -25,6 +25,7 @@ export interface APCRecord {
     remark?: string | null;
     year?: string | null;
     active: boolean;
+    reactivation_date?: string | null;
     created_at?: string | null;
     updated_at?: string | null;
     created_by?: string | null;
@@ -64,6 +65,7 @@ export interface APCCreate {
     remark?: string | null;
     year?: string | null;
     active?: boolean;
+    reactivation_date?: string | null;
 }
 
 export type APCUpdate = Partial<APCCreate>;

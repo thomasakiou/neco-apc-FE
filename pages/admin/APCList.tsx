@@ -34,6 +34,7 @@ const APCList: React.FC = () => {
     const [filterConraiss, setFilterConraiss] = useState('');
     const [filterStation, setFilterStation] = useState('');
     const [filterAssignment, setFilterAssignment] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
 
     // Debounced search
     const debouncedSearchFileNo = useDebounce(searchFileNo, 300);
@@ -56,7 +57,7 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment]);
+    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus]);
 
     const filteredRecords = useMemo(() => {
         let result = [...allRecords];
@@ -88,6 +89,13 @@ const APCList: React.FC = () => {
             }
         }
 
+        // Status Filter
+        if (filterStatus === 'active') {
+            result = result.filter(record => record.active === true);
+        } else if (filterStatus === 'inactive') {
+            result = result.filter(record => record.active === false);
+        }
+
         // SORT LOGIC
         if (sortField) {
             result.sort((a, b) => {
@@ -104,7 +112,7 @@ const APCList: React.FC = () => {
         }
 
         return result;
-    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, sortField, sortDirection]);
+    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, sortField, sortDirection]);
 
     const total = filteredRecords.length;
 
@@ -523,6 +531,19 @@ const APCList: React.FC = () => {
                                 </select>
                             </div>
 
+                            {/* Status Filter */}
+                            <div className="relative w-full md:w-40">
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-slate-700 dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+
                             <div className="flex-1"></div>
 
                             {/* Pagination Limit */}
@@ -776,12 +797,20 @@ const APCRow = React.memo<{
                 </td>
                 <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-base">{record.station || '-'}</td>
                 <td className="px-4 py-4 text-center">
-                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${record.active
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                        : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-                        }`}>
-                        {record.active ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="flex flex-col items-center gap-1">
+                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${record.active
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                            : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
+                            }`}>
+                            {record.active ? 'Active' : 'Inactive'}
+                        </span>
+                        {!record.active && record.reactivation_date && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold border border-amber-200 dark:border-amber-800" title="Scheduled auto-reactivation date">
+                                <span className="material-symbols-outlined text-[10px]">schedule</span>
+                                {new Date(record.reactivation_date).toLocaleDateString()}
+                            </span>
+                        )}
+                    </div>
                 </td>
                 <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
@@ -909,7 +938,8 @@ const APCModal: React.FC<{
         qualification: '',
         sex: '',
         count: 1,
-        active: true
+        active: true,
+        reactivation_date: null
     });
     const [loading, setLoading] = useState(false);
 
@@ -940,7 +970,8 @@ const APCModal: React.FC<{
                 count: initialData.count || 1,
                 year: initialData.year || '',
                 remark: initialData.remark || '',
-                active: initialData.active ?? true
+                active: initialData.active ?? true,
+                reactivation_date: initialData.reactivation_date || null
             });
         } else {
             setFormData({
@@ -951,26 +982,45 @@ const APCModal: React.FC<{
                 qualification: '',
                 sex: '',
                 count: 1,
-                active: true
+                active: true,
+                reactivation_date: null
             });
         }
     }, [initialData, isOpen]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        // Convert empty date string to null for date fields
+        if (name === 'reactivation_date' && value === '') {
+            setFormData(prev => ({ ...prev, [name]: null }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: checked }));
+        // Clear reactivation_date when setting to active
+        if (name === 'active' && checked) {
+            setFormData(prev => ({ ...prev, [name]: checked, reactivation_date: null }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: checked }));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await onSubmit(formData);
+            // Prepare data for submission - convert date to ISO datetime format
+            const submitData = { ...formData };
+            if (submitData.reactivation_date) {
+                // Convert YYYY-MM-DD to ISO 8601 datetime (backend expects datetime format)
+                submitData.reactivation_date = new Date(submitData.reactivation_date).toISOString();
+            }
+            // Debug: log what we're submitting
+            console.log('Submitting APC data:', submitData);
+            await onSubmit(submitData);
             onClose();
         } catch (error) {
             console.error(error);
@@ -1068,6 +1118,25 @@ const APCModal: React.FC<{
                                 />
                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Active Record</span>
                             </label>
+
+                            {/* Reactivation Date - Only show when inactive */}
+                            {formData.active === false && (
+                                <div className="md:col-span-2 p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">schedule</span>
+                                        <span className="text-sm font-bold text-amber-800 dark:text-amber-300">Auto-Reactivation Date (Optional)</span>
+                                    </div>
+                                    <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">Set a date when this staff will automatically become active again.</p>
+                                    <input
+                                        type="date"
+                                        name="reactivation_date"
+                                        value={formData.reactivation_date || ''}
+                                        onChange={handleChange}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        className="w-full h-12 px-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-[#0b1015] focus:border-amber-500 focus:ring-[3px] focus:ring-amber-500/10 transition-all font-bold text-slate-700 dark:text-slate-300 text-sm"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </form>
                 </div>
