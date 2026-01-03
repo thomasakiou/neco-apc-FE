@@ -526,16 +526,15 @@ const RandomizedPost: React.FC = () => {
                 // Determine Effective Target Quota
                 let effectiveTarget = targetQuota;
 
+                let count = 0;
                 if (useCandidateLogic) {
                     // NCEE Candidate-Based Logic
                     // User Request (Step 104):
                     // 0 Candidates -> 0 Staff
-                    // <= X Candidates -> 2 Staff (e.g. 240 <= 250 => 2)
-                    // > X Candidates -> 1 Staff (e.g. 240 > 200 => 1)
+                    // <= X Candidates -> 1 Staff (Standard)
+                    // > X Candidates -> 2 Staff (Large)
 
                     const rawCount = venue.candidates;
-                    // Ensure we handle null/undefined/strings robustly
-                    let count = 0;
                     if (rawCount !== undefined && rawCount !== null) {
                         count = Number(rawCount);
                     }
@@ -544,12 +543,11 @@ const RandomizedPost: React.FC = () => {
                     if (count <= 0) {
                         effectiveTarget = 0;
                     } else if (count <= candidateThreshold) {
-                        // Note: User requested 2 staff for candidates <= threshold
-                        // e.g. Threshold 250, Count 240 -> 2 Staff
-                        effectiveTarget = 2;
-                    } else {
-                        // Count > Threshold -> 1 Staff
+                        // Note: User requested 1 staff for candidates <= threshold
                         effectiveTarget = 1;
+                    } else {
+                        // Count > Threshold -> 2 Staff
+                        effectiveTarget = 2;
                     }
                 }
 
@@ -721,6 +719,11 @@ const RandomizedPost: React.FC = () => {
                                     // OVERFLOW: Fill remaining quota with any available staff
                                     // Still respect strict priority for non-HQ staff
                                     if (staffIsHQ) return true;
+
+                                    // Fix: Allow staff to fill overflow slots in their own state/zone
+                                    // (Prevents them from being blocked due to 'home vacancy' check which sees THIS overflow slot)
+                                    if (isSameState) return true;
+                                    if (isSameZone) return true;
 
                                     // Non-HQ: check if they should be posted elsewhere first
                                     if (staffStateName) {
@@ -1194,7 +1197,7 @@ const RandomizedPost: React.FC = () => {
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                                        Use Candidate Count Logic (NCEE)
+                                        Use Candidate Count Logic only for NCEE Postings.
                                     </h4>
                                     <span className="material-symbols-outlined text-base text-slate-400 cursor-help" title="If enabled, staff quota per venue will be determined by candidate count: 0 candidates = 0 staff, <= X candidates = 1 staff, > X candidates = 2 staff.">help</span>
                                 </div>

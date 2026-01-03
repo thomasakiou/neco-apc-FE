@@ -28,7 +28,7 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'file_no', label: 'FILE NO', accessor: r => r.file_no, default: true, pdfWidth: 25 },
     { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 45 },
     { id: 'sex', label: 'SEX', accessor: r => r.sex || '-', default: false, pdfWidth: 15 },
-    { id: 'station', label: 'STATION', accessor: r => r.station || '-', default: true, pdfWidth: 40 },
+    { id: 'station', label: 'STATION', accessor: r => r.station || '-', default: true, pdfWidth: 30 },
     {
         id: 'state', label: 'STATE', accessor: r => {
             const venueStr = (r.assignment_venue || []).join(' ');
@@ -631,16 +631,16 @@ const HODPostingsTable: React.FC = () => {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
                             headerColor: [0, 80, 160], // Blue-ish
                             tableHeaderColor: [0, 80, 160],
-                            defaultTitle1: reportTitle1 || "2026 NATIONAL COMMON ENTRANCE EXAMINATION",
-                            defaultTitle2: reportTitle2 || "NCEE MONITORING OFFICERS POSTING LIST"
+                            defaultTitle1: reportTitle1,
+                            defaultTitle2: reportTitle2
                         };
                     case 'ACCREDITATION':
                         return {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
                             headerColor: [180, 0, 0], // Red-ish
                             tableHeaderColor: [180, 0, 0],
-                            defaultTitle1: reportTitle1 || "2026 ACCREDITATION EXERCISE",
-                            defaultTitle2: reportTitle2 || "ACCREDITATION OFFICERS POSTING LIST"
+                            defaultTitle1: reportTitle1,
+                            defaultTitle2: reportTitle2
                         };
                     case 'SSCE':
                     default:
@@ -648,8 +648,8 @@ const HODPostingsTable: React.FC = () => {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
                             headerColor: [0, 128, 0], // Green
                             tableHeaderColor: [0, 128, 0],
-                            defaultTitle1: reportTitle1 || "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE)",
-                            defaultTitle2: reportTitle2 || "SSCE MONITORING OFFICERS POSTING LIST"
+                            defaultTitle1: reportTitle1,
+                            defaultTitle2: reportTitle2
                         };
                 }
             };
