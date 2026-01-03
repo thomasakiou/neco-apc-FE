@@ -541,10 +541,7 @@ const RandomizedPost: React.FC = () => {
                     }
                     if (isNaN(count)) count = 0;
 
-                    // DEBUG LOGGING
-                    // Remove after verification
                     if (count <= 0) {
-                        console.log(`[ZERO CAND] Venue: ${venue.name}, Raw: ${rawCount}, Parsed: ${count}, Target: 0`);
                         effectiveTarget = 0;
                     } else if (count <= candidateThreshold) {
                         // Note: User requested 2 staff for candidates <= threshold

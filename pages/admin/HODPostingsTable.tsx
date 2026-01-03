@@ -26,7 +26,7 @@ interface ReportField {
 
 const REPORT_FIELDS: ReportField[] = [
     { id: 'file_no', label: 'FILE NO', accessor: r => r.file_no, default: true, pdfWidth: 25 },
-    { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 65 },
+    { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 45 },
     { id: 'sex', label: 'SEX', accessor: r => r.sex || '-', default: false, pdfWidth: 15 },
     { id: 'station', label: 'STATION', accessor: r => r.station || '-', default: true, pdfWidth: 40 },
     {
@@ -658,7 +658,16 @@ const HODPostingsTable: React.FC = () => {
 
             const drawPageHeader = (data: any) => {
                 const aspectRatio = logoImg.width / logoImg.height;
-                // Logo
+
+                // --- Watermark (Centered & Large) ---
+                doc.saveGraphicsState();
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const wmWidth = 140; // Large width for watermark
+                const wmHeight = wmWidth / aspectRatio;
+                doc.addImage(logoImg, 'PNG', (pageWidth - wmWidth) / 2, (pageHeight - wmHeight) / 2, wmWidth, wmHeight);
+                doc.restoreGraphicsState();
+
+                // Logo (Top Left)
                 doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
 
                 // Header Title
@@ -753,6 +762,18 @@ const HODPostingsTable: React.FC = () => {
                     doc.setTextColor(config.headerColor[0], config.headerColor[1], config.headerColor[2]);
                     doc.text(state.toUpperCase(), 15, currentY);
 
+                    // Dynamic Column Sizing Logic
+                    const totalRefWidth = activeFields.reduce((sum, f) => sum + (f.pdfWidth || 20), 0);
+                    const marginX = 15;
+                    const availablePageWidth = pageWidth - (marginX * 2);
+
+                    const columnStyles: any = {};
+                    activeFields.forEach((field, idx) => {
+                        const refW = field.pdfWidth || 20;
+                        const propWidth = (refW / totalRefWidth) * availablePageWidth;
+                        columnStyles[idx] = { cellWidth: propWidth };
+                    });
+
                     // Draw Table
                     autoTable(doc, {
                         head: [accColumns],
@@ -763,11 +784,22 @@ const HODPostingsTable: React.FC = () => {
                             fillColor: [config.tableHeaderColor[0], config.tableHeaderColor[1], config.tableHeaderColor[2]],
                             textColor: [255, 255, 255],
                             fontStyle: 'bold',
-                            fontSize: 10
+                            fontSize: 10,
+                            valign: 'middle'
                         },
-                        bodyStyles: { fontSize: 10.5, cellPadding: 3, fontStyle: 'bold' },
-                        columnStyles: { 0: { cellWidth: 15 } }, // Assume first col is S/N-like or small
-                        margin: { top: 40, bottom: 45 },
+                        bodyStyles: {
+                            fontSize: 10.5,
+                            cellPadding: 3,
+                            fontStyle: 'bold',
+                            valign: 'top',
+                            overflow: 'linebreak'
+                        },
+                        styles: {
+                            overflow: 'linebreak',
+                            cellWidth: 'wrap'
+                        },
+                        columnStyles,
+                        margin: { top: 40, bottom: 45, left: marginX, right: marginX },
                         didDrawPage: drawPageHeader
                     });
 
@@ -781,11 +813,16 @@ const HODPostingsTable: React.FC = () => {
                     activeFields.map(field => field.accessor(posting))
                 );
 
+                // Dynamic Column Sizing Logic
+                const totalRefWidth = activeFields.reduce((sum, f) => sum + (f.pdfWidth || 20), 0);
+                const marginX = 15;
+                const availablePageWidth = pageWidth - (marginX * 2);
+
                 const columnStyles: any = {};
                 activeFields.forEach((field, idx) => {
-                    if (field.pdfWidth) {
-                        columnStyles[idx] = { cellWidth: field.pdfWidth };
-                    }
+                    const refW = field.pdfWidth || 20;
+                    const propWidth = (refW / totalRefWidth) * availablePageWidth;
+                    columnStyles[idx] = { cellWidth: propWidth };
                 });
 
                 autoTable(doc, {
@@ -797,11 +834,22 @@ const HODPostingsTable: React.FC = () => {
                         fillColor: [config.tableHeaderColor[0], config.tableHeaderColor[1], config.tableHeaderColor[2]],
                         textColor: [255, 255, 255],
                         fontStyle: 'bold',
-                        fontSize: 10
+                        fontSize: 10,
+                        valign: 'middle'
                     },
-                    bodyStyles: { fontSize: 10.5, cellPadding: 3, fontStyle: 'bold' },
+                    bodyStyles: {
+                        fontSize: 10.5,
+                        cellPadding: 3,
+                        fontStyle: 'bold',
+                        valign: 'top',
+                        overflow: 'linebreak'
+                    },
+                    styles: {
+                        overflow: 'linebreak',
+                        cellWidth: 'wrap'
+                    },
                     columnStyles,
-                    margin: { top: 40, bottom: 45 },
+                    margin: { top: 40, bottom: 45, left: marginX, right: marginX },
                     didDrawPage: drawPageHeader
                 });
             }
