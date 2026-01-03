@@ -1104,7 +1104,32 @@ const RandomizedPost: React.FC = () => {
                                         disabled={isAllVenues}
                                     >
                                         <option value="">Select Venue</option>
-                                        {venues.map(v => <option key={v.id} value={v.id}>{v.display_name || v.name}</option>)}
+                                        {(() => {
+                                            // Group venues by state
+                                            const grouped = venues.reduce((acc, venue) => {
+                                                const state = venue.state_name || 'Others';
+                                                if (!acc[state]) acc[state] = [];
+                                                acc[state].push(venue);
+                                                return acc;
+                                            }, {} as { [key: string]: typeof venues });
+
+                                            // Sort states alphabetically, putting 'Others' last
+                                            const sortedStates = Object.keys(grouped).sort((a, b) => {
+                                                if (a === 'Others') return 1;
+                                                if (b === 'Others') return -1;
+                                                return a.localeCompare(b);
+                                            });
+
+                                            return sortedStates.map(state => (
+                                                <optgroup key={state} label={state}>
+                                                    {grouped[state].sort((a, b) => (a.display_name || a.name).localeCompare(b.display_name || b.name)).map(v => (
+                                                        <option key={v.id} value={v.id}>
+                                                            {v.display_name || v.name}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ));
+                                        })()}
                                     </select>
                                     <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 rounded-xl border border-slate-200 dark:border-gray-700">
                                         <input
