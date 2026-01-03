@@ -74,18 +74,18 @@ const formatVenueName = (venue: string | null | undefined): string => {
 
 const REPORT_FIELDS: ReportField[] = [
     { id: 'file_no', label: 'FILE NO', accessor: r => r.file_no, default: true, pdfWidth: 25 },
-    { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 65 },
+    { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 50 },
     { id: 'sex', label: 'SEX', accessor: r => r.sex || '-', default: false, pdfWidth: 15 },
     { id: 'station', label: 'STATION', accessor: r => r.station, default: true, pdfWidth: 35 },
     { id: 'conraiss', label: 'CONR', accessor: r => r.conraiss, default: true, pdfWidth: 20 },
     { id: 'qualification', label: 'QUALIFICATION', accessor: r => '', default: false, pdfWidth: 40 }, // Populated via APC lookup
     { id: 'mandate', label: 'MANDATE', accessor: r => r.mandate, default: true, pdfWidth: 40 },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => r.assignment, default: true, pdfWidth: 40 },
-    { id: 'venue', label: 'VENUE', accessor: r => formatVenueName(r.venue), default: true, pdfWidth: 40 },
+    { id: 'venue', label: 'VENUE', accessor: r => formatVenueName(r.venue), default: true, pdfWidth: 60 },
     { id: 'count', label: 'NO. OF NIGHTS', accessor: r => r.count || 0, default: true, pdfWidth: 20 },
     { id: 'year', label: 'YEAR', accessor: r => r.year, default: false, pdfWidth: 20 },
     { id: 'location', label: 'LOCATION', accessor: r => r.location, default: false, pdfWidth: 40 },
-    { id: 'state', label: 'STATE', accessor: r => r.state, default: false, pdfWidth: 30 },
+    { id: 'state', label: 'STATE', accessor: r => r.state, default: true, pdfWidth: 30 },
     { id: 'posting', label: 'POSTING', accessor: r => r.posting, default: false, pdfWidth: 30 },
     { id: 'description', label: 'DESCRIPTION', accessor: r => r.description || '-', default: true, pdfWidth: 40 }
 ];
@@ -275,23 +275,30 @@ const GeneratePage: React.FC = () => {
                 const vName = typeof v === 'string' ? v : v?.name || v?.code || '';
 
                 // Extract State and Posting from Venue
-                let state = '';
-                let posting = vName;
+                let state = p.state || '';
+                // CRITICAL FIX: Preserve the original full string for 'venue' property so PDF parser can handle it
+                // 'posting' variable holds the CLEAN name for display in the table, but 'venue' logic below was overwriting it with partial data
+                // We need to differentiate: 
+                // 1. 'venue' -> FULL STRING for internal logic and PDF parsing
+                // 2. 'posting' -> CLEAN NAME for UI display if needed (though UI uses 'venue' accessor usually)
 
-                if (vName.includes('|')) {
+                let posting = vName; // Default posting to full name
+                let cleanVenueName = vName; // Will hold just the name part
+
+                if (!state && vName.includes('|')) {
                     const parts = vName.split('|').map(p => p.trim());
                     // Format: (CODE) | POSTING | STATE
                     if (parts.length === 3) {
-                        posting = parts[1];
+                        // posting = parts[1]; // KEEP FULL STRING
                         state = stateMap.get(normalize(parts[2])) || parts[2];
                     } else if (parts.length === 2) {
-                        posting = parts[0];
+                        // posting = parts[0]; // KEEP FULL STRING
                         state = stateMap.get(normalize(parts[1])) || parts[1];
                     }
-                } else if (vName.includes(' - ')) {
+                } else if (!state && vName.includes(' - ')) {
                     const parts = vName.split(' - ').map(p => p.trim());
                     if (parts.length === 3) {
-                        posting = parts[1];
+                        // posting = parts[1];
                         state = stateMap.get(normalize(parts[2])) || parts[2];
                     } else if (parts.length === 2) {
                         if (parts[0].startsWith('(')) {
@@ -300,18 +307,18 @@ const GeneratePage: React.FC = () => {
                             const possibleName = parts[1];
                             const matchedState = stateMap.get(normalize(possibleName));
                             if (matchedState) {
-                                posting = possibleName;
+                                // posting = possibleName;
                                 state = matchedState;
                             } else {
-                                posting = possibleName;
+                                // posting = possibleName;
                                 state = '';
                             }
                         } else {
-                            posting = parts[0];
+                            // posting = parts[0];
                             state = stateMap.get(normalize(parts[1])) || parts[1];
                         }
                     }
-                } else {
+                } else if (!state) {
                     // Fallback for raw names
                     state = stateMap.get(normalize(vName)) || '';
                 }
@@ -326,7 +333,7 @@ const GeneratePage: React.FC = () => {
                     sex: p.sex || '-',
                     assignment: aName,
                     mandate: mName,
-                    venue: formatVenueName(vName),
+                    venue: vName, // formatVenueName(vName) might be stripping code, using raw vName ensures PDF parser gets full string
                     posting: posting || '-',
                     state: state || '-',
                     count: p.count || 0,
@@ -483,7 +490,7 @@ const GeneratePage: React.FC = () => {
                 if (reportTitle2?.trim()) doc.text(reportTitle2.toUpperCase(), width / 2, 34, { align: 'center' });
 
                 doc.setFontSize(11); // Slightly smaller for T3 if needed
-                if (reportTitle3?.trim()) doc.text(reportTitle3.toUpperCase(), width / 2, 39, { align: 'center' });
+                if (reportTitle3?.trim()) doc.text(reportTitle3.toUpperCase(), width / 2, 44, { align: 'center' });
 
                 // --- Signature ---
                 const signatureY = pageHeight - 20;
@@ -531,7 +538,7 @@ const GeneratePage: React.FC = () => {
                 });
 
                 const sortedStates = Object.keys(groupedByState).sort();
-                let currentY = 55; // Initial Start Y for first table
+                let currentY = 60; // Initial Start Y for first table (Increased for spacing)
 
                 const accreditationColumns = activeFields.map(f => f.label);
                 if (!accreditationColumns.includes("S/N")) accreditationColumns.unshift("S/N");
@@ -611,6 +618,176 @@ const GeneratePage: React.FC = () => {
                     currentY = (doc as any).lastAutoTable.finalY + 15;
                 }
 
+            } else if (reportTemplate === 'MARKING') {
+                // --- MARKING FORMAT (Group by Venue) ---
+
+                // Helper to extract venue details
+                // Helper to extract venue details
+                const parseVenue = (venue: string): { code: string; name: string; state: string } => {
+                    if (!venue) return { code: '', name: 'Unknown', state: 'Unknown' };
+
+                    let parts: string[] = [];
+                    if (venue.includes('|')) parts = venue.split('|').map(p => p.trim());
+                    else if (venue.includes(' - ')) parts = venue.split(' - ').map(p => p.trim());
+                    else return { code: '', name: venue, state: 'Unknown' };
+
+                    let code = '';
+                    let name = '';
+                    let state = '';
+
+                    if (parts.length >= 3) {
+                        code = parts[0]; name = parts[1]; state = parts[2];
+                    } else if (parts.length === 2) {
+                        name = parts[0]; state = parts[1];
+                        // Try extract code (123) from name
+                        const codeMatch = name.match(/^\((\w+)\)\s*(.+)$/);
+                        if (codeMatch) {
+                            code = codeMatch[1];
+                            name = codeMatch[2];
+                        }
+                    } else {
+                        name = venue; state = 'Unknown';
+                    }
+                    return { code, name, state };
+                };
+
+                // Group by Normalized Venue (Name + State) to merge strict/loose formats
+                const groupedData: { [key: string]: { details: any; staff: any[] } } = {};
+
+                filteredFlatRows.forEach(post => {
+                    const venueStr = post.venue || 'Unknown Venue';
+                    const details = parseVenue(venueStr);
+                    // Create normalized key: NAME|STATE (uppercased for safety)
+                    const normKey = `${details.name.toUpperCase()}|${details.state.toUpperCase()}`;
+
+                    if (!groupedData[normKey]) {
+                        groupedData[normKey] = {
+                            details: details,
+                            staff: []
+                        };
+                    } else {
+                        // If existing details lack code but new one has it, update details to prefer full info
+                        if (!groupedData[normKey].details.code && details.code) {
+                            groupedData[normKey].details = details;
+                        }
+                    }
+                    groupedData[normKey].staff.push(post);
+                });
+
+                // Sort Grouped Venues by State Name (Ascending)
+                const sortedVenueKeys = Object.keys(groupedData).sort((a, b) => {
+                    const stateA = groupedData[a].details.state.toLowerCase();
+                    const stateB = groupedData[b].details.state.toLowerCase();
+                    return stateA.localeCompare(stateB);
+                });
+
+                // Helper to determine priority based on partial match
+                const getMandatePriority = (mandate: string): number => {
+                    const m = (mandate || '').toUpperCase();
+                    // Priority 1: VC
+                    if (m.includes('VC')) return 1;
+                    // Priority 2: SRO
+                    if (m.includes('SRO')) return 2;
+                    // Priority 3: CS
+                    if (m.includes('CS')) return 3;
+                    // Priority 5: ATSO (Check before SO to ensure ATSO isn't caught as SO)
+                    if (m.includes('ATSO')) return 5;
+                    // Priority 4: SO
+                    if (m.includes('SO')) return 4;
+                    // Priority 6: ICT/ERO
+                    if (m.includes('ICT') || m.includes('ERO')) return 6;
+                    // Priority 7: ACCOUNT
+                    if (m.includes('ACCOUNT') || m.includes('ACCT')) return 7;
+
+                    return 99; // Others last
+                };
+
+                let currentY = 55;
+                let isFirstTable = true;
+                const markingColumns = activeFields.map(f => f.label);
+
+                for (const venueKey of sortedVenueKeys) {
+                    const venueData = groupedData[venueKey];
+                    const { code, name, state } = venueData.details;
+
+                    // Sort Staff by Mandate Priority
+                    const sortedStaff = venueData.staff.sort((a, b) => {
+                        const prioA = getMandatePriority(a.mandate);
+                        const prioB = getMandatePriority(b.mandate);
+                        return prioA - prioB;
+                    }).map((post, index) => activeFields.map(f => {
+                        if (f.id === 'count') return index + 1; // Recalculate S/N per table
+                        return f.accessor(post);
+                    }));
+
+                    // Check page break logic
+                    // Estimate table height: Header (20) + Row (10) * Count
+                    const estTableHeight = 40 + (sortedStaff.length * 10);
+
+                    if (!isFirstTable && (currentY + estTableHeight > height - 40)) {
+                        doc.addPage();
+                        currentY = 45;
+                    }
+
+                    // Print Venue Header: Center Code | Center Name | State Name
+                    doc.setFontSize(11);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(0, 0, 0);
+
+                    // Box for Header
+                    doc.setFillColor(240, 255, 240); // Light Green Tint
+                    doc.setDrawColor(0, 100, 0);
+                    doc.rect(15, currentY - 6, width - 30, 8, 'FD');
+
+                    const headerText = `${code ? code + ' | ' : ''}${name} | ${state}`;
+                    doc.text(headerText.toUpperCase(), width / 2, currentY, { align: 'center' });
+
+                    currentY += 5;
+
+                    // Dynamic Column Sizing
+                    const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
+                    activeFields.forEach((f, i) => {
+                        // Adjust index if S/N is not in activeFields but we want to map styles. 
+                        // But here activeFields drives columns.
+                        colStyles[i] = { cellWidth: f.pdfWidth || 'auto' };
+                        if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
+                            colStyles[i].halign = 'center';
+                        }
+                    });
+
+                    // Draw Table
+                    autoTable(doc, {
+                        head: [markingColumns],
+                        body: sortedStaff,
+                        startY: currentY,
+                        theme: 'grid',
+                        headStyles: {
+                            fillColor: [0, 128, 0], // Green
+                            textColor: [255, 255, 255],
+                            fontStyle: 'bold',
+                            fontSize: 10,
+                            valign: 'middle'
+                        },
+                        bodyStyles: {
+                            fontSize: 10.5,
+                            cellPadding: 3,
+                            fontStyle: 'bold',
+                            valign: 'top',
+                            overflow: 'linebreak'
+                        },
+                        styles: {
+                            overflow: 'linebreak',
+                            cellWidth: 'wrap'
+                        },
+                        columnStyles: colStyles,
+                        margin: { top: 55, bottom: 45, left: 15, right: 15 },
+                        didDrawPage: drawPageContent
+                    });
+
+                    currentY = (doc as any).lastAutoTable.finalY + 15;
+                    isFirstTable = false;
+                }
+
             } else {
                 // SSCE / NCEE (Standard Single Table)
                 const tableColumn = ["S/N", ...activeFields.map(f => f.label)];
@@ -652,7 +829,7 @@ const GeneratePage: React.FC = () => {
                 autoTable(doc, {
                     head: [tableColumn],
                     body: tableRows,
-                    startY: 45,
+                    startY: 55,
                     margin: { top: 45, bottom: 45 },
                     theme: 'grid',
                     styles: { fontSize: 11, cellPadding: 2, minCellHeight: 8 },
@@ -874,7 +1051,7 @@ const GeneratePage: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">PDF Report Design</label>
                     <div className="flex gap-4">
-                        {[{ key: 'SSCE', label: 'SSCE FORMAT' }, { key: 'NCEE', label: 'NCEE FORMAT' }, { key: 'ACCREDITATION', label: 'ACCREDITATION FORMAT' }].map(({ key: template, label }) => (
+                        {[{ key: 'SSCE', label: 'SSCE FORMAT' }, { key: 'NCEE', label: 'NCEE FORMAT' }, { key: 'ACCREDITATION', label: 'ACCREDITATION FORMAT' }, { key: 'MARKING', label: 'MARKING FORMAT' }].map(({ key: template, label }) => (
                             <label key={template} className={`flex-1 cursor-pointer relative px-4 py-3 rounded-lg border-2 transition-all duration-200 flex items-center justify-center gap-2 ${reportTemplate === template ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-emerald-200'}`}>
                                 <input
                                     type="radio"
@@ -884,7 +1061,7 @@ const GeneratePage: React.FC = () => {
                                     onChange={() => setReportTemplate(template)}
                                 />
                                 <span className={`material-symbols-outlined text-xl ${reportTemplate === template ? 'font-filled' : ''}`}>
-                                    {template === 'SSCE' ? 'school' : template === 'NCEE' ? 'child_care' : 'verified'}
+                                    {template === 'SSCE' ? 'school' : template === 'NCEE' ? 'child_care' : template === 'ACCREDITATION' ? 'verified' : 'history_edu'}
                                 </span>
                                 <span className="font-bold text-sm">{label}</span>
                                 {reportTemplate === template && (

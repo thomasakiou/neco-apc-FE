@@ -22,6 +22,7 @@ import { State } from '../../types/state';
 import { useNotification } from '../../context/NotificationContext';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
+import { getAllStaff } from '../../services/staff';
 
 // Utility for robust string matching
 const normalizeStr = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -53,8 +54,10 @@ const RandomizedPost: React.FC = () => {
     const [allStations, setAllStations] = useState<Station[]>([]);
     const [allStates, setAllStates] = useState<State[]>([]);
     // Using simple object structure for flexible station types
-    const [venues, setVenues] = useState<{ id: string, name: string, type: string, state_name?: string, zone?: string, candidates?: number }[]>([]);
+    const [venues, setVenues] = useState<{ id: string, name: string, code?: string, type: string, state_name?: string, zone?: string, candidates?: number }[]>([]);
     const [loading, setLoading] = useState(false);
+    // Lookup for Education Staff (from SDL)
+    const [educationStaffSet, setEducationStaffSet] = useState<Set<string>>(new Set());
 
     // Selections
     const [selectedAssignment, setSelectedAssignment] = useState<string>('');
@@ -115,6 +118,23 @@ const RandomizedPost: React.FC = () => {
     }, [filteredGeneratedPostings, previewPage, previewLimit]);
 
     const totalPreviewPages = Math.ceil(filteredGeneratedPostings.length / previewLimit);
+
+
+    // Optional Filters
+    const [filterEducation, setFilterEducation] = useState<'all' | 'education'>('all');
+    const [filterStation, setFilterStation] = useState<string>(''); // Filters by staff's current station
+    const [filterQualification, setFilterQualification] = useState<string>(''); // Filters by specific qualification
+
+    // Derived Options for Filters
+    const uniqueStations = useMemo(() => {
+        const set = new Set(allAPC.map(s => s.station).filter(Boolean));
+        return Array.from(set).sort();
+    }, [allAPC]);
+
+    const uniqueQualifications = useMemo(() => {
+        const set = new Set(allAPC.map(s => s.qualification).filter(Boolean));
+        return Array.from(set).sort();
+    }, [allAPC]);
 
     // Memoized Eligible Staff Count and Breakdown for Selected Assignment
     const eligibleStaffData = useMemo(() => {
@@ -180,6 +200,23 @@ const RandomizedPost: React.FC = () => {
                 if (!isEligibleForMandate) return;
             }
 
+            // --- NEW FILTERS ---
+            // 1. Station Filter
+            if (filterStation && staff.station !== filterStation) return;
+
+            // 2. Qualification Filter
+            if (filterQualification && staff.qualification !== filterQualification) return;
+
+            // 3. Education/Professional Filter
+            if (filterEducation === 'education') {
+                const isEduSDL = educationStaffSet.has(staff.file_no);
+                const qual = (staff.qualification || '').toUpperCase();
+                const profKeywords = ['ICAN', 'ANAN', 'ACCT', 'COMP', 'COMPUTER'];
+                const hasProf = profKeywords.some(k => qual.includes(k));
+
+                if (!isEduSDL && !hasProf) return;
+            }
+
             total++;
             if (breakdown[lvl] !== undefined) {
                 breakdown[lvl]++;
@@ -187,7 +224,7 @@ const RandomizedPost: React.FC = () => {
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, filterEducation, filterStation, filterQualification, educationStaffSet]);
 
     useEffect(() => {
         fetchInitialData();
@@ -196,14 +233,15 @@ const RandomizedPost: React.FC = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [apcData, assignmentsData, mandatesData, venuesData, postingsData, stationsData, statesData] = await Promise.all([
+            const [apcData, assignmentsData, mandatesData, venuesData, postingsData, stationsData, statesData, staffData] = await Promise.all([
                 getAllAPCRecords(true),
                 getAllAssignments(true),
                 getAllMandates(true),
                 getAllMarkingVenues(true),
                 getAllPostingRecords(),
                 getAllStations(true),
-                getAllStates()
+                getAllStates(),
+                getAllStaff(false) // Fetch ALL staff to ensure we get the flags even if inactive in one list but active in logic? Or just active. APC only uses active. 'false' means fetch all? getAllStaff(onlyActive). services/staff: getAllStaff(onlyActive). Default false. So getting all is safe.
             ]);
             setAllAPC(apcData);
             setAssignments(assignmentsData);
@@ -211,6 +249,13 @@ const RandomizedPost: React.FC = () => {
             setExistingPostings(postingsData || []); // Ensure safe fallback
             setAllStations(stationsData);
             setAllStates(statesData);
+
+            // Populate Education Staff Lookup
+            const eduSet = new Set<string>();
+            staffData.forEach(s => {
+                if (s.is_education) eduSet.add(s.fileno);
+            });
+            setEducationStaffSet(eduSet);
 
             const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
             const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
@@ -221,6 +266,7 @@ const RandomizedPost: React.FC = () => {
                 return {
                     id: v.id,
                     name: v.name,
+                    code: v.code, // Include code for consistent display
                     type: 'marking_venue',
                     state_name: state?.name || v.state,
                     zone: state?.zone || undefined
@@ -266,8 +312,9 @@ const RandomizedPost: React.FC = () => {
                     let stateObj: State | undefined;
                     if (s.state_id) stateObj = stateMap.get(s.state_id);
                     else if (s.state) stateObj = stateNameMap.get(s.state.toLowerCase());
+                    else if (s.state_name) stateObj = stateNameMap.get(s.state_name.toLowerCase());
 
-                    const stateName = stateObj?.name || s.state || '';
+                    const stateName = stateObj?.name || s.state || s.state_name || '';
                     const code = s.code || s.state_code || s.sch_no || '';
 
                     // Value format: (CODE) | NAME | STATE
@@ -398,6 +445,23 @@ const RandomizedPost: React.FC = () => {
 
                 // Check mandate CONRAISS range eligibility
                 if (!isConraissEligibleForMandate(staff.conraiss || '0')) return false;
+
+                // --- NEW FILTERS ---
+                // 1. Station Filter
+                if (filterStation && staff.station !== filterStation) return false;
+
+                // 2. Qualification Filter
+                if (filterQualification && staff.qualification !== filterQualification) return false;
+
+                // 3. Education/Professional Filter
+                if (filterEducation === 'education') {
+                    const isEduSDL = educationStaffSet.has(staff.file_no);
+                    const qual = (staff.qualification || '').toUpperCase();
+                    const profKeywords = ['ICAN', 'ANAN', 'ACCT', 'COMP', 'COMPUTER'];
+                    const hasProf = profKeywords.some(k => qual.includes(k));
+
+                    if (!isEduSDL && !hasProf) return false;
+                }
 
                 return true;
             });
@@ -764,8 +828,14 @@ const RandomizedPost: React.FC = () => {
                                     to_be_posted: Math.max(0, (staff.count || 0) - (totalPostedSoFar + 1)),
                                     assignments: [assignmentCode],
                                     mandates: [targetMandate],
-                                    assignment_venue: [vq.venue.name],
-                                    state_name: vq.venue.state_name,
+                                    assignment_venue: [((v) => {
+                                        const codePrefix = v.code ? `(${v.code})` : '';
+                                        const hasCode = v.code && v.name.includes(codePrefix);
+                                        const baseName = (v.code && !hasCode) ? `${codePrefix} ${v.name}` : v.name;
+                                        return baseName + (v.state_name ? ' | ' + v.state_name : '');
+                                    })(vq.venue)],
+                                    state: vq.venue.state_name || null,
+                                    state_name: vq.venue.state_name, // Keep for backward compat if needed, or remove if fully migrated
                                     zone: vq.venue.zone,
                                     description: description || null // Include description
                                 } as any);
@@ -974,7 +1044,7 @@ const RandomizedPost: React.FC = () => {
                                         <td className="p-3 font-bold">{p.conraiss}</td>
                                         <td className="p-3 text-sm">{p.station}</td>
                                         <td className="p-3 font-bold text-purple-600 dark:text-purple-400 text-sm">{p.assignment_venue?.[0]}</td>
-                                        <td className="p-3 text-sm">{(p as any).state_name || '-'}</td>
+                                        <td className="p-3 text-sm">{p.state || (p as any).state_name || '-'}</td>
                                         <td className="p-3">
                                             <span className={`px-2 py-1 rounded-md text-xs font-bold ${(p as any).zone ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
                                                 {(p as any).zone || 'N/A'}
@@ -1122,11 +1192,16 @@ const RandomizedPost: React.FC = () => {
 
                                             return sortedStates.map(state => (
                                                 <optgroup key={state} label={state}>
-                                                    {grouped[state].sort((a, b) => (a.display_name || a.name).localeCompare(b.display_name || b.name)).map(v => (
-                                                        <option key={v.id} value={v.id}>
-                                                            {v.display_name || v.name}
-                                                        </option>
-                                                    ))}
+                                                    {grouped[state].sort((a, b) => (a.name).localeCompare(b.name)).map(v => {
+                                                        const codePart = (v.code && !v.name.includes(`(${v.code})`)) ? `(${v.code}) ` : '';
+                                                        const namePart = v.name;
+                                                        const statePart = v.state_name || state;
+                                                        return (
+                                                            <option key={v.id} value={v.id}>
+                                                                {`${codePart}${namePart} | ${statePart}`}
+                                                            </option>
+                                                        );
+                                                    })}
                                                 </optgroup>
                                             ));
                                         })()}
@@ -1145,6 +1220,52 @@ const RandomizedPost: React.FC = () => {
                                         <label htmlFor="allVenues" className="text-sm font-bold whitespace-nowrap cursor-pointer">All</label>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Optional Filters Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
+                            {/* 1. Education Filter */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Education/Qualifications</label>
+                                <select
+                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                    value={filterEducation}
+                                    onChange={e => setFilterEducation(e.target.value as 'all' | 'education')}
+                                >
+                                    <option value="all">All Staff</option>
+                                    <option value="education">Qualified Staff Only (Edu/Pro)</option>
+                                </select>
+                            </div>
+
+                            {/* 2. Station Filter */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Station</label>
+                                <select
+                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                    value={filterStation}
+                                    onChange={e => setFilterStation(e.target.value)}
+                                >
+                                    <option value="">All Stations</option>
+                                    {uniqueStations.map(s => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* 3. Qualification Filter */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Qualification</label>
+                                <select
+                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                    value={filterQualification}
+                                    onChange={e => setFilterQualification(e.target.value)}
+                                >
+                                    <option value="">All Qualifications</option>
+                                    {uniqueQualifications.map(q => (
+                                        <option key={q} value={q}>{q}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>

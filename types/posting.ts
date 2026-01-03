@@ -9,6 +9,7 @@ export interface PostingResponse {
     assignment_venue?: any[] | null;
     assignments?: any[] | null;
     mandates?: any[] | null;
+    state?: string | null;
     count?: number | null;
     posted_for?: number | null;
     to_be_posted?: number | null;
@@ -36,6 +37,7 @@ export interface PostingCreate {
     assignment_venue?: any[] | null;
     assignments?: any[] | null;
     mandates?: any[] | null;
+    state?: string | null;
     count?: number | null;
     posted_for?: number | null;
     to_be_posted?: number | null;
@@ -52,6 +54,7 @@ export interface PostingUpdate {
     assignment_venue?: any[] | null;
     assignments?: any[] | null;
     mandates?: any[] | null;
+    state?: string | null;
     count?: number | null;
     posted_for?: number | null;
     to_be_posted?: number | null;

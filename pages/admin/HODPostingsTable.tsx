@@ -31,13 +31,14 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'station', label: 'STATION', accessor: r => r.station || '-', default: true, pdfWidth: 30 },
     {
         id: 'state', label: 'STATE', accessor: r => {
+            if (r.state) return r.state;
             const venueStr = (r.assignment_venue || []).join(' ');
             if (venueStr && venueStr.includes('|')) {
                 const parts = venueStr.split('|');
                 return parts[parts.length - 1].trim();
             }
             return r.station || '-';
-        }, default: false, pdfWidth: 30
+        }, default: true, pdfWidth: 30
     },
     { id: 'conraiss', label: 'CONRAISS', accessor: r => r.conraiss || '-', default: true, pdfWidth: 25 },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => (r.assignments || []).map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', ') || '-', default: true, pdfWidth: 45 },
@@ -806,6 +807,156 @@ const HODPostingsTable: React.FC = () => {
                     currentY = (doc as any).lastAutoTable.finalY + 15;
                 }
 
+            } else if (reportTemplate === 'MARKING') {
+                // --- MARKING FORMAT (Group by Venue) ---
+
+                // Helper to extract venue details
+                const parseVenue = (venue: string): { code: string; name: string; state: string } => {
+                    if (!venue) return { code: '', name: 'Unknown', state: 'Unknown' };
+                    // Expected formats:
+                    // (CODE) | VENUE | STATE
+                    // VENUE | STATE
+                    // (CODE) VENUE
+
+                    let parts: string[] = [];
+                    if (venue.includes('|')) {
+                        parts = venue.split('|').map(p => p.trim());
+                    } else if (venue.includes(' - ')) {
+                        parts = venue.split(' - ').map(p => p.trim());
+                    } else {
+                        // Fallback logic
+                        return { code: '', name: venue, state: 'Unknown' };
+                    }
+
+                    if (parts.length >= 3) {
+                        // (CODE) | VENUE | STATE
+                        return { code: parts[0], name: parts[1], state: parts[2] };
+                    } else if (parts.length === 2) {
+                        // VENUE | STATE
+                        return { code: '', name: parts[0], state: parts[1] };
+                    }
+                    return { code: '', name: venue, state: 'Unknown' };
+                };
+
+                // Group by Venue (Use full venue string as key to ensure uniqueness)
+                const groupedData: { [key: string]: { details: any; staff: any[] } } = {};
+
+                filteredPostings.forEach(post => {
+                    const venueStr = (post.assignment_venue || []).join(' ');
+                    if (!groupedData[venueStr]) {
+                        groupedData[venueStr] = {
+                            details: parseVenue(venueStr),
+                            staff: []
+                        };
+                    }
+                    groupedData[venueStr].staff.push(post);
+                });
+
+                // Sort Grouped Venues by State Name (Ascending)
+                const sortedVenueKeys = Object.keys(groupedData).sort((a, b) => {
+                    const stateA = groupedData[a].details.state.toLowerCase();
+                    const stateB = groupedData[b].details.state.toLowerCase();
+                    return stateA.localeCompare(stateB);
+                });
+
+                // Mandate Priority Map
+                const MANDATE_PRIORITY: { [key: string]: number } = {
+                    'VC': 1, 'SO': 2, 'ATSO': 3, 'ERO': 4, 'CS': 5, 'SRO': 6, 'ACCT': 7
+                };
+
+                let currentY = 40;
+                let isFirstTable = true;
+                const markingColumns = activeFields.map(f => f.label);
+
+                for (const venueKey of sortedVenueKeys) {
+                    const venueData = groupedData[venueKey];
+                    const { code, name, state } = venueData.details;
+
+                    // Sort Staff by Mandate Priority
+                    const sortedStaff = venueData.staff.sort((a, b) => {
+                        const mandateA = (a.mandates && a.mandates.length > 0)
+                            ? (typeof a.mandates[0] === 'string' ? a.mandates[0] : a.mandates[0].mandate || a.mandates[0].code)
+                            : 'ZZZ';
+                        const mandateB = (b.mandates && b.mandates.length > 0)
+                            ? (typeof b.mandates[0] === 'string' ? b.mandates[0] : b.mandates[0].mandate || b.mandates[0].code)
+                            : 'ZZZ';
+
+                        const prioA = MANDATE_PRIORITY[mandateA] || 99;
+                        const prioB = MANDATE_PRIORITY[mandateB] || 99;
+
+                        return prioA - prioB;
+                    }).map(post => activeFields.map(f => f.accessor(post)));
+
+
+                    // Check page break logic
+                    // Estimate table height: Header (20) + Row (10) * Count
+                    const estTableHeight = 40 + (sortedStaff.length * 10);
+
+                    if (!isFirstTable && (currentY + estTableHeight > pageHeight - 40)) {
+                        doc.addPage();
+                        currentY = 40;
+                    }
+
+                    // Print Venue Header: Center Code | Center Name | State Name
+                    doc.setFontSize(11);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(0, 0, 0);
+
+                    // Box for Header
+                    doc.setFillColor(240, 255, 240); // Light Green Tint
+                    doc.setDrawColor(0, 100, 0);
+                    doc.rect(15, currentY - 6, pageWidth - 30, 8, 'FD');
+
+                    const headerText = `${code ? code + ' | ' : ''}${name} | ${state}`;
+                    doc.text(headerText.toUpperCase(), pageWidth / 2, currentY, { align: 'center' });
+
+                    currentY += 5;
+
+                    // Dynamic Column Sizing Logic
+                    const totalRefWidth = activeFields.reduce((sum, f) => sum + (f.pdfWidth || 20), 0);
+                    const marginX = 15;
+                    const availablePageWidth = pageWidth - (marginX * 2);
+
+                    const columnStyles: any = {};
+                    activeFields.forEach((field, idx) => {
+                        const refW = field.pdfWidth || 20;
+                        const propWidth = (refW / totalRefWidth) * availablePageWidth;
+                        columnStyles[idx] = { cellWidth: propWidth };
+                    });
+
+                    // Draw Table
+                    autoTable(doc, {
+                        head: [markingColumns],
+                        body: sortedStaff,
+                        startY: currentY,
+                        theme: 'grid',
+                        headStyles: {
+                            fillColor: [0, 128, 0], // Green
+                            textColor: [255, 255, 255],
+                            fontStyle: 'bold',
+                            fontSize: 10,
+                            valign: 'middle'
+                        },
+                        bodyStyles: {
+                            fontSize: 10.5,
+                            cellPadding: 3,
+                            fontStyle: 'bold',
+                            valign: 'top',
+                            overflow: 'linebreak'
+                        },
+                        styles: {
+                            overflow: 'linebreak',
+                            cellWidth: 'wrap'
+                        },
+                        columnStyles,
+                        margin: { top: 40, bottom: 45, left: marginX, right: marginX },
+                        didDrawPage: drawPageHeader
+                    });
+
+                    currentY = (doc as any).lastAutoTable.finalY + 15;
+                    isFirstTable = false;
+                }
+
             } else {
                 // --- STANDARD FORMAT (SSCE / NCEE) ---
                 const headers = activeFields.map(f => f.label);
@@ -1013,6 +1164,7 @@ const HODPostingsTable: React.FC = () => {
                                 <option value="SSCE">SSCE Format (Green)</option>
                                 <option value="NCEE">NCEE Format (Blue)</option>
                                 <option value="ACCREDITATION">Accreditation Format (Red)</option>
+                                <option value="MARKING">Marking Format (Green)</option>
                             </select>
                         </div>
                         <div>
@@ -1204,6 +1356,7 @@ const HODPostingsTable: React.FC = () => {
                                 <th className="px-4 py-3">File No</th>
                                 <th className="px-4 py-3">Name</th>
                                 <th className="px-4 py-3">Station</th>
+                                <th className="px-4 py-3">State</th>
                                 <th className="px-4 py-3">CON</th>
                                 <th className="px-4 py-3">Assignment</th>
                                 <th className="px-4 py-3">Venue</th>
@@ -1241,6 +1394,9 @@ const HODPostingsTable: React.FC = () => {
                                         <td className="px-4 py-3 font-mono font-bold text-sm">{p.file_no}</td>
                                         <td className="px-4 py-3 font-medium">{p.name}</td>
                                         <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.station || '-'}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                                            {p.state || (p.assignment_venue && p.assignment_venue.join(' ').includes('|') ? p.assignment_venue.join(' ').split('|').pop()?.trim() : '-')}
+                                        </td>
                                         <td className="px-4 py-3">
                                             <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">
                                                 {p.conraiss || '-'}

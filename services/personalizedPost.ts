@@ -197,7 +197,7 @@ export const bulkSaveAssignments = async (
     payload: {
         assignment: Assignment;
         mandate?: MandateColumn;
-        station?: { id: string; name: string; type: string };
+        station?: { id: string; name: string; type: string; state?: string | null };
         changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[];
         numberOfNights?: number;
         description?: string;
@@ -277,6 +277,7 @@ export const bulkSaveAssignments = async (
                 assignments: newAssignments,
                 mandates: newMandates,
                 assignment_venue: newVenues,
+                state: station?.state || null,
                 description: description || null
             });
             modifiedStaffNos.add(normalizedStaffNo);

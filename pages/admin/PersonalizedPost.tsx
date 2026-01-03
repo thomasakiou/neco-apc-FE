@@ -21,7 +21,7 @@ const PersonalizedPost: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('');
     const [selectedStationId, setSelectedStationId] = useState<string>('');
-    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string }[]>([]);
+    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null }[]>([]);
     const [boardData, setBoardData] = useState<AssignmentBoardData | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -200,7 +200,8 @@ const PersonalizedPost: React.FC = () => {
             setStationOptions(data.map(s => ({
                 id: s.id,
                 name: `${(s.code || s.sch_no) ? `(${(s.code || s.sch_no)}) ` : ''}${s.name || s.sch_name || s.station || s.venue_name || ''}`,
-                type
+                type,
+                state: type === 'state' ? s.name : (s.state_name || s.state || null)
             })));
             setManualStationType(type);
             setIsStationModalOpen(false);
