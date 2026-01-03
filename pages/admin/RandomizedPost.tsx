@@ -23,6 +23,23 @@ import { useNotification } from '../../context/NotificationContext';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
 
+// Utility for robust string matching
+const normalizeStr = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const stateToZoneFallback: { [key: string]: string } = {
+    'abia': 'South East', 'anambra': 'South East', 'ebonyi': 'South East', 'enugu': 'South East', 'imo': 'South East',
+    'akwa ibom': 'South South', 'bayelsa': 'South South', 'cross river': 'South South', 'delta': 'South South', 'edo': 'South South', 'rivers': 'South South',
+    'ekiti': 'South West', 'lagos': 'South West', 'ogun': 'South West', 'ondo': 'South West', 'osun': 'South West', 'oyo': 'South West',
+    'benue': 'North Central', 'fct': 'North Central', 'abuja': 'North Central', 'kogi': 'North Central', 'kwara': 'North Central', 'nasarawa': 'North Central', 'niger': 'North Central', 'plateau': 'North Central',
+    'adamawa': 'North East', 'bauchi': 'North East', 'borno': 'North East', 'gombe': 'North East', 'taraba': 'North East', 'yobe': 'North East',
+    'jigawa': 'North West', 'kaduna': 'North West', 'kano': 'North West', 'katsina': 'North West', 'kebbi': 'North West', 'sokoto': 'North West', 'zamfara': 'North West'
+};
+
+const getEffectiveZone = (stateName: string, dbZone?: string | null): string | undefined => {
+    if (dbZone && dbZone.toUpperCase() !== 'N/A' && dbZone.trim() !== '') return dbZone;
+    return stateToZoneFallback[stateName.toLowerCase()] || undefined;
+};
+
 const RandomizedPost: React.FC = () => {
     // Notifications
     const { success, error, warning, info } = useNotification();
@@ -108,6 +125,16 @@ const RandomizedPost: React.FC = () => {
 
         if (!apcField) return { total: 0, breakdown: {} };
 
+        // Get mandate's conraiss_range if a mandate is selected
+        let mandateConraissRange: string[] | null = null;
+        if (selectedMandate) {
+            // selectedMandate contains the mandate string (e.g., "SSCE INT EXAM ADMINISTRATOR")
+            const mandateRecord = mandates.find(m => m.mandate === selectedMandate);
+            if (mandateRecord && mandateRecord.conraiss_range && mandateRecord.conraiss_range.length > 0) {
+                mandateConraissRange = mandateRecord.conraiss_range;
+            }
+        }
+
         // Pre-calculate posted counts
         const postedCountMap = new Map<string, number>();
         existingPostings.forEach(p => {
@@ -128,18 +155,35 @@ const RandomizedPost: React.FC = () => {
             const totalAllotted = staff.count || 0;
             if (totalPosted >= totalAllotted) return;
 
+            // Check if staff has the assignment field set
             const val = staff[apcField as keyof APCRecord];
-            if (!!val) {
-                total++;
-                const lvl = parseInt(staff.conraiss || '0');
-                if (breakdown[lvl] !== undefined) {
-                    breakdown[lvl]++;
-                }
+            if (!val) return;
+
+            const staffConraiss = staff.conraiss || '0';
+            const lvl = parseInt(staffConraiss);
+
+            // Filter by mandate's conraiss_range if a mandate is selected
+            if (mandateConraissRange) {
+                // Check if staff's conraiss is in the mandate's eligible range
+                const isEligibleForMandate = mandateConraissRange.some(range => {
+                    // Handle range formats like "13", "14", or potentially "13-14"
+                    if (range.includes('-')) {
+                        const [min, max] = range.split('-').map(n => parseInt(n.trim()));
+                        return lvl >= min && lvl <= max;
+                    }
+                    return parseInt(range) === lvl;
+                });
+                if (!isEligibleForMandate) return;
+            }
+
+            total++;
+            if (breakdown[lvl] !== undefined) {
+                breakdown[lvl]++;
             }
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, allAPC, assignments, existingPostings]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings]);
 
     useEffect(() => {
         fetchInitialData();
@@ -294,6 +338,25 @@ const RandomizedPost: React.FC = () => {
             const targetMandate = mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate;
             const alreadyAssignedStaffIds = new Set<string>();
 
+            // Get mandate's conraiss_range for filtering
+            const mandateRecord = mandates.find(m => m.mandate === targetMandate);
+            const mandateConraissRange = mandateRecord?.conraiss_range || [];
+
+            // Helper to check if a CONRAISS level is eligible for the mandate
+            const isConraissEligibleForMandate = (staffConraiss: string): boolean => {
+                if (mandateConraissRange.length === 0) return true; // No restriction if no range defined
+
+                const lvl = parseInt(staffConraiss || '0');
+                return mandateConraissRange.some(range => {
+                    // Handle range formats like "13", "14", or potentially "13-14"
+                    if (range.includes('-')) {
+                        const [min, max] = range.split('-').map(n => parseInt(n.trim()));
+                        return lvl >= min && lvl <= max;
+                    }
+                    return parseInt(range) === lvl;
+                });
+            };
+
             // 1.5 Calculate Global Posted Counts & Check specific duplication
             const postedCountMap = new Map<string, number>();
             existingPostings.forEach(p => {
@@ -305,7 +368,7 @@ const RandomizedPost: React.FC = () => {
                 }
             });
 
-            // 2. Filter Eligible Staff (Strict check on Global Quota)
+            // 2. Filter Eligible Staff (Strict check on Global Quota + Mandate CONRAISS Range)
             const eligibleStaff = allAPC.filter(staff => {
                 if (!staff.active) return false;
                 if (alreadyAssignedStaffIds.has(staff.file_no)) return false;
@@ -315,10 +378,15 @@ const RandomizedPost: React.FC = () => {
                 const totalAllotted = staff.count || 0;
                 if (totalPosted >= totalAllotted) return false; // Exhausted
 
+                // Check assignment field
                 if (apcField) {
                     const val = staff[apcField as keyof APCRecord];
-                    return !!val;
+                    if (!val) return false;
                 }
+
+                // Check mandate CONRAISS range eligibility
+                if (!isConraissEligibleForMandate(staff.conraiss || '0')) return false;
+
                 return true;
             });
 
@@ -333,16 +401,58 @@ const RandomizedPost: React.FC = () => {
             });
 
             // Pre-process staff zones and states for prioritization
-            const stationToZoneMap = new Map(allStations.map(s => [s.station, s.zone]));
-            const staffToStateMap = new Map<string, string>(); // staff_id -> state_name
+            // Create a map from station name (lowercase) to state info
+            const stationToStateMap = new Map<string, { stateName: string; zone: string | undefined }>();
 
-            allAPC.forEach(staff => {
-                const station = (staff.station || '').toLowerCase();
-                // Find the first state name that appears in the station string
-                const matchedState = allStates.find(s => station.includes(s.name.toLowerCase()));
-                if (matchedState) {
-                    staffToStateMap.set(staff.id, matchedState.name);
+            allStates.forEach(state => {
+                // Map capital (e.g., "Minna") to the state ("Niger")
+                if (state.capital) {
+                    const normalizedCapital = normalizeStr(state.capital);
+                    stationToStateMap.set(normalizedCapital, {
+                        stateName: state.name,
+                        zone: state.zone || getEffectiveZone(state.name, state.zone)
+                    });
                 }
+                // Also map state name itself
+                const normalizedStateName = normalizeStr(state.name);
+                stationToStateMap.set(normalizedStateName, {
+                    stateName: state.name,
+                    zone: state.zone || getEffectiveZone(state.name, state.zone)
+                });
+            });
+
+            // Build helper to get staff's home state based on their station
+            const getStaffHomeState = (staff: APCRecord): { stateName: string | undefined; zone: string | undefined } => {
+                const station = (staff.station || '').toLowerCase();
+                const normalizedStation = normalizeStr(station);
+
+                // First try direct match with station name
+                for (const [key, value] of stationToStateMap.entries()) {
+                    if (normalizedStation.includes(key) || key.includes(normalizedStation)) {
+                        return value;
+                    }
+                }
+
+                // Fallback: Find state by name OR capital in station string
+                const matchedState = allStates.find(s =>
+                    normalizedStation.includes(normalizeStr(s.name)) ||
+                    (s.capital && normalizedStation.includes(normalizeStr(s.capital)))
+                );
+
+                if (matchedState) {
+                    return {
+                        stateName: matchedState.name,
+                        zone: matchedState.zone || getEffectiveZone(matchedState.name, matchedState.zone)
+                    };
+                }
+
+                return { stateName: undefined, zone: undefined };
+            };
+
+            // Pre-compute home state for all eligible staff
+            const staffHomeStateMap = new Map<string, { stateName: string | undefined; zone: string | undefined }>();
+            eligibleStaff.forEach(staff => {
+                staffHomeStateMap.set(staff.id, getStaffHomeState(staff));
             });
 
             // Shuffle pools
@@ -364,7 +474,7 @@ const RandomizedPost: React.FC = () => {
                 zone?: string;
                 remainingNeeded: number;
                 usedLevels: number[];
-                // Specific layer quotas
+                // Specific layer quotas (for tracking/stats only now)
                 stateQuota: number;
                 zoneQuota: number;
                 hqQuota: number;
@@ -404,13 +514,12 @@ const RandomizedPost: React.FC = () => {
                 const effectiveTarget = targetQuota;
                 const remainingNeeded = Math.max(0, effectiveTarget - venueExistingTotal);
 
-                // Calculate layer quotas using Math.round for better behavior with small targets (e.g. 50/50 of 2 = 1 and 1)
+                // Calculate layer quotas (for stats tracking only - strict priority overrides these)
                 const stateQuotaStr = (effectiveTarget * (distRatios.state / 100)).toFixed(2);
                 const zoneQuotaStr = (effectiveTarget * (distRatios.zone / 100)).toFixed(2);
 
                 const stateQuota = Math.round(parseFloat(stateQuotaStr));
                 const zoneQuota = Math.round(parseFloat(zoneQuotaStr));
-                // HQ takes the remainder to ensure we hit the exact target
                 const hqQuota = Math.max(0, effectiveTarget - stateQuota - zoneQuota);
 
                 return {
@@ -443,18 +552,38 @@ const RandomizedPost: React.FC = () => {
             const usedStaffIds = new Set<string>();
             const newPostings: PostingCreate[] = [];
 
+            // Helper to check if staff is HQ-based (can be posted anywhere)
+            // Only staff with station starting with "HQ-" are treated as HQ (e.g., HQ-ADMIN, HQ-OPERATIONS)
+            // ABUJA staff are treated as FCT and follow normal geolocal priority
+            const isHQStaff = (staff: APCRecord): boolean => {
+                const station = (staff.station || '').toUpperCase().trim();
+                return station.startsWith('HQ-') || station === 'HQ';
+            };
+
             /**
-             * PRIORITY STAGES (0-7):
-             * 0: Primary State (Mandatory levels only)
-             * 1: Primary Zone (Mandatory levels only)
-             * 2: Primary HQ (Mandatory levels only)
-             * 3: Fallback State (Mandatory levels only)
-             * 4: Fallback Zone (Mandatory levels only)
-             * 5: Fallback HQ (Mandatory levels only)
-             * 6: Mandatory Anyone (Try to hit minimums if geo failed)
-             * 7: Random Fill (Fill remaining targetQuota from ANY level)
+             * POSTING PRIORITY SYSTEM WITH STATE/ZONE/HQ QUOTAS:
+             * 
+             * The system respects the configured State/Zone/HQ percentage quotas while
+             * applying strict geolocal priority for non-HQ staff.
+             * 
+             * STAGE 0 (STATE QUOTA): Fill state quota with same-state staff
+             *   - Staff whose station (capital) maps to the venue's state
+             *   - e.g., Staff with station "Minna" → posted to Niger state venues first
+             *   - Limited by stateQuota percentage
+             * 
+             * STAGE 1 (ZONE QUOTA): Fill zone quota with same-zone staff
+             *   - Staff from the same zone but different state (only if their home state has no vacancy)
+             *   - Limited by zoneQuota percentage
+             * 
+             * STAGE 2 (HQ QUOTA): Fill HQ quota with HQ staff or remaining staff
+             *   - HQ staff can be posted randomly to any venue
+             *   - Non-HQ staff only if their home state AND zone have no vacancies
+             *   - Limited by hqQuota percentage
+             * 
+             * STAGE 3 (OVERFLOW): Fill any remaining quota
+             *   - Use any available staff following priority rules
              */
-            for (let stage = 0; stage <= 7; stage++) {
+            for (let stage = 0; stage <= 3; stage++) {
                 let madeProgressInStage = true;
 
                 while (madeProgressInStage) {
@@ -464,7 +593,7 @@ const RandomizedPost: React.FC = () => {
                     for (const vq of localVenueOrder) {
                         if (vq.remainingNeeded <= 0) continue;
 
-                        // Check if we already filled the quota for specific primary stages
+                        // Check quota limits per stage
                         if (stage === 0 && vq.statePicks >= vq.stateQuota) continue;
                         if (stage === 1 && vq.zonePicks >= vq.zoneQuota) continue;
                         if (stage === 2 && vq.hqPicks >= vq.hqQuota) continue;
@@ -481,34 +610,95 @@ const RandomizedPost: React.FC = () => {
                             const levelLimit = conraissConfig[level] || 0;
                             const levelUsed = vq.usedLevels.filter(l => l === level).length;
 
-                            // For stages 0-6, we are specifically trying to satisfy the per-level mandatory minimums
-                            if (stage <= 6) {
-                                if (levelLimit === 0 || levelUsed >= levelLimit) continue;
-                            }
-                            // Stage 7 fills ANY level up to targetQuota (remainingNeeded)
+                            // Try to respect per-level limits if set (except in overflow stage)
+                            if (stage <= 2 && levelLimit > 0 && levelUsed >= levelLimit) continue;
 
                             const pool = staffByLevel[level] || [];
+
+                            // PRIORITY FILTER WITH QUOTA AWARENESS
                             const priorityMatches = pool.filter(staff => {
                                 if (usedStaffIds.has(staff.id)) return false;
 
-                                const staffStation = staff.station || '';
-                                const staffZone = stationToZoneMap.get(staffStation);
-                                const staffStateName = staffToStateMap.get(staff.id);
+                                const staffIsHQ = isHQStaff(staff);
 
-                                // Category determination (staff-centric)
-                                const isStateStaff = vq.venue.state_name && staffStateName === vq.venue.state_name;
-                                const isZoneStaff = !isStateStaff && vq.zone && staffZone === vq.zone;
-                                const isHQStaff = !isStateStaff && !isZoneStaff && (staffStation.toUpperCase().includes('HQ') || !staffZone || staffZone === 'HQ');
+                                // Get staff's home state and zone
+                                const staffHome = staffHomeStateMap.get(staff.id);
+                                const staffStateName = staffHome?.stateName;
+                                const staffZone = staffHome?.zone;
 
-                                // Stage Filter
-                                if (stage === 0) return isStateStaff;
-                                if (stage === 1) return isZoneStaff;
-                                if (stage === 2) return isHQStaff;
-                                if (stage === 3) return isStateStaff;
-                                if (stage === 4) return isZoneStaff;
-                                if (stage === 5) return isHQStaff;
-                                if (stage === 6) return true; // Mandatory Anyone
-                                return true; // Stage 7: Random Fill (Anyone)
+                                // Venue attributes
+                                const venueStateName = vq.venue.state_name;
+                                const venueZone = vq.venue.zone;
+
+                                // Determine geographic relationship
+                                const isSameState = venueStateName && staffStateName &&
+                                    normalizeStr(staffStateName) === normalizeStr(venueStateName);
+                                const isSameZone = !isSameState && venueZone && staffZone &&
+                                    normalizeStr(staffZone) === normalizeStr(venueZone);
+
+                                // STAGE-BASED PRIORITY ENFORCEMENT
+                                if (stage === 0) {
+                                    // STATE QUOTA: Only accept non-HQ staff whose home state matches the venue state
+                                    return !staffIsHQ && isSameState;
+                                } else if (stage === 1) {
+                                    // ZONE QUOTA: Only accept non-HQ staff from the same zone (but different state)
+                                    // CRITICAL: Check if this staff has vacancies in their home state first
+                                    if (staffIsHQ) return false;
+                                    if (staffStateName) {
+                                        const hasHomeStateVacancy = venueQuotas.some(otherVq =>
+                                            otherVq.remainingNeeded > 0 &&
+                                            otherVq.venue.state_name &&
+                                            normalizeStr(otherVq.venue.state_name) === normalizeStr(staffStateName)
+                                        );
+                                        if (hasHomeStateVacancy) return false;
+                                    }
+                                    return isSameZone;
+                                } else if (stage === 2) {
+                                    // HQ QUOTA: Accept HQ staff (can go anywhere) OR non-HQ staff with no home vacancies
+                                    if (staffIsHQ) return true; // HQ staff can be posted to ANY venue
+
+                                    // Non-HQ staff: only if their home state AND zone have no vacancies
+                                    if (staffStateName) {
+                                        const hasHomeStateVacancy = venueQuotas.some(otherVq =>
+                                            otherVq.remainingNeeded > 0 &&
+                                            otherVq.venue.state_name &&
+                                            normalizeStr(otherVq.venue.state_name) === normalizeStr(staffStateName)
+                                        );
+                                        if (hasHomeStateVacancy) return false;
+                                    }
+                                    if (staffZone) {
+                                        const hasZoneVacancy = venueQuotas.some(otherVq =>
+                                            otherVq.remainingNeeded > 0 &&
+                                            otherVq.venue.zone &&
+                                            normalizeStr(otherVq.venue.zone) === normalizeStr(staffZone)
+                                        );
+                                        if (hasZoneVacancy) return false;
+                                    }
+                                    return !isSameState && !isSameZone;
+                                } else {
+                                    // OVERFLOW: Fill remaining quota with any available staff
+                                    // Still respect strict priority for non-HQ staff
+                                    if (staffIsHQ) return true;
+
+                                    // Non-HQ: check if they should be posted elsewhere first
+                                    if (staffStateName) {
+                                        const hasHomeStateVacancy = venueQuotas.some(otherVq =>
+                                            otherVq.remainingNeeded > 0 &&
+                                            otherVq.venue.state_name &&
+                                            normalizeStr(otherVq.venue.state_name) === normalizeStr(staffStateName)
+                                        );
+                                        if (hasHomeStateVacancy) return false;
+                                    }
+                                    if (staffZone) {
+                                        const hasZoneVacancy = venueQuotas.some(otherVq =>
+                                            otherVq.remainingNeeded > 0 &&
+                                            otherVq.venue.zone &&
+                                            normalizeStr(otherVq.venue.zone) === normalizeStr(staffZone)
+                                        );
+                                        if (hasZoneVacancy) return false;
+                                    }
+                                    return true;
+                                }
                             });
 
                             if (priorityMatches.length > 0) {
@@ -517,7 +707,6 @@ const RandomizedPost: React.FC = () => {
 
                                 const currentCount = staff.count || 0;
                                 const totalPostedSoFar = postedCountMap.get(staff.file_no) || 0;
-                                const newToBePosted = Math.max(0, currentCount - (totalPostedSoFar + 1));
 
                                 newPostings.push({
                                     file_no: staff.file_no,
@@ -536,16 +725,15 @@ const RandomizedPost: React.FC = () => {
                                     description: description || null // Include description
                                 } as any);
 
-                                // Accounting for picks (geographic categories)
-                                const staffStation = staff.station || '';
-                                const staffZone = stationToZoneMap.get(staffStation);
-                                const staffStateName = staffToStateMap.get(staff.id);
+                                // Track picks by geographic category for stats
+                                const staffHome = staffHomeStateMap.get(staff.id);
+                                const isSameState = vq.venue.state_name && staffHome?.stateName &&
+                                    normalizeStr(staffHome.stateName) === normalizeStr(vq.venue.state_name);
+                                const isSameZone = !isSameState && vq.venue.zone && staffHome?.zone &&
+                                    normalizeStr(staffHome.zone) === normalizeStr(vq.venue.zone);
 
-                                const isActuallyState = vq.venue.state_name && staffStateName === vq.venue.state_name;
-                                const isActuallyZone = !isActuallyState && vq.zone && staffZone === vq.zone;
-
-                                if (isActuallyState) vq.statePicks++;
-                                else if (isActuallyZone) vq.zonePicks++;
+                                if (isSameState) vq.statePicks++;
+                                else if (isSameZone) vq.zonePicks++;
                                 else vq.hqPicks++;
 
                                 vq.usedLevels.push(level);
@@ -563,6 +751,15 @@ const RandomizedPost: React.FC = () => {
 
             if (newPostings.length > 0) {
                 setPreviewMode(true);
+                // Log stats for debugging
+                console.log('Posting Stats:', {
+                    total: newPostings.length,
+                    byPriority: venueQuotas.reduce((acc, vq) => ({
+                        state: acc.state + vq.statePicks,
+                        zone: acc.zone + vq.zonePicks,
+                        other: acc.other + vq.hqPicks
+                    }), { state: 0, zone: 0, other: 0 })
+                });
             } else {
                 info('No staff matched criteria or quotas already met.');
             }
