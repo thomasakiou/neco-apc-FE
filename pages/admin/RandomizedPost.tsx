@@ -53,7 +53,7 @@ const RandomizedPost: React.FC = () => {
     const [allStations, setAllStations] = useState<Station[]>([]);
     const [allStates, setAllStates] = useState<State[]>([]);
     // Using simple object structure for flexible station types
-    const [venues, setVenues] = useState<{ id: string, name: string, type: string, state_name?: string, zone?: string }[]>([]);
+    const [venues, setVenues] = useState<{ id: string, name: string, type: string, state_name?: string, zone?: string, candidates?: number }[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Selections
@@ -74,6 +74,10 @@ const RandomizedPost: React.FC = () => {
     const [distRatios, setDistRatios] = useState({ state: 60, zone: 20, hq: 20 });
     const [numberOfNights, setNumberOfNights] = useState<number>(0);
     const [description, setDescription] = useState<string>(''); // Added Description State
+
+    // Candidate Logic (NCEE)
+    const [useCandidateLogic, setUseCandidateLogic] = useState(false);
+    const [candidateThreshold, setCandidateThreshold] = useState<number>(200);
 
     // Generated Preview
     const [generatedPostings, setGeneratedPostings] = useState<PostingCreate[]>([]);
@@ -276,13 +280,21 @@ const RandomizedPost: React.FC = () => {
                     const displayParts = [];
                     displayParts.push(s.name || s.sch_name);
 
+                    // Include candidate count in display if available
+                    // Use 'numb_of_cand' for NCEE centers, 'candidates' for schools
+                    const candidateCount = s.numb_of_cand !== undefined ? s.numb_of_cand : s.candidates;
+                    if (candidateCount !== undefined) {
+                        displayParts.push(`[${candidateCount} Candidates]`);
+                    }
+
                     return {
                         id: s.id,
                         name: parts.join(' | '),
                         display_name: displayParts.join(' - '),
                         type: type,
                         state_name: stateName,
-                        zone: stateObj?.zone || undefined
+                        zone: stateObj?.zone || undefined,
+                        candidates: candidateCount // Store candidate count
                     };
                 });
             }
@@ -318,7 +330,7 @@ const RandomizedPost: React.FC = () => {
             return;
         }
 
-        if (targetQuota === 0) {
+        if (targetQuota === 0 && !useCandidateLogic) {
             warning('Please configure the target quota per venue.');
             return;
         }
@@ -511,7 +523,39 @@ const RandomizedPost: React.FC = () => {
                     }
                 });
 
-                const effectiveTarget = targetQuota;
+                // Determine Effective Target Quota
+                let effectiveTarget = targetQuota;
+
+                if (useCandidateLogic) {
+                    // NCEE Candidate-Based Logic
+                    // User Request (Step 104):
+                    // 0 Candidates -> 0 Staff
+                    // <= X Candidates -> 2 Staff (e.g. 240 <= 250 => 2)
+                    // > X Candidates -> 1 Staff (e.g. 240 > 200 => 1)
+
+                    const rawCount = venue.candidates;
+                    // Ensure we handle null/undefined/strings robustly
+                    let count = 0;
+                    if (rawCount !== undefined && rawCount !== null) {
+                        count = Number(rawCount);
+                    }
+                    if (isNaN(count)) count = 0;
+
+                    // DEBUG LOGGING
+                    // Remove after verification
+                    if (count <= 0) {
+                        console.log(`[ZERO CAND] Venue: ${venue.name}, Raw: ${rawCount}, Parsed: ${count}, Target: 0`);
+                        effectiveTarget = 0;
+                    } else if (count <= candidateThreshold) {
+                        // Note: User requested 2 staff for candidates <= threshold
+                        // e.g. Threshold 250, Count 240 -> 2 Staff
+                        effectiveTarget = 2;
+                    } else {
+                        // Count > Threshold -> 1 Staff
+                        effectiveTarget = 1;
+                    }
+                }
+
                 const remainingNeeded = Math.max(0, effectiveTarget - venueExistingTotal);
 
                 // Calculate layer quotas (for stats tracking only - strict priority overrides these)
@@ -541,7 +585,8 @@ const RandomizedPost: React.FC = () => {
             const activeLevels = allPossibleLevels.filter(lvl => conraissConfig[lvl] > 0);
 
             // We need at least one level to calculate, but if sumOfLevelQuotas < targetQuota, we use all levels
-            const searchLevels = sumOfLevelQuotas < targetQuota ? allPossibleLevels : activeLevels;
+            // If useCandidateLogic is true, we fallback to allPossibleLevels to ensure flexibility
+            const searchLevels = (useCandidateLogic || sumOfLevelQuotas < targetQuota) ? allPossibleLevels : activeLevels;
 
             if (searchLevels.length === 0) {
                 warning('Please select at least one CONRAISS level.');
@@ -1145,6 +1190,48 @@ const RandomizedPost: React.FC = () => {
                                     />
                                 </div>
                             ))}
+                        </div>
+
+                        {/* Candidate Count Logic Configuration (Optional) */}
+                        <div className="mt-6 pt-6 border-t border-slate-100 dark:border-gray-800">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                                        Use Candidate Count Logic (NCEE)
+                                    </h4>
+                                    <span className="material-symbols-outlined text-base text-slate-400 cursor-help" title="If enabled, staff quota per venue will be determined by candidate count: 0 candidates = 0 staff, <= X candidates = 1 staff, > X candidates = 2 staff.">help</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={useCandidateLogic}
+                                        onChange={(e) => setUseCandidateLogic(e.target.checked)}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 dark:peer-focus:ring-emerald-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-600"></div>
+                                </label>
+                            </div>
+
+                            {useCandidateLogic && (
+                                <div className="mt-2 bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
+                                    <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase mb-1 block">
+                                        Candidate Threshold (X)
+                                    </label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            className="w-24 h-10 px-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-[#0f161d] font-bold text-emerald-900 dark:text-emerald-100"
+                                            value={candidateThreshold}
+                                            onChange={(e) => setCandidateThreshold(Math.max(1, parseInt(e.target.value) || 1))}
+                                        />
+                                        <span className="text-xs text-emerald-600/80 dark:text-emerald-400/80 italic">
+                                            Centers with &le; {candidateThreshold} candidates get 1 staff. <br />
+                                            Centers with &gt; {candidateThreshold} candidates get 2 staff.
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

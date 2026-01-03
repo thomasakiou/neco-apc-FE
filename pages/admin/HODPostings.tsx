@@ -575,7 +575,7 @@ const HODPostings: React.FC = () => {
                                     </div>
                                     <div className="flex gap-2">
                                         <select
-                                            className="flex-1 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50"
+                                            className="flex-1 min-w-0 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50"
                                             value={selectedVenue}
                                             onChange={e => setSelectedVenue(e.target.value)}
                                             disabled={isAllVenues}
