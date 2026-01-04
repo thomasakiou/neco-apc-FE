@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
@@ -54,7 +54,7 @@ const RandomizedPost: React.FC = () => {
     const [allStations, setAllStations] = useState<Station[]>([]);
     const [allStates, setAllStates] = useState<State[]>([]);
     // Using simple object structure for flexible station types
-    const [venues, setVenues] = useState<{ id: string, name: string, code?: string, type: string, state_name?: string, zone?: string, candidates?: number }[]>([]);
+    const [venues, setVenues] = useState<{ id: string, name: string, display_name?: string, code?: string, type: string, state_name?: string, zone?: string, candidates?: number }[]>([]);
     const [loading, setLoading] = useState(false);
     // Lookup for Education Staff (from SDL)
     const [educationStaffSet, setEducationStaffSet] = useState<Set<string>>(new Set());
@@ -62,8 +62,27 @@ const RandomizedPost: React.FC = () => {
     // Selections
     const [selectedAssignment, setSelectedAssignment] = useState<string>('');
     const [selectedMandate, setSelectedMandate] = useState<string>('');
-    const [selectedVenue, setSelectedVenue] = useState<string>(''); // '' means none selected, 'all' means all venues
+    const [selectedVenues, setSelectedVenues] = useState<string[]>([]); // Array of selected venue IDs
     const [isAllVenues, setIsAllVenues] = useState(false);
+    const [showVenueDropdown, setShowVenueDropdown] = useState(false);
+    const venueDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Click-outside handler for venue dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (venueDropdownRef.current && !venueDropdownRef.current.contains(event.target as Node)) {
+                setShowVenueDropdown(false);
+            }
+        };
+
+        if (showVenueDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showVenueDropdown]);
 
     // Modals
     const [isStationModalOpen, setIsStationModalOpen] = useState(false);
@@ -266,6 +285,7 @@ const RandomizedPost: React.FC = () => {
                 return {
                     id: v.id,
                     name: v.name,
+                    display_name: v.name, // Initial venues usually come with clean names, or use logic if needed
                     code: v.code, // Include code for consistent display
                     type: 'marking_venue',
                     state_name: state?.name || v.state,
@@ -347,7 +367,7 @@ const RandomizedPost: React.FC = () => {
             }
 
             setVenues(options);
-            setSelectedVenue('');
+            setSelectedVenues([]);
             setIsAllVenues(false);
 
             success(`Loaded ${options.length} stations.`);
@@ -372,8 +392,8 @@ const RandomizedPost: React.FC = () => {
             return;
         }
 
-        if (!selectedVenue && !isAllVenues) {
-            warning('Please select a Venue or check "All Venues".');
+        if (selectedVenues.length === 0 && !isAllVenues) {
+            warning('Please select at least one Venue or check "All Venues".');
             return;
         }
 
@@ -542,7 +562,7 @@ const RandomizedPost: React.FC = () => {
             };
 
             // 4. PREPARE VENUE STATES & QUOTAS
-            const targetVenues = isAllVenues ? venues : venues.filter(v => v.id === selectedVenue);
+            const targetVenues = isAllVenues ? venues : venues.filter(v => selectedVenues.includes(v.id));
 
             interface VenueQuota {
                 venue: typeof targetVenues[0];
@@ -1154,7 +1174,7 @@ const RandomizedPost: React.FC = () => {
                             </div>
                             <div>
                                 <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-xs font-bold uppercase text-slate-500">Venue</label>
+                                    <label className="block text-xs font-bold uppercase text-slate-500">Venue(s)</label>
                                     <div className="flex items-center gap-2">
                                         <span className="material-symbols-outlined text-indigo-500 dark:text-indigo-400 animate-point text-lg">pan_tool_alt</span>
                                         <button
@@ -1167,45 +1187,161 @@ const RandomizedPost: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 min-w-0">
-                                    <select
-                                        className="flex-1 w-full min-w-0 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50 text-ellipsis text-slate-900 dark:text-white"
-                                        value={selectedVenue}
-                                        onChange={e => setSelectedVenue(e.target.value)}
-                                        disabled={isAllVenues}
-                                    >
-                                        <option value="">Select Venue</option>
-                                        {(() => {
-                                            // Group venues by state
-                                            const grouped = venues.reduce((acc, venue) => {
-                                                const state = venue.state_name || 'Others';
-                                                if (!acc[state]) acc[state] = [];
-                                                acc[state].push(venue);
-                                                return acc;
-                                            }, {} as { [key: string]: typeof venues });
+                                    {/* Multi-Select Venue Dropdown */}
+                                    <div ref={venueDropdownRef} className="relative flex-1 min-w-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => !isAllVenues && setShowVenueDropdown(!showVenueDropdown)}
+                                            disabled={isAllVenues}
+                                            className={`w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-left flex items-center justify-between ${isAllVenues ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-emerald-400'} text-slate-900 dark:text-white`}
+                                        >
+                                            <span className="truncate">
+                                                {isAllVenues
+                                                    ? 'All Venues Selected'
+                                                    : selectedVenues.length === 0
+                                                        ? 'Select Venue(s)...'
+                                                        : selectedVenues.length === 1
+                                                            ? (() => {
+                                                                const venue = venues.find(v => v.id === selectedVenues[0]);
+                                                                if (!venue) return '1 venue selected';
+                                                                if (venue.display_name) return venue.display_name;
+                                                                const parts = venue.name.split(' | ');
+                                                                if (parts.length >= 2) return parts[1];
+                                                                return venue.name;
+                                                            })()
+                                                            : `${selectedVenues.length} venues selected`
+                                                }
+                                            </span>
+                                            <span className="material-symbols-outlined text-slate-400">
+                                                {showVenueDropdown ? 'expand_less' : 'expand_more'}
+                                            </span>
+                                        </button>
 
-                                            // Sort states alphabetically, putting 'Others' last
-                                            const sortedStates = Object.keys(grouped).sort((a, b) => {
-                                                if (a === 'Others') return 1;
-                                                if (b === 'Others') return -1;
-                                                return a.localeCompare(b);
-                                            });
+                                        {/* Dropdown Panel */}
+                                        {showVenueDropdown && !isAllVenues && (
+                                            <div className="absolute z-50 top-full left-0 mt-1 w-[400px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                                {/* Quick Actions */}
+                                                <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedVenues(venues.map(v => v.id))}
+                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                                                    >
+                                                        Select All
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedVenues([])}
+                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                    >
+                                                        Clear All
+                                                    </button>
+                                                </div>
 
-                                            return sortedStates.map(state => (
-                                                <optgroup key={state} label={state}>
-                                                    {grouped[state].sort((a, b) => (a.name).localeCompare(b.name)).map(v => {
-                                                        const codePart = (v.code && !v.name.includes(`(${v.code})`)) ? `(${v.code}) ` : '';
-                                                        const namePart = v.name;
-                                                        const statePart = v.state_name || state;
+                                                {/* Grouped Venues */}
+                                                {(() => {
+                                                    const grouped = venues.reduce((acc, venue) => {
+                                                        const state = venue.state_name || 'Others';
+                                                        if (!acc[state]) acc[state] = [];
+                                                        acc[state].push(venue);
+                                                        return acc;
+                                                    }, {} as { [key: string]: typeof venues });
+
+                                                    const sortedStates = Object.keys(grouped).sort((a, b) => {
+                                                        if (a === 'Others') return 1;
+                                                        if (b === 'Others') return -1;
+                                                        return a.localeCompare(b);
+                                                    });
+
+                                                    return sortedStates.map(state => {
+                                                        const stateVenues = grouped[state].sort((a, b) => a.name.localeCompare(b.name));
+                                                        const allStateSelected = stateVenues.every(v => selectedVenues.includes(v.id));
+                                                        const someStateSelected = stateVenues.some(v => selectedVenues.includes(v.id));
+
                                                         return (
-                                                            <option key={v.id} value={v.id}>
-                                                                {`${codePart}${namePart} | ${statePart}`}
-                                                            </option>
+                                                            <div key={state}>
+                                                                {/* State Header with Select All for State */}
+                                                                <div
+                                                                    className="sticky top-[45px] px-3 py-2 bg-slate-100 dark:bg-[#0f161d] border-b border-slate-200 dark:border-gray-700 flex items-center gap-2 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800"
+                                                                    onClick={() => {
+                                                                        if (allStateSelected) {
+                                                                            setSelectedVenues(prev => prev.filter(id => !stateVenues.some(v => v.id === id)));
+                                                                        } else {
+                                                                            setSelectedVenues(prev => [...new Set([...prev, ...stateVenues.map(v => v.id)])]);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={allStateSelected}
+                                                                        ref={input => {
+                                                                            if (input) input.indeterminate = someStateSelected && !allStateSelected;
+                                                                        }}
+                                                                        onChange={() => { }}
+                                                                        className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                    />
+                                                                    <span className="text-xs font-bold uppercase text-slate-700 dark:text-slate-300">{state}</span>
+                                                                    <span className="text-[10px] text-slate-500">({stateVenues.length})</span>
+                                                                </div>
+
+                                                                {/* Venue Items */}
+                                                                {stateVenues.map(v => {
+                                                                    const isSelected = selectedVenues.includes(v.id);
+                                                                    // Use display_name if available, otherwise extract from compound name
+                                                                    const getDisplayName = () => {
+                                                                        if (v.display_name) return v.display_name;
+                                                                        // For compound format: (CODE) | NAME | STATE, extract the NAME part
+                                                                        const parts = v.name.split(' | ');
+                                                                        if (parts.length >= 2) return parts[1]; // Return NAME part
+                                                                        return v.name; // Fallback to full name
+                                                                    };
+                                                                    const displayName = getDisplayName();
+                                                                    const codePart = v.code ? `(${v.code}) ` : '';
+
+                                                                    return (
+                                                                        <div
+                                                                            key={v.id}
+                                                                            onClick={() => {
+                                                                                if (isSelected) {
+                                                                                    setSelectedVenues(prev => prev.filter(id => id !== v.id));
+                                                                                } else {
+                                                                                    setSelectedVenues(prev => [...prev, v.id]);
+                                                                                }
+                                                                            }}
+                                                                            className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                                        >
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={isSelected}
+                                                                                onChange={() => { }}
+                                                                                className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                            />
+                                                                            <span className={`text-sm ${isSelected ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                                {codePart}{displayName}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         );
-                                                    })}
-                                                </optgroup>
-                                            ));
-                                        })()}
-                                    </select>
+                                                    });
+                                                })()}
+
+                                                {/* Done Button */}
+                                                <div className="sticky bottom-0 bg-white dark:bg-[#1a2533] p-2 border-t border-slate-100 dark:border-gray-700">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowVenueDropdown(false)}
+                                                        className="w-full text-sm font-bold px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                                    >
+                                                        Done ({selectedVenues.length} selected)
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* All Venues Checkbox */}
                                     <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 rounded-xl border border-slate-200 dark:border-gray-700">
                                         <input
                                             type="checkbox"
@@ -1213,13 +1349,54 @@ const RandomizedPost: React.FC = () => {
                                             checked={isAllVenues}
                                             onChange={e => {
                                                 setIsAllVenues(e.target.checked);
-                                                if (e.target.checked) setSelectedVenue('');
+                                                if (e.target.checked) {
+                                                    setSelectedVenues([]);
+                                                    setShowVenueDropdown(false);
+                                                }
                                             }}
                                             className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
                                         />
                                         <label htmlFor="allVenues" className="text-sm font-bold whitespace-nowrap cursor-pointer">All</label>
                                     </div>
                                 </div>
+
+                                {/* Selected Venues Tags */}
+                                {selectedVenues.length > 0 && !isAllVenues && (
+                                    <div className="flex flex-wrap gap-1 mt-2 max-h-20 overflow-y-auto">
+                                        {selectedVenues.slice(0, 10).map(venueId => {
+                                            const venue = venues.find(v => v.id === venueId);
+                                            if (!venue) return null;
+                                            // Use display_name if available, otherwise extract from compound name
+                                            const getDisplayName = () => {
+                                                if (venue.display_name) return venue.display_name;
+                                                const parts = venue.name.split(' | ');
+                                                if (parts.length >= 2) return parts[1];
+                                                return venue.name;
+                                            };
+                                            const displayName = getDisplayName();
+                                            return (
+                                                <span
+                                                    key={venueId}
+                                                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                                                >
+                                                    {displayName.length > 20 ? displayName.slice(0, 20) + '...' : displayName}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedVenues(prev => prev.filter(id => id !== venueId))}
+                                                        className="hover:text-red-500 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                    </button>
+                                                </span>
+                                            );
+                                        })}
+                                        {selectedVenues.length > 10 && (
+                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                                +{selectedVenues.length - 10} more
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
