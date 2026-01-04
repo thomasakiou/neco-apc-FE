@@ -327,12 +327,28 @@ const RandomizedPost: React.FC = () => {
 
                 const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
                 const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
+                const stateCodeMap = new Map<string, State>(statesData.map(s => [s.state_code.toLowerCase(), s])); // Map by state code
 
                 options = specificData.map((s: any) => {
                     let stateObj: State | undefined;
-                    if (s.state_id) stateObj = stateMap.get(s.state_id);
-                    else if (s.state) stateObj = stateNameMap.get(s.state.toLowerCase());
-                    else if (s.state_name) stateObj = stateNameMap.get(s.state_name.toLowerCase());
+
+                    // Priority 1: Direct ID match
+                    if (s.state_id) {
+                        stateObj = stateMap.get(s.state_id);
+
+                        // Priority 2: Try ID as Code if ID match failed
+                        if (!stateObj) {
+                            stateObj = stateCodeMap.get(s.state_id.toLowerCase());
+                        }
+                    }
+                    // Priority 3: Direct Code match
+                    if (!stateObj && (s.state_code || s.code)) {
+                        const code = (s.state_code || s.code || '').toLowerCase();
+                        stateObj = stateCodeMap.get(code);
+                    }
+                    // Priority 4: Name match
+                    if (!stateObj && s.state) stateObj = stateNameMap.get(s.state.toLowerCase());
+                    else if (!stateObj && s.state_name) stateObj = stateNameMap.get(s.state_name.toLowerCase());
 
                     const stateName = stateObj?.name || s.state || s.state_name || '';
                     const code = s.code || s.state_code || s.sch_no || '';
@@ -881,8 +897,18 @@ const RandomizedPost: React.FC = () => {
                 }
             }
 
+            if (newPostings.length === 0) {
+                // Should not happen due to check above
+                setLoading(false); // Ensure loading is false if no postings are generated
+                info('No staff matched criteria or quotas already met.');
+                return;
+            }
+
+            console.log('Generating Postings Payload (First Item):', JSON.stringify(newPostings[0], null, 2));
+            console.log('Generating Postings Payload (Full):', JSON.stringify(newPostings.length, null, 2));
+
             setGeneratedPostings(newPostings);
-            setLoading(false);
+            setLoading(false); // Keep setLoading(false) here, as setShowResults(true) is not defined in the original context.
 
             if (newPostings.length > 0) {
                 setPreviewMode(true);

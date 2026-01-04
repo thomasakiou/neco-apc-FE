@@ -852,11 +852,45 @@ const HODPostingsTable: React.FC = () => {
                     groupedData[venueStr].staff.push(post);
                 });
 
-                // Sort Grouped Venues by State Name (Ascending)
+                // Sort Grouped Venues by State Name (Ascending) then by Code (Ascending)
                 const sortedVenueKeys = Object.keys(groupedData).sort((a, b) => {
                     const stateA = groupedData[a].details.state.toLowerCase();
                     const stateB = groupedData[b].details.state.toLowerCase();
-                    return stateA.localeCompare(stateB);
+
+                    const stateComparison = stateA.localeCompare(stateB);
+                    if (stateComparison !== 0) {
+                        return stateComparison;
+                    }
+
+                    // Secondary sort by Code (Numeric)
+                    let codeA = groupedData[a].details.code || '';
+                    let codeB = groupedData[b].details.code || '';
+
+                    // Fallback: Code extraction
+                    if (!codeA && groupedData[a].details.name) {
+                        const match = groupedData[a].details.name.trim().match(/^(\d+)/);
+                        if (match) codeA = match[1];
+                    }
+                    if (!codeB && groupedData[b].details.name) {
+                        const match = groupedData[b].details.name.trim().match(/^(\d+)/);
+                        if (match) codeB = match[1];
+                    }
+
+                    const numA = parseInt(codeA, 10);
+                    const numB = parseInt(codeB, 10);
+
+                    // console.log(`Comparing: ${groupedData[a].details.name} (Code: ${codeA}, State: ${stateA}) vs ${groupedData[b].details.name} (Code: ${codeB}, State: ${stateB}) -> NumA: ${numA}, NumB: ${numB}`);
+
+                    if (!isNaN(numA) && !isNaN(numB)) {
+                        if (numA !== numB) return numA - numB;
+                    }
+
+                    // Fallback string compare
+                    const codeComparison = codeA.localeCompare(codeB, undefined, { numeric: true });
+                    if (codeComparison !== 0) return codeComparison;
+
+                    // Tertiary sort by Name
+                    return groupedData[a].details.name.localeCompare(groupedData[b].details.name);
                 });
 
                 // Mandate Priority Map

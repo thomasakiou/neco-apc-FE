@@ -674,11 +674,17 @@ const GeneratePage: React.FC = () => {
                     groupedData[normKey].staff.push(post);
                 });
 
-                // Sort Grouped Venues by State Name (Ascending)
+                // Sort Grouped Venues by State Name (Ascending), then by Venue Code (Ascending)
                 const sortedVenueKeys = Object.keys(groupedData).sort((a, b) => {
                     const stateA = groupedData[a].details.state.toLowerCase();
                     const stateB = groupedData[b].details.state.toLowerCase();
-                    return stateA.localeCompare(stateB);
+                    const stateCompare = stateA.localeCompare(stateB);
+                    if (stateCompare !== 0) return stateCompare;
+
+                    // Secondary sort by venue code (ascending)
+                    const codeA = groupedData[a].details.code || '';
+                    const codeB = groupedData[b].details.code || '';
+                    return codeA.localeCompare(codeB, undefined, { numeric: true });
                 });
 
                 // Helper to determine priority based on partial match
