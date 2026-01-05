@@ -758,28 +758,53 @@ const AnnualPostings: React.FC = () => {
   const handleCsvUpload = useCallback(async (data: CSVPostingData[]) => {
     setLoading(true);
     try {
-      const payload: PostingCreate[] = data.map(row => ({
-        file_no: row.staffNo,
-        name: row.name || '',
-        station: row.station,
-        conraiss: row.conraiss,
-        year: new Date().getFullYear().toString(),
-        count: row.count || 0,
-        // Logic for posted_for / to_be_posted if not explicit?
-        // If Assignments provided, use length. 
-        // If not, maybe 0?
-        posted_for: row.assignments?.length || 0,
-        to_be_posted: (row.count || 0) - (row.assignments?.length || 0),
+      // Build validation map from existing postings
+      // Map: FileNo -> Set of Mandates
+      const existingMap = new Map<string, Set<string>>();
+      postings.forEach(p => {
+        if (!existingMap.has(p.file_no)) existingMap.set(p.file_no, new Set());
+        p.mandates?.forEach(m => {
+          const mName = typeof m === 'string' ? m : m.mandate || m.code;
+          if (mName) existingMap.get(p.file_no)?.add(mName);
+        });
+      });
 
-        assignments: row.assignments || [],
-        mandates: row.mandate ? [row.mandate] : [],
-        assignment_venue: row.venue ? [row.venue] : []
-      }));
+      let skippedCount = 0;
+      const payload: PostingCreate[] = [];
+
+      data.forEach(row => {
+        const targetMandate = row.mandate;
+        // Check for duplication
+        if (targetMandate && existingMap.get(row.staffNo)?.has(targetMandate)) {
+          skippedCount++;
+          return;
+        }
+
+        payload.push({
+          file_no: row.staffNo,
+          name: row.name || '',
+          station: row.station,
+          conraiss: row.conraiss,
+          year: new Date().getFullYear().toString(),
+          count: row.count || 0,
+          posted_for: row.assignments?.length || 0,
+          to_be_posted: (row.count || 0) - (row.assignments?.length || 0),
+          assignments: row.assignments || [],
+          mandates: row.mandate ? [row.mandate] : [],
+          assignment_venue: row.venue ? [row.venue] : []
+        });
+      });
+
+      if (payload.length === 0 && skippedCount > 0) {
+        error(`All ${skippedCount} records were skipped because they already exist.`);
+        setLoading(false);
+        return;
+      }
 
       // Send to bulk create endpoint
       await bulkCreatePostings({ items: payload });
 
-      alert(`Successfully imported ${payload.length} records.`);
+      alert(`Successfully imported ${payload.length} records.${skippedCount > 0 ? ` ${skippedCount} duplicates skipped.` : ''}`);
       setIsCsvModalOpen(false);
       fetchInitialData(); // Refresh table
     } catch (err: any) {

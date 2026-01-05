@@ -43,7 +43,16 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'conraiss', label: 'CONRAISS', accessor: r => r.conraiss || '-', default: true, pdfWidth: 25 },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => (r.assignments || []).map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', ') || '-', default: true, pdfWidth: 45 },
     { id: 'mandate', label: 'MANDATE', accessor: r => (r.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-', default: true, pdfWidth: 40 },
-    { id: 'venue', label: 'VENUE', accessor: r => (r.assignment_venue || []).join(', ') || '-', default: true, pdfWidth: 60 },
+    {
+        id: 'venue', label: 'VENUE', accessor: r => (r.assignment_venue || []).map((v: any) => {
+            if (!v.includes('|')) return v;
+            const parts = v.split('|').map((p: string) => p.trim());
+            // If 3 parts: CODE | NAME | STATE -> return NAME (index 1)
+            // If 2 parts: NAME | STATE -> return NAME (index 0)
+            if (parts.length >= 3) return parts[1];
+            return parts[0];
+        }).join(', ') || '-', default: true, pdfWidth: 60
+    },
     { id: 'count', label: 'NO. OF NIGHTS', accessor: r => r.count || 0, default: false, pdfWidth: 20 },
     { id: 'posted_for', label: 'POSTED FOR', accessor: r => r.posted_for || 0, default: false, pdfWidth: 20 },
     { id: 'to_be_posted', label: 'TO BE POSTED', accessor: r => r.to_be_posted || 0, default: false, pdfWidth: 20 },
@@ -133,6 +142,10 @@ const HODPostingsTable: React.FC = () => {
                 getAllHODPostings(force),
                 getAllAssignments(force)
             ]);
+            if (postingsData && postingsData.length > 0) {
+                console.log('XXX DEBUG HOD POSTINGS FIRST ITEM:', postingsData[0]);
+                console.log('XXX DEBUG HOD POSTINGS ALL:', postingsData);
+            }
             setPostings(postingsData || []);
             setAssignments(assignmentsData || []);
             setLoading(false);
@@ -469,18 +482,25 @@ const HODPostingsTable: React.FC = () => {
                 doc.text(`Page ${data.pageNumber}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
             };
 
-            const tableData = dataToExport.map((p, idx) => [
-                idx + 1,
-                p.file_no,
-                p.name,
-                p.conraiss || '-',
-                p.station || '-',
-                p.assignment_venue?.join(', ') || '-',
-                p.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-'
-            ]);
+            const headers = activeFields.map(f => f.label);
+            const tableData = dataToExport.map(posting =>
+                activeFields.map(field => field.accessor(posting))
+            );
+
+            // Dynamic Column Sizing Logic
+            const totalRefWidth = activeFields.reduce((sum, f) => sum + (f.pdfWidth || 20), 0);
+            const marginX = 15;
+            const availablePageWidth = pageWidth - (marginX * 2);
+
+            const columnStyles: any = {};
+            activeFields.forEach((field, idx) => {
+                const refW = field.pdfWidth || 20;
+                const propWidth = (refW / totalRefWidth) * availablePageWidth;
+                columnStyles[idx] = { cellWidth: propWidth };
+            });
 
             autoTable(doc, {
-                head: [['#', 'File No', 'Name', 'CONRAISS', 'Station', 'Venue', 'Mandate']],
+                head: [headers],
                 body: tableData,
                 startY: 35,
                 theme: 'grid',
@@ -488,23 +508,22 @@ const HODPostingsTable: React.FC = () => {
                     fillColor: [0, 128, 0],
                     textColor: [255, 255, 255],
                     fontStyle: 'bold',
-                    fontSize: 10
+                    fontSize: 10,
+                    valign: 'middle'
                 },
                 bodyStyles: {
                     fontSize: 10.5,
                     cellPadding: 3,
-                    fontStyle: 'bold'
+                    fontStyle: 'bold',
+                    valign: 'top',
+                    overflow: 'linebreak'
                 },
-                columnStyles: {
-                    0: { cellWidth: 12 },
-                    1: { cellWidth: 25 },
-                    2: { cellWidth: 60 },
-                    3: { cellWidth: 25 },
-                    4: { cellWidth: 45 },
-                    5: { cellWidth: 60 },
-                    6: { cellWidth: 45 }
+                styles: {
+                    overflow: 'linebreak',
+                    cellWidth: 'wrap'
                 },
-                margin: { top: 35, bottom: 45 },
+                columnStyles,
+                margin: { top: 35, bottom: 45, left: marginX, right: marginX },
                 didDrawPage: drawPageHeader
             });
 

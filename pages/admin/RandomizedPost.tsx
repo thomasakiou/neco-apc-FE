@@ -464,9 +464,13 @@ const RandomizedPost: React.FC = () => {
             });
 
             // 2. Filter Eligible Staff (Strict check on Global Quota + Mandate CONRAISS Range)
+            let skippedDueToDuplicate = 0;
             const eligibleStaff = allAPC.filter(staff => {
                 if (!staff.active) return false;
-                if (alreadyAssignedStaffIds.has(staff.file_no)) return false;
+                if (alreadyAssignedStaffIds.has(staff.file_no)) {
+                    skippedDueToDuplicate++;
+                    return false;
+                }
 
                 // Capacity Check
                 const totalPosted = postedCountMap.get(staff.file_no) || 0;
@@ -921,7 +925,13 @@ const RandomizedPost: React.FC = () => {
                         other: acc.other + vq.hqPicks
                     }), { state: 0, zone: 0, other: 0 })
                 });
+                if (skippedDueToDuplicate > 0) {
+                    warning(`${skippedDueToDuplicate} staff members were skipped because they are already posted for this mandate.`);
+                }
             } else {
+                if (skippedDueToDuplicate > 0) {
+                    warning(`${skippedDueToDuplicate} staff members were skipped because they are already posted for this mandate.`);
+                }
                 info('No staff matched criteria or quotas already met.');
             }
 
