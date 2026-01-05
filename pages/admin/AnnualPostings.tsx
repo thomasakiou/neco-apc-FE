@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings, updatePosting } from '../../services/posting';
 import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
+import { getAllStates } from '../../services/state';
 import { getAllMarkingVenues } from '../../services/markingVenue';
 import { PostingResponse, PostingCreate } from '../../types/posting';
 import { APCRecord } from '../../types/apc';
@@ -30,8 +31,25 @@ interface CollapsibleRowProps {
 
 const formatVenueName = (venue: string | null | undefined): string => {
   if (!venue) return '-';
-  const parts = venue.split('-').map(p => p.trim());
-  return parts.length > 0 ? parts[parts.length - 1] : venue;
+  // If it's already in the "Name | State" format, just return it
+  if (venue.includes('|')) {
+    const parts = venue.split('|').map(p => p.trim());
+    const uniqueParts: string[] = [];
+    const seen = new Set<string>();
+    for (const p of parts) {
+      const lower = p.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        uniqueParts.push(p);
+      }
+    }
+    return uniqueParts.join(' | ');
+  }
+
+  // Previously we were splitting by '-' which broke names like "AKWA-IBOM" 
+  // or names that already included the code as a suffix.
+  // We'll keep the full string for now to ensure visibility.
+  return venue;
 };
 
 const deduplicatePostings = (assignments: any[], mandates: any[], venues: any[]) => {
@@ -219,6 +237,7 @@ const AnnualPostings: React.FC = () => {
   // Filter Options
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [venues, setVenues] = useState<MarkingVenue[]>([]);
+  const [states, setStates] = useState<any[]>([]);
 
   // Search States
   const [searchFileNo, setSearchFileNo] = useState('');
@@ -234,6 +253,7 @@ const AnnualPostings: React.FC = () => {
   const [filterToBePosted, setFilterToBePosted] = useState('');
   const [filterDescription, setFilterDescription] = useState('');
   const [venueSearch, setVenueSearch] = useState('');
+  const [filterState, setFilterState] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Debounced Search
@@ -262,15 +282,17 @@ const AnnualPostings: React.FC = () => {
     try {
       setLoading(true);
       // Step 1: Fetch primary data quickly
-      const [postingsData, assignmentsData, venuesData] = await Promise.all([
+      const [postingsData, assignmentsData, venuesData, statesData] = await Promise.all([
         getAllPostingRecords(force),
         getAllAssignments(force),
-        getAllMarkingVenues(force)
+        getAllMarkingVenues(force),
+        getAllStates()
       ]);
 
       setPostings(postingsData);
       setAssignments(assignmentsData);
       setVenues(venuesData);
+      setStates(statesData.sort((a, b) => a.name.localeCompare(b.name)));
       setLoading(false); // Initial load done
 
       // Step 2: Sync active staff in background
@@ -420,6 +442,9 @@ const AnnualPostings: React.FC = () => {
     if (filterDescription) {
       result = result.filter(p => p.description === filterDescription);
     }
+    if (filterState) {
+      result = result.filter(p => p.state?.toLowerCase() === filterState.toLowerCase());
+    }
 
     return result;
   }, [
@@ -433,7 +458,8 @@ const AnnualPostings: React.FC = () => {
     filterPostedFor,
     filterAssignmentsLeft,
     filterToBePosted,
-    filterDescription
+    filterDescription,
+    filterState
   ]);
 
   const total = filteredPostings.length;
@@ -994,6 +1020,21 @@ const AnnualPostings: React.FC = () => {
               >
                 <option value="">All Mandates</option>
                 {uniqueMandates.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
+                <span className="material-symbols-outlined text-lg">expand_more</span>
+              </div>
+            </div>
+
+            {/* State Filter */}
+            <div className="relative">
+              <select
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
+                value={filterState}
+                onChange={(e) => setFilterState(e.target.value)}
+              >
+                <option value="">All States</option>
+                {states.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
               </select>
               <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
                 <span className="material-symbols-outlined text-lg">expand_more</span>

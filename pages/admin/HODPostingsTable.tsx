@@ -45,12 +45,19 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'mandate', label: 'MANDATE', accessor: r => (r.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-', default: true, pdfWidth: 40 },
     {
         id: 'venue', label: 'VENUE', accessor: r => (r.assignment_venue || []).map((v: any) => {
-            if (!v.includes('|')) return v;
-            const parts = v.split('|').map((p: string) => p.trim());
-            // If 3 parts: CODE | NAME | STATE -> return NAME (index 1)
-            // If 2 parts: NAME | STATE -> return NAME (index 0)
-            if (parts.length >= 3) return parts[1];
-            return parts[0];
+            if (!v || typeof v !== 'string') return v;
+            // Robust deduplication
+            const parts = v.split('|').map(p => p.trim()).filter(Boolean);
+            const uniqueParts: string[] = [];
+            const seen = new Set<string>();
+            for (const p of parts) {
+                const lower = p.toLowerCase();
+                if (!seen.has(lower)) {
+                    seen.add(lower);
+                    uniqueParts.push(p);
+                }
+            }
+            return uniqueParts.join(' | ');
         }).join(', ') || '-', default: true, pdfWidth: 60
     },
     { id: 'count', label: 'NO. OF NIGHTS', accessor: r => r.count || 0, default: false, pdfWidth: 20 },
@@ -832,19 +839,25 @@ const HODPostingsTable: React.FC = () => {
                 // Helper to extract venue details
                 const parseVenue = (venue: string): { code: string; name: string; state: string } => {
                     if (!venue) return { code: '', name: 'Unknown', state: 'Unknown' };
-                    // Expected formats:
-                    // (CODE) | VENUE | STATE
-                    // VENUE | STATE
-                    // (CODE) VENUE
+
+                    // Deduplicate parts (e.g. "Ondo | Ondo" -> "Ondo")
+                    const pts = venue.split('|').map(p => p.trim()).filter(Boolean);
+                    const uniq: string[] = [];
+                    const sn = new Set<string>();
+                    for (const p of pts) {
+                        const l = p.toLowerCase();
+                        if (!sn.has(l)) { sn.add(l); uniq.push(p); }
+                    }
+                    const cleaned = uniq.join(' | ');
 
                     let parts: string[] = [];
-                    if (venue.includes('|')) {
-                        parts = venue.split('|').map(p => p.trim());
-                    } else if (venue.includes(' - ')) {
-                        parts = venue.split(' - ').map(p => p.trim());
+                    if (cleaned.includes('|')) {
+                        parts = cleaned.split('|').map(p => p.trim());
+                    } else if (cleaned.includes(' - ')) {
+                        parts = cleaned.split(' - ').map(p => p.trim());
                     } else {
                         // Fallback logic
-                        return { code: '', name: venue, state: 'Unknown' };
+                        return { code: '', name: cleaned, state: 'Unknown' };
                     }
 
                     if (parts.length >= 3) {
@@ -854,7 +867,7 @@ const HODPostingsTable: React.FC = () => {
                         // VENUE | STATE
                         return { code: '', name: parts[0], state: parts[1] };
                     }
-                    return { code: '', name: venue, state: 'Unknown' };
+                    return { code: '', name: cleaned, state: 'Unknown' };
                 };
 
                 // Group by Venue (Use full venue string as key to ensure uniqueness)

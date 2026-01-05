@@ -364,6 +364,12 @@ const HODPostings: React.FC = () => {
                             // but simpler logic: to_be_posted = currentCount - 1 because we are adding 1)
                             const newToBePosted = Math.max(0, currentCount - 1); // Assuming 1 new posting
 
+                            const baseVenueName = `${vNeed.venue.code ? `(${vNeed.venue.code}) ` : ''}${vNeed.venue.name}`;
+                            const venueState = (vNeed.venue.state_name || vNeed.venue.state || '').trim();
+                            const finalVenue = (venueState && !baseVenueName.toLowerCase().includes(venueState.toLowerCase()))
+                                ? `${baseVenueName} | ${venueState}`
+                                : baseVenueName;
+
                             newPostings.push({
                                 file_no: pickedHOD.file_no,
                                 name: pickedHOD.name,
@@ -372,10 +378,11 @@ const HODPostings: React.FC = () => {
                                 year: new Date().getFullYear().toString(),
                                 count: numberOfNights,
                                 posted_for: 1,
+                                tree_node_id: null,
                                 to_be_posted: newToBePosted,
                                 assignments: [assignmentCode],
                                 mandates: [targetMandate],
-                                assignment_venue: [`${vNeed.venue.code ? `${vNeed.venue.code} | ` : ''}${vNeed.venue.name} | ${vNeed.venue.state_name}`],
+                                assignment_venue: [finalVenue],
                                 state: vNeed.venue.state_name,
                                 zone: vNeed.venue.zone,
                                 description: description || null

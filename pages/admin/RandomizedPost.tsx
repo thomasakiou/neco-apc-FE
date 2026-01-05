@@ -872,7 +872,11 @@ const RandomizedPost: React.FC = () => {
                                         const codePrefix = v.code ? `(${v.code})` : '';
                                         const hasCode = v.code && v.name.includes(codePrefix);
                                         const baseName = (v.code && !hasCode) ? `${codePrefix} ${v.name}` : v.name;
-                                        return baseName + (v.state_name ? ' | ' + v.state_name : '');
+                                        const stateName = (v.state_name || v.state || '').trim();
+                                        if (stateName && !baseName.toLowerCase().includes(stateName.toLowerCase())) {
+                                            return `${baseName} | ${stateName}`;
+                                        }
+                                        return baseName;
                                     })(vq.venue)],
                                     state: vq.venue.state_name || null,
                                     state_name: vq.venue.state_name, // Keep for backward compat if needed, or remove if fully migrated

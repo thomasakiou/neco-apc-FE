@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 interface Option {
     id: string;
     name: string;
     display_name?: string;
     type?: string;
+    group?: string;
 }
 
 interface SearchableSelectProps {
@@ -30,10 +31,29 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
     const selectedOption = options.find(opt => opt.id === value);
 
-    const filteredOptions = options.filter(option =>
-        option.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (option.display_name && option.display_name.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredOptions = useMemo(() => {
+        return options.filter(option =>
+            option.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (option.display_name && option.display_name.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+    }, [options, searchTerm]);
+
+    const groupedOptions = useMemo(() => {
+        const groups: { [key: string]: Option[] } = {};
+        const noGroup: Option[] = [];
+
+        filteredOptions.forEach(opt => {
+            if (opt.group) {
+                if (!groups[opt.group]) groups[opt.group] = [];
+                groups[opt.group].push(opt);
+            } else {
+                noGroup.push(opt);
+            }
+        });
+
+        const sortedGroupKeys = Object.keys(groups).sort();
+        return { groups, sortedGroupKeys, noGroup };
+    }, [filteredOptions]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -58,6 +78,21 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         setIsOpen(false);
         setSearchTerm('');
     };
+
+    const renderOption = (option: Option) => (
+        <div
+            key={option.id}
+            onClick={() => handleSelect(option.id)}
+            className={`
+                px-3 py-2 text-sm rounded cursor-pointer transition-colors
+                ${value === option.id
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 font-medium'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800'}
+            `}
+        >
+            {option.display_name || option.name}
+        </div>
+    );
 
     return (
         <div className={`relative ${className}`} ref={containerRef}>
@@ -92,22 +127,25 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         />
                     </div>
 
-                    <div className="overflow-y-auto flex-1 p-1">
+                    <div className="overflow-y-auto flex-1 p-1 custom-scrollbar">
                         {filteredOptions.length > 0 ? (
-                            filteredOptions.map((option) => (
-                                <div
-                                    key={option.id}
-                                    onClick={() => handleSelect(option.id)}
-                                    className={`
-                                        px-3 py-2 text-sm rounded cursor-pointer transition-colors
-                                        ${value === option.id
-                                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 font-medium'
-                                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800'}
-                                    `}
-                                >
-                                    {option.display_name || option.name}
-                                </div>
-                            ))
+                            <>
+                                {groupedOptions.sortedGroupKeys.map(group => (
+                                    <div key={group}>
+                                        <div className="px-3 py-1.5 text-xs font-black text-slate-400 bg-slate-50 dark:bg-slate-800/80 uppercase tracking-wider sticky top-0 backdrop-blur-sm z-10 border-y border-slate-100 dark:border-slate-700/50">
+                                            {group}
+                                        </div>
+                                        {groupedOptions.groups[group].map(renderOption)}
+                                    </div>
+                                ))}
+
+                                {groupedOptions.noGroup.length > 0 && (
+                                    <>
+                                        {groupedOptions.sortedGroupKeys.length > 0 && <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />}
+                                        {groupedOptions.noGroup.map(renderOption)}
+                                    </>
+                                )}
+                            </>
                         ) : (
                             <div className="p-4 text-center text-xs text-slate-400">
                                 No options found

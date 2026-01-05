@@ -21,7 +21,7 @@ const PersonalizedPost: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('');
     const [selectedStationId, setSelectedStationId] = useState<string>('');
-    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null }[]>([]);
+    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null; group?: string }[]>([]);
     const [boardData, setBoardData] = useState<AssignmentBoardData | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -197,12 +197,27 @@ const PersonalizedPost: React.FC = () => {
             else if (type === 'tt_center') data = await getAllTTCenters(true);
             else data = await getAllMarkingVenues(true);
 
-            setStationOptions(data.map(s => ({
-                id: s.id,
-                name: `${(s.code || s.sch_no) ? `(${(s.code || s.sch_no)}) ` : ''}${s.name || s.sch_name || s.station || s.venue_name || ''}`,
-                type,
-                state: type === 'state' ? s.name : (s.state_name || s.state || null)
-            })));
+            setStationOptions(data.map(s => {
+                const stateVal = type === 'state' ? s.name : (s.state_name || s.state || null);
+                const codePrefix = (s.code || s.sch_no) ? `(${(s.code || s.sch_no)}) ` : '';
+                const baseName = `${codePrefix}${s.name || s.sch_name || s.station || s.venue_name || ''}`;
+
+                // Ensure we match RandomizedPost format: "(Code) Name | State"
+                // Only append state if it exists and it's not already in the name (case-insensitive check)
+                const stateLower = stateVal?.toLowerCase();
+                const baseLower = baseName.toLowerCase();
+                const finalName = (type !== 'state' && stateVal && !baseLower.includes(stateLower))
+                    ? `${baseName} | ${stateVal}`
+                    : baseName;
+
+                return {
+                    id: s.id,
+                    name: finalName,
+                    type,
+                    state: stateVal,
+                    group: type === 'state' ? 'All States' : (stateVal || 'Others')
+                };
+            }));
             setManualStationType(type);
             setIsStationModalOpen(false);
         } catch (error) { showAlert('Error', 'Failed to load stations', 'error'); }

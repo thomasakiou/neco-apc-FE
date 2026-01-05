@@ -47,29 +47,19 @@ const formatVenueName = (venue: string | null | undefined): string => {
     if (!venue) return '-';
     if (venue === 'Returned') return venue;
 
-    // Handle Pipe separator (often Format: (CODE) | VENUE | STATE or VENUE | STATE)
-    if (venue.includes('|')) {
-        const parts = venue.split('|').map(p => p.trim()).filter(Boolean);
-        if (parts.length === 3) return parts[1]; // (CODE) | VENUE | STATE
-        if (parts.length === 2) return parts[0]; // VENUE | STATE
-        return parts[0];
-    }
+    // Robust deduplication (e.g. "Ondo | Ondo" -> "Ondo")
+    const parts = venue.split('|').map(p => p.trim()).filter(Boolean);
+    const uniqueParts: string[] = [];
+    const seen = new Set<string>();
 
-    // Handle Dash separator (often Format: (CODE) - VENUE)
-    if (venue.includes(' - ')) {
-        const parts = venue.split(' - ').map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 2 && parts[0].startsWith('(')) return parts[1];
-        return parts[parts.length - 1];
+    for (const p of parts) {
+        const lower = p.toLowerCase();
+        if (!seen.has(lower)) {
+            seen.add(lower);
+            uniqueParts.push(p);
+        }
     }
-
-    // Fallback: Handle (CODE) NAME (no separator)
-    if (venue.startsWith('(') && venue.includes(')')) {
-        const closedBracketIdx = venue.indexOf(')');
-        const rest = venue.substring(closedBracketIdx + 1).trim();
-        if (rest) return rest;
-    }
-
-    return venue;
+    return uniqueParts.join(' | ');
 };
 
 const REPORT_FIELDS: ReportField[] = [
@@ -626,10 +616,13 @@ const GeneratePage: React.FC = () => {
                 const parseVenue = (venue: string): { code: string; name: string; state: string } => {
                     if (!venue) return { code: '', name: 'Unknown', state: 'Unknown' };
 
+                    // Clean first to handle "Ondo | Ondo"
+                    const cleaned = formatVenueName(venue);
+
                     let parts: string[] = [];
-                    if (venue.includes('|')) parts = venue.split('|').map(p => p.trim());
-                    else if (venue.includes(' - ')) parts = venue.split(' - ').map(p => p.trim());
-                    else return { code: '', name: venue, state: 'Unknown' };
+                    if (cleaned.includes('|')) parts = cleaned.split('|').map(p => p.trim());
+                    else if (cleaned.includes(' - ')) parts = cleaned.split(' - ').map(p => p.trim());
+                    else return { code: '', name: cleaned, state: 'Unknown' };
 
                     let code = '';
                     let name = '';
@@ -646,7 +639,7 @@ const GeneratePage: React.FC = () => {
                             name = codeMatch[2];
                         }
                     } else {
-                        name = venue; state = 'Unknown';
+                        name = cleaned; state = 'Unknown';
                     }
                     return { code, name, state };
                 };
