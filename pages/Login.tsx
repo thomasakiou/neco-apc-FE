@@ -95,7 +95,7 @@ const Login: React.FC = () => {
             </div>
 
             <div className="w-full text-center">
-              <p className="text-xs text-slate-500">© 2024 NECO. All rights reserved.</p>
+              <p className="text-xs text-slate-500">© 2026 NECO. All rights reserved.</p>
             </div>
           </form>
         </div>
