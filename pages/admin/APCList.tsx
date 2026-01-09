@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
 import { APCRecord, APCCreate, APCUpdate } from '../../types/apc';
-import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, bulkDeleteAPC, getAllAPCRecords } from '../../services/apc';
+import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, appendAPC, bulkDeleteAPC, getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllPostingRecords, updatePosting } from '../../services/posting';
 import { PostingResponse } from '../../types/posting';
@@ -11,6 +12,8 @@ import AlertModal from '../../components/AlertModal';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const APCList: React.FC = () => {
     const [allRecords, setAllRecords] = useState<APCRecord[]>([]);
@@ -42,6 +45,7 @@ const APCList: React.FC = () => {
     const debouncedFilterStation = useDebounce(filterStation, 300);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [searchParams, setSearchParams] = useSearchParams();
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingRecord, setEditingRecord] = useState<APCRecord | null>(null);
     const [alertModal, setAlertModal] = useState<{
@@ -54,6 +58,14 @@ const APCList: React.FC = () => {
     }>({ isOpen: false, title: '', type: 'info' });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const appendFileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const f = searchParams.get('f');
+        if (f) {
+            setSearchFileNo(f);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         setPage(1);
@@ -294,6 +306,95 @@ const APCList: React.FC = () => {
         }
     }, [searchFileNo, searchName, filterConraiss, filterStation]);
 
+    const handleExportPdf = useCallback(() => {
+        try {
+            setLoading(true);
+            const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for many columns
+
+            // Add title
+            doc.setFontSize(22);
+            doc.setTextColor(20, 158, 136); // Emerald-600
+            doc.text('Annual Posting Calendar (APC)', 14, 20);
+
+            // Add metadata
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            const dateStr = new Date().toLocaleString();
+            doc.text(`Generated on: ${dateStr}`, 14, 28);
+            doc.text(`Total Records: ${filteredRecords.length}`, 14, 33);
+
+            const tableColumn = ["S/N", "File No", "Name", "Qual.", "Sex", "Station", "CONR", "Year", "Assignments", "Status", "Remark"];
+            const tableRows = filteredRecords.map((record, index) => {
+                // Collect any active assignments
+                const activeAssignments = [];
+                if (record.mar_accr) activeAssignments.push('MAR-ACCR');
+                if (record.ncee) activeAssignments.push('NCEE');
+                if (record.gifted) activeAssignments.push('GIFTED');
+                if (record.becep) activeAssignments.push('BECEP');
+                if (record.bece_mrkp) activeAssignments.push('BECE-MRKP');
+                if (record.ssce_int) activeAssignments.push('SSCE-INT');
+                if (record.swapping) activeAssignments.push('SWAPPING');
+                if (record.ssce_int_mrk) activeAssignments.push('SSCE-INT-MRK');
+                if (record.oct_accr) activeAssignments.push('OCT-ACCR');
+                if (record.ssce_ext) activeAssignments.push('SSCE-EXT');
+                if (record.ssce_ext_mrk) activeAssignments.push('SSCE-EXT-MRK');
+                if (record.pur_samp) activeAssignments.push('PUR-SAMP');
+                if (record.int_audit) activeAssignments.push('INT-AUDIT');
+                if (record.stock_tk) activeAssignments.push('STOCK-TK');
+
+                return [
+                    (index + 1).toString(),
+                    record.file_no,
+                    record.name,
+                    record.qualification || '',
+                    record.sex || '',
+                    record.station || '',
+                    record.conraiss || '',
+                    record.year || '',
+                    activeAssignments.join(', ') || 'None',
+                    record.active ? 'Active' : 'Inactive',
+                    record.remark || ''
+                ];
+            });
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 38,
+                styles: { fontSize: 8.5, font: 'helvetica' },
+                headStyles: { fillColor: [20, 158, 136], textColor: [255, 255, 255], fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [245, 247, 250] },
+                margin: { top: 38 },
+                didDrawPage: (data) => {
+                    const str = "Page " + doc.getNumberOfPages();
+                    doc.setFontSize(10);
+                    const pageSize = doc.internal.pageSize;
+                    const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                    doc.text(str, data.settings.margin.left, pageHeight - 10);
+                }
+            });
+
+            doc.save(`APC_Filtered_Export_${new Date().toISOString().split('T')[0]}.pdf`);
+
+            setAlertModal({
+                isOpen: true,
+                title: 'Export Successful',
+                message: `${filteredRecords.length} APC records have been exported to PDF.`,
+                type: 'success'
+            });
+        } catch (error) {
+            console.error('PDF Export Failed:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Export Failed',
+                message: 'Failed to export APC records to PDF.',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, [filteredRecords]);
+
     const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -326,6 +427,43 @@ const APCList: React.FC = () => {
         } finally {
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
+            }
+            setLoading(false);
+        }
+    }, [fetchAllRecords]);
+
+    const handleAppendUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setLoading(true);
+            const response = await appendAPC(file);
+            setAlertModal({
+                isOpen: true,
+                title: 'Append Complete',
+                message: 'APC records have been appended successfully (existing records skipped).',
+                type: 'success',
+                details: {
+                    created: response.created_count,
+                    skipped: response.skipped_count,
+                    errors: response.error_count,
+                    skippedData: response.skipped || [],
+                    errorData: response.errors || []
+                }
+            });
+            fetchAllRecords();
+        } catch (error: any) {
+            console.error('Append failed:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Append Failed',
+                message: error.message || 'An error occurred while appending the records.',
+                type: 'error'
+            });
+        } finally {
+            if (appendFileInputRef.current) {
+                appendFileInputRef.current.value = '';
             }
             setLoading(false);
         }
@@ -416,6 +554,13 @@ const APCList: React.FC = () => {
                         </button>
                     )}
                     <button
+                        onClick={handleExportPdf}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-rose-400 to-rose-600 dark:from-rose-300 dark:to-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
+                        Export PDF
+                    </button>
+                    <button
                         onClick={handleExport}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
                     >
@@ -439,10 +584,25 @@ const APCList: React.FC = () => {
                     />
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-emerald-600 dark:text-emerald-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
                     >
-                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-400 dark:to-teal-500 group-hover:scale-110 transition-transform text-lg">upload_file</span>
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-slate-500 to-slate-600 dark:from-slate-400 dark:to-slate-500 group-hover:scale-110 transition-transform text-lg">upload_file</span>
                         Import
+                    </button>
+                    <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        className="hidden"
+                        ref={appendFileInputRef}
+                        onChange={handleAppendUpload}
+                        style={{ display: 'none' }}
+                    />
+                    <button
+                        onClick={() => appendFileInputRef.current?.click()}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-teal-600 dark:text-teal-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-teal-500 to-emerald-600 dark:from-teal-400 dark:to-emerald-500 group-hover:scale-110 transition-transform text-lg">library_add</span>
+                        Append New Staff
                     </button>
                     <button
                         onClick={() => setShowAddModal(true)}

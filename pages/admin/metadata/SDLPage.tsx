@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff } from '../../../services/staff';
 import { Staff, StaffCreate } from '../../../types/staff';
 import StaffModal from '../StaffModal';
@@ -24,6 +27,7 @@ const SDLPage: React.FC = () => {
     const [selectedDirector, setSelectedDirector] = useState('All');
     const [selectedEducation, setSelectedEducation] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // New state for collapsible rows
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -227,6 +231,13 @@ const SDLPage: React.FC = () => {
     };
 
     useEffect(() => {
+        const q = searchParams.get('q');
+        if (q) {
+            setSearchTerm(q);
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
         setPage(1);
     }, [searchTerm]);
 
@@ -400,6 +411,100 @@ const SDLPage: React.FC = () => {
                 type: 'error'
             });
             throw error;
+        }
+    };
+
+    const handleExportPdf = () => {
+        try {
+            setLoading(true);
+            const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation for more columns
+
+            // Add title
+            doc.setFontSize(22);
+            doc.setTextColor(20, 158, 136); // Emerald-600
+            doc.text('Staff Disposition List (SDL)', 14, 20);
+
+            // Add metadata
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            const dateStr = new Date().toLocaleString();
+            doc.text(`Generated on: ${dateStr}`, 14, 28);
+
+            // Calculate full filtered data (including search term)
+            const exportStaff = allStaff.filter(staff => {
+                const matchesSearch = !searchTerm ||
+                    staff.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    staff.fileno?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    staff.email?.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
+                const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
+                const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
+                const matchesState = selectedState === 'All' || staff.state === selectedState;
+                const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
+                const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
+                const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
+                const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+
+                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
+            });
+
+            doc.text(`Total Records: ${exportStaff.length}`, 14, 33);
+
+            const tableColumn = [
+                "S/N", "Staff ID", "Full Name", "Station", "Rank", "CONR", "State", "LGA", "Qual.", "Sex", "Email", "Phone", "Status"
+            ];
+            const tableRows = exportStaff.map((staff, index) => [
+                (index + 1).toString(),
+                staff.fileno || '',
+                staff.full_name || '',
+                staff.station || '',
+                staff.rank || '',
+                staff.conr || '',
+                staff.state || '',
+                staff.lga || '',
+                staff.qualification || '',
+                staff.sex || '',
+                staff.email || '',
+                staff.phone || '',
+                staff.active ? 'Active' : 'Inactive'
+            ]);
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 38,
+                styles: { fontSize: 8.5, font: 'helvetica', cellPadding: 2 },
+                headStyles: { fillColor: [20, 158, 136], textColor: [255, 255, 255], fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [245, 247, 250] },
+                margin: { top: 38, left: 10, right: 10 },
+                didDrawPage: (data) => {
+                    // Footer
+                    const str = "Page " + doc.getNumberOfPages();
+                    doc.setFontSize(10);
+                    const pageSize = doc.internal.pageSize;
+                    const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                    doc.text(str, data.settings.margin.left, pageHeight - 10);
+                }
+            });
+
+            doc.save(`SDL_Filtered_Export_${new Date().toISOString().split('T')[0]}.pdf`);
+
+            setAlertModal({
+                isOpen: true,
+                title: 'Export Successful',
+                message: `${exportStaff.length} SDL records have been exported to PDF.`,
+                type: 'success'
+            });
+        } catch (error) {
+            console.error('PDF Export Failed:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Export Failed',
+                message: 'Failed to export SDL records to PDF.',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -578,6 +683,13 @@ const SDLPage: React.FC = () => {
                             Delete Selected ({selectedIds.size})
                         </button>
                     )}
+                    <button
+                        onClick={handleExportPdf}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-rose-400 to-rose-600 dark:from-rose-300 dark:to-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
+                        Export PDF
+                    </button>
                     <button
                         onClick={handleExport}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"

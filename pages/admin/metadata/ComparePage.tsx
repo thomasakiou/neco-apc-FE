@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getAllAPC, createAPC } from '../../../services/apc';
 import { getAllStaff } from '../../../services/staff';
 import { APCRecord, APCCreate } from '../../../types/apc';
@@ -25,6 +26,7 @@ interface MissingRow {
 }
 
 const ComparePage: React.FC = () => {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [comparisonData, setComparisonData] = useState<ComparisonRow[]>([]);
     const [missingInAPC, setMissingInAPC] = useState<MissingRow[]>([]);
@@ -327,6 +329,7 @@ const TabButton = ({ active, onClick, label, count, icon, alert }: { active: boo
 );
 
 const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, setStatusFilter }: { data: ComparisonRow[]; page: number; limit: number; setPage: (p: number) => void; setLimit: (l: number) => void; statusFilter?: string; setStatusFilter?: (filter: 'All' | 'Match' | 'Mismatch' | 'MissingSDL') => void }) => {
+    const navigate = useNavigate();
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedData = data.slice(startIndex, endIndex);
@@ -379,9 +382,9 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                 <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                         <tr>
-                            <th className="px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-r border-slate-200 dark:border-gray-700 w-[45%] text-center border-b dark:border-gray-700" colSpan={4}>APC Record</th>
-                            <th className="px-4 py-3 w-[10%] text-center border-b dark:border-gray-700">Status</th>
-                            <th className="px-4 py-3 bg-blue-50/50 dark:bg-blue-900/10 border-l border-slate-200 dark:border-gray-700 w-[45%] text-center border-b dark:border-gray-700" colSpan={3}>SDL Record</th>
+                            <th className="px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-r border-slate-200 dark:border-gray-700 w-[44%] text-center border-b dark:border-gray-700" colSpan={4}>APC Record</th>
+                            <th className="px-4 py-3 w-[12%] text-center border-b dark:border-gray-700">Status</th>
+                            <th className="px-4 py-3 bg-blue-50/50 dark:bg-blue-900/10 border-l border-slate-200 dark:border-gray-700 w-[44%] text-center border-b dark:border-gray-700" colSpan={3}>SDL Record</th>
                         </tr>
                         <tr className="border-b border-slate-200 dark:border-gray-700">
                             <th className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium">File No</th>
@@ -400,7 +403,18 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                                 <td className="px-4 py-3 font-mono font-bold text-slate-600 dark:text-slate-300">{row.fileNo}</td>
                                 <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{row.apcName}</td>
                                 <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.apcGrade}</td>
-                                <td className="px-4 py-3 text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-gray-800">{row.apcStation}</td>
+                                <td className="px-4 py-3 text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-gray-800">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span>{row.apcStation}</span>
+                                        <button
+                                            onClick={() => navigate(`/admin/apc/list?f=${row.fileNo}`)}
+                                            className="p-1 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                                            title="Go to APC Record"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                        </button>
+                                    </div>
+                                </td>
 
                                 <td className="px-4 py-3 text-center">
                                     {row.status === 'Match' ? (
@@ -434,7 +448,18 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                                     ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-100 font-medium'
                                     : 'text-slate-600 dark:text-slate-400'
                                     }`}>
-                                    {row.sdlStation || '-'}
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span>{row.sdlStation || '-'}</span>
+                                        {row.sdlName && (
+                                            <button
+                                                onClick={() => navigate(`/admin/metadata/sdl?q=${row.fileNo}`)}
+                                                className="p-1 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                                                title="Go to SDL Record"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -479,6 +504,7 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
 };
 
 const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { data: MissingRow[]; page: number; limit: number; setPage: (p: number) => void; setLimit: (l: number) => void; onAddToAPC: (staff: MissingRow) => void }) => {
+    const navigate = useNavigate();
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedData = data.slice(startIndex, endIndex);
@@ -535,12 +561,21 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.station}</td>
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.remark}</td>
                                         <td className="px-4 py-3 text-center">
-                                            <button
-                                                onClick={() => onAddToAPC(row)}
-                                                className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1 rounded text-xs font-bold transition-colors"
-                                            >
-                                                + Add to APC
-                                            </button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => navigate(`/admin/metadata/sdl?q=${row.fileNo}`)}
+                                                    className="p-1.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                                                    title="Go to SDL Record"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => onAddToAPC(row)}
+                                                    className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-3 py-1 rounded text-xs font-bold transition-colors border border-emerald-100 dark:border-emerald-900/30"
+                                                >
+                                                    + Add to APC
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

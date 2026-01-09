@@ -115,6 +115,31 @@ export const uploadAPC = async (file: File): Promise<any> => {
     return response.json();
 };
 
+export const appendAPC = async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${REQUEST_URL}/append`, {
+        method: 'POST',
+        headers: getAuthHeadersFormData(),
+        body: formData,
+    });
+
+    if (!response.ok) {
+        let errorMessage = 'Failed to append APC records';
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorData.message || errorData.error || JSON.stringify(errorData);
+        } catch (e) {
+            const errorText = await response.text();
+            errorMessage = errorText || response.statusText;
+        }
+        throw new Error(errorMessage);
+    }
+    apcCache = null; // Invalidate
+    return response.json();
+};
+
 export const getAllAPCRecords = async (onlyActive: boolean = false, force: boolean = false): Promise<APCRecord[]> => {
     if (apcCache && !force) {
         return onlyActive ? apcCache.filter(item => item.active) : apcCache;
