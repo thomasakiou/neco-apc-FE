@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, getAllStaff, bulkDeleteStaff } from '../../../services/staff';
+import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff } from '../../../services/staff';
 import { Staff, StaffCreate } from '../../../types/staff';
 import StaffModal from '../StaffModal';
 import AlertModal from '../../../components/AlertModal';
@@ -103,139 +103,41 @@ const SDLPage: React.FC = () => {
     }>({ isOpen: false, title: '', type: 'info' });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const promoFileInputRef = useRef<HTMLInputElement>(null);
-    const [promotedFileNos, setPromotedFileNos] = useState<string[]>([]);
+    const appendFileInputRef = useRef<HTMLInputElement>(null);
+    const promoteFileInputRef = useRef<HTMLInputElement>(null);
 
-    const promoteGrade = (currentGrade: string | null): string | null => {
-        if (!currentGrade) return null;
-        // Extract numbers from string like "CONRAISS 12" or "12"
-        const match = currentGrade.match(/\d+/);
-        if (!match) return currentGrade;
-
-        let gradeNum = parseInt(match[0]);
-        let newGradeNum: number;
-
-        if (gradeNum === 9) {
-            newGradeNum = 11;
-        } else {
-            newGradeNum = gradeNum + 1;
-        }
-
-        // Replace the number in the original string to preserve labels if any
-        return currentGrade.replace(match[0], newGradeNum.toString());
-    };
-
-    const handlePromoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePromoteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const text = event.target?.result as string;
-            const lines = text.split('\n');
-            const fileNumbers: string[] = [];
-
-            lines.forEach((line, index) => {
-                if (!line.trim()) return;
-                const columns = line.split(',');
-                let val = columns[0].trim().replace(/"/g, '');
-
-                // Skip header if it is exactly "FileNo" or "Station" etc.
-                if (index === 0 && val.toLowerCase().includes('fileno')) return;
-
-                // Pad to 4 digits if it's a number
-                if (/^\d+$/.test(val)) {
-                    val = val.padStart(4, '0');
-                }
-                if (val) fileNumbers.push(val);
-            });
-
-            setPromotedFileNos(fileNumbers);
-            setAlertModal({
-                isOpen: true,
-                title: 'Promotion List Loaded',
-                message: `Loaded ${fileNumbers.length} file numbers into memory. Click "Run Promotion" to update their grades.`,
-                type: 'info'
-            });
-        };
-        reader.readAsText(file);
-
-        if (promoFileInputRef.current) promoFileInputRef.current.value = '';
-    };
-
-    const handlePromote = async () => {
-        if (promotedFileNos.length === 0) {
-            setAlertModal({
-                isOpen: true,
-                title: 'No Promotion List',
-                message: 'Please upload a CSV file with "FileNo" first.',
-                type: 'warning'
-            });
-            return;
-        }
 
         setAlertModal({
             isOpen: true,
             title: 'Confirm Promotion',
-            message: `Are you sure you want to promote ${promotedFileNos.length} staff members? This will increase their CONRAISS by 1 (9 skips to 11).`,
+            message: 'Are you sure you want to promote staff based on this file? This will update their Rank and CONRAISS.',
             type: 'warning',
             onConfirm: async () => {
                 setLoading(true);
-                let successCount = 0;
-                let failedCount = 0;
-
                 try {
-                    // Fetch ALL staff to ensure we find matches even if not in current page
-                    const allStaffRecords = await getAllStaff();
-                    const staffToPromote = allStaffRecords.filter(s => promotedFileNos.includes(s.fileno));
-
-                    if (staffToPromote.length === 0) {
-                        setAlertModal({
-                            isOpen: true,
-                            title: 'Promotion Error',
-                            message: 'No matching staff found for the provided file numbers.',
-                            type: 'error'
-                        });
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Loop and update
-                    for (const staff of staffToPromote) {
-                        const newConr = promoteGrade(staff.conr);
-                        if (newConr !== staff.conr) {
-                            try {
-                                // Spread the original staff object to ensure all required fields (like fileno, full_name) are sent
-                                // and only override the conr Grade.
-                                const { id, created_at, updated_at, created_by, updated_by, ...updateData } = staff;
-                                await updateStaff(staff.id, { ...updateData, conr: newConr });
-                                successCount++;
-                            } catch (err) {
-                                console.error(`Failed to promote staff ${staff.fileno}`, err);
-                                failedCount++;
-                            }
-                        } else {
-                            // Grade couldn't be parsed or no change
-                            successCount++;
-                        }
-                    }
-
+                    const response = await promoteStaff(file, true);
                     setAlertModal({
                         isOpen: true,
                         title: 'Promotion Complete',
-                        message: `Successfully processed ${staffToPromote.length} staff records. ${successCount} updated, ${failedCount} failed. ${promotedFileNos.length - staffToPromote.length} file numbers were not found in database.`,
-                        type: 'success'
+                        message: `Successfully processed ${response.processed_count} records. ${response.updated_count} updated, ${response.skipped_count} skipped, ${response.error_count} errors.`,
+                        type: 'success',
+                        details: {
+                            updated: response.updated || [],
+                            skipped: response.skipped || [],
+                            errors: response.errors || []
+                        }
                     });
-
                     fetchData();
                     fetchAllStaff();
-                    setPromotedFileNos([]); // Clear memory
-                } catch (error) {
-                    console.error('Promotion process failed', error);
+                } catch (error: any) {
+                    console.error('Promotion failed:', error);
                     setAlertModal({
                         isOpen: true,
-                        title: 'Process Error',
-                        message: 'An error occurred during the promotion process.',
+                        title: 'Promotion Failed',
+                        message: error.message || 'An error occurred during promotion.',
                         type: 'error'
                     });
                 } finally {
@@ -243,6 +145,8 @@ const SDLPage: React.FC = () => {
                 }
             }
         });
+
+        if (promoteFileInputRef.current) promoteFileInputRef.current.value = '';
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -278,6 +182,44 @@ const SDLPage: React.FC = () => {
         } finally {
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
+            }
+            setLoading(false);
+        }
+    };
+
+    const handleAppendUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setLoading(true);
+            const response = await appendStaffCsv(file);
+            setAlertModal({
+                isOpen: true,
+                title: 'Append Complete',
+                message: 'Staff data has been appended successfully (existing records skipped).',
+                type: 'success',
+                details: {
+                    created: response.created_count,
+                    skipped: response.skipped_count,
+                    errors: response.error_count,
+                    skippedData: response.skipped || [],
+                    errorData: response.errors || []
+                }
+            });
+            fetchData();
+            fetchAllStaff();
+        } catch (error: any) {
+            console.error('Append failed:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Append Failed',
+                message: error.message || 'An error occurred while appending the file.',
+                type: 'error'
+            });
+        } finally {
+            if (appendFileInputRef.current) {
+                appendFileInputRef.current.value = '';
             }
             setLoading(false);
         }
@@ -659,30 +601,19 @@ const SDLPage: React.FC = () => {
                     />
                     <input
                         type="file"
-                        accept=".csv"
+                        accept=".csv,.xlsx,.xls"
                         className="hidden"
-                        ref={promoFileInputRef}
-                        onChange={handlePromoFileUpload}
+                        ref={promoteFileInputRef}
+                        onChange={handlePromoteUpload}
                         style={{ display: 'none' }}
                     />
                     <button
-                        onClick={() => promoFileInputRef.current?.click()}
+                        onClick={() => promoteFileInputRef.current?.click()}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200"
                     >
-                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-blue-600 dark:from-indigo-400 dark:to-blue-500 group-hover:scale-110 transition-transform text-lg">list_alt</span>
-                        Promote CSV
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-blue-600 dark:from-indigo-400 dark:to-blue-500 group-hover:scale-110 transition-transform text-lg">trending_up</span>
+                        Promote Staff
                     </button>
-
-                    {promotedFileNos.length > 0 && (
-                        <button
-                            onClick={handlePromote}
-                            disabled={loading}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 animate-pulse"
-                        >
-                            <span className="material-symbols-outlined group-hover:rotate-12 transition-transform text-lg">trending_up</span>
-                            Run Promotion ({promotedFileNos.length})
-                        </button>
-                    )}
 
                     <button
                         onClick={() => fileInputRef.current?.click()}
@@ -690,6 +621,21 @@ const SDLPage: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-400 dark:to-teal-500 group-hover:scale-110 transition-transform text-lg">upload_file</span>
                         Import
+                    </button>
+                    <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        className="hidden"
+                        ref={appendFileInputRef}
+                        onChange={handleAppendUpload}
+                        style={{ display: 'none' }}
+                    />
+                    <button
+                        onClick={() => appendFileInputRef.current?.click()}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-teal-600 dark:text-teal-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-teal-500 to-emerald-600 dark:from-teal-400 dark:to-emerald-500 group-hover:scale-110 transition-transform text-lg">library_add</span>
+                        Append New Staff
                     </button>
                     <button
                         onClick={handleOpenAdd}

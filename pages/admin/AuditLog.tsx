@@ -31,11 +31,10 @@ const AuditLog: React.FC = () => {
          const skip = (page - 1) * limit;
          const data = await getAuditLogs(skip, limit);
 
-         // Filter out own activities
-         const othersLogs = data.items.filter(log => log.user_name !== currentUser?.full_name);
-
-         setEvents(othersLogs);
-         setTotal(data.total);
+         if (data && data.items) {
+            setEvents(data.items);
+            setTotal(data.total);
+         }
       } catch (error) {
          console.error("Failed to fetch audit data", error);
       } finally {
@@ -159,12 +158,12 @@ const AuditLog: React.FC = () => {
                               {loading ? (
                                  [...Array(8)].map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                       <td colSpan={3} className="px-8 py-6 h-16 bg-slate-50/50 dark:bg-white/5"></td>
+                                       <td colSpan={isSuperAdmin ? 5 : 4} className="px-8 py-6 h-16 bg-slate-50/50 dark:bg-white/5"></td>
                                     </tr>
                                  ))
                               ) : events.length === 0 ? (
                                  <tr>
-                                    <td colSpan={3} className="px-8 py-20 text-center">
+                                    <td colSpan={isSuperAdmin ? 5 : 4} className="px-8 py-20 text-center">
                                        <span className="material-symbols-outlined text-6xl text-slate-200 dark:text-white/5">layers_clear</span>
                                        <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-xs">No administrative trails found</p>
                                     </td>

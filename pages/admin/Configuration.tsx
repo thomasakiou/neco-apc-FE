@@ -98,8 +98,9 @@ const Configuration: React.FC = () => {
         setIsLoading(true);
         try {
             const data = await getAuditLogs(0, 50);
-            const filteredLogs = data.items.filter(log => !log.user_name.toLowerCase().startsWith('super admin'));
-            setAuditLogs(filteredLogs);
+            if (data && data.items) {
+                setAuditLogs(data.items);
+            }
         } catch (error: any) {
             showNotification(error.message, 'error');
         } finally {
@@ -480,7 +481,7 @@ const Configuration: React.FC = () => {
                                         {auditLogs.length === 0 && (
                                             <div className="p-12 text-center">
                                                 <span className="material-symbols-outlined text-slate-200 dark:text-white/5 text-6xl">database_off</span>
-                                                <p className="text-slate-500 dark:text-slate-400 font-bold mt-4 tracking-tight">No audit logs discovered for others.</p>
+                                                <p className="text-slate-500 dark:text-slate-400 font-bold mt-4 tracking-tight">No administrative trails found.</p>
                                             </div>
                                         )}
                                     </div>

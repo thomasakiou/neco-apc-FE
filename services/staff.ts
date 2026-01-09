@@ -176,6 +176,46 @@ export const uploadStaffCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
+export const appendStaffCsv = async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_URL}/append`, {
+        method: 'POST',
+        headers: getAuthHeadersFormData(),
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Append Error Details:', errorData);
+        throw new Error(errorData.detail || 'Failed to append staff CSV');
+    }
+    return response.json();
+}
+
+export const promoteStaff = async (file: File, confirm: boolean = false): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const params = new URLSearchParams({
+        confirm: confirm.toString(),
+    });
+
+    const response = await fetch(`${API_URL}/promote?${params.toString()}`, {
+        method: 'POST',
+        headers: getAuthHeadersFormData(),
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Promote Error Details:', errorData);
+        throw new Error(errorData.detail || 'Failed to promote staff');
+    }
+    return response.json();
+}
+
 export const getAllStaff = async (onlyActive: boolean = false): Promise<Staff[]> => {
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
