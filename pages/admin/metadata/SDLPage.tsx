@@ -122,12 +122,13 @@ const SDLPage: React.FC = () => {
                     setAlertModal({
                         isOpen: true,
                         title: 'Promotion Complete',
-                        message: `Successfully processed ${response.processed_count} records. ${response.updated_count} updated, ${response.skipped_count} skipped, ${response.error_count} errors.`,
+                        message: `Successfully processed ${response.total_processed} records. ${response.updated_count} updated, ${response.missing_count} missing.`,
                         type: 'success',
                         details: {
-                            updated: response.updated || [],
-                            skipped: response.skipped || [],
-                            errors: response.errors || []
+                            updated_count: response.updated_count,
+                            missing_count: response.missing_count,
+                            missing_filenos: response.missing_filenos || [],
+                            message: response.message
                         }
                     });
                     fetchData();
