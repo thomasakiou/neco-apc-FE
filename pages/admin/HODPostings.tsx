@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { getAllHODApcRecords, assignmentFieldMap } from '../../services/hodApc';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { getAllHODApcRecords, assignmentFieldMap as hodApcFieldMap } from '../../services/hodApc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
@@ -19,6 +19,13 @@ import { getAllTTCenters } from '../../services/ttCenter';
 import { State } from '../../types/state';
 import { getAllStations } from '../../services/station';
 import { Station } from '../../types/station';
+import { getHODAssignmentBoardData, bulkSaveHODAssignments } from '../../services/hodPersonalizedPost';
+import { AssignmentBoardData, StaffMandateAssignment } from '../../types/apc';
+import { MandateColumn } from '../../components/MandateColumn';
+import SearchableSelect from '../../components/SearchableSelect';
+import CsvUploadModal from '../../components/CsvUploadModal';
+import HelpModal from '../../components/HelpModal';
+import { helpContent } from '../../data/helpContent';
 
 
 const HODPostings: React.FC = () => {
@@ -65,12 +72,6 @@ const HODPostings: React.FC = () => {
     const [numberOfNights, setNumberOfNights] = useState<number>(0);
     const [description, setDescription] = useState<string>('');
 
-    // Personalized Posting States
-    const [csvFile, setCsvFile] = useState<File | null>(null);
-    const [csvData, setCsvData] = useState<{ fileNo: string; venue: string }[]>([]);
-    const [csvErrors, setCsvErrors] = useState<string[]>([]);
-    const [csvPreview, setCsvPreview] = useState<PostingCreate[]>([]);
-
     // Preview
     const [generatedPostings, setGeneratedPostings] = useState<PostingCreate[]>([]);
     const [previewMode, setPreviewMode] = useState(false);
@@ -78,6 +79,18 @@ const HODPostings: React.FC = () => {
     // Modals
     const [isStationModalOpen, setIsStationModalOpen] = useState(false);
     const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' | 'warning' }>({ isOpen: false, title: '', message: '', type: 'info' as any });
+
+    // Board States (Personalized)
+    const [boardData, setBoardData] = useState<AssignmentBoardData | null>(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [pendingChanges, setPendingChanges] = useState<{ staffId: string; staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[]>([]);
+    const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string>>(new Set());
+    const [poolSearch, setPoolSearch] = useState('');
+    const [boardSearch, setBoardSearch] = useState('');
+    const [selectedStationId, setSelectedStationId] = useState<string>('');
+    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null; group?: string }[]>([]);
+    const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
 
     useEffect(() => {
         fetchInitialData();
@@ -162,6 +175,21 @@ const HODPostings: React.FC = () => {
                 });
             }
             setVenues(options);
+            setStationOptions(options.map(s => {
+                const stateVal = type === 'state' ? s.name : (s.state_name || s.state || null);
+                const baseName = s.display_name || s.name;
+                const finalName = (type !== 'state' && stateVal && !baseName.toLowerCase().includes(stateVal.toLowerCase()))
+                    ? `${baseName} | ${stateVal}`
+                    : baseName;
+
+                return {
+                    id: s.id,
+                    name: finalName,
+                    type,
+                    state: stateVal,
+                    group: type === 'state' ? 'All States' : (stateVal || 'Others')
+                };
+            }));
             setSelectedVenues([]);
             setIsAllVenues(false);
             success(`Loaded ${options.length} stations.`);
@@ -173,28 +201,177 @@ const HODPostings: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        if (activeTab === 'personalized' && selectedAssignment) {
+            loadBoardData(selectedAssignment);
+        } else {
+            setBoardData(null);
+            setHasUnsavedChanges(false);
+            setPendingChanges([]);
+            setSelectedStaffIds(new Set());
+        }
+    }, [activeTab, selectedAssignment]);
+
+    const loadBoardData = async (assignmentId: string) => {
+        setLoading(true);
+        try {
+            const assignment = assignments.find(a => a.id === assignmentId);
+            if (!assignment) return;
+            const data = await getHODAssignmentBoardData(assignment);
+            setBoardData(data);
+            setHasUnsavedChanges(false);
+            setPendingChanges([]);
+            setSelectedStaffIds(new Set());
+        } catch (err) {
+            console.error(err);
+            error('Failed to load board data');
+            setSelectedAssignment('');
+        } finally { setLoading(false); }
+    };
+
+    const handleLocalMove = useCallback((staff: StaffMandateAssignment, targetColumnId: string) => {
+        if (!staff || !targetColumnId) return false;
+        if (staff.mandate_id === targetColumnId) return false;
+
+        setBoardData(prev => {
+            if (!prev) return prev;
+            const newBoard = { ...prev, unassignedStaff: [...prev.unassignedStaff], mandateColumns: prev.mandateColumns.map(c => ({ ...c, staff: [...c.staff] })) };
+
+            const isFromPool = !staff.mandate_id;
+            const isToPool = targetColumnId === 'unassigned';
+
+            // 1. Remove from source
+            if (isFromPool) {
+                newBoard.unassignedStaff = newBoard.unassignedStaff.filter(s => s.id !== staff.id);
+            } else {
+                const col = newBoard.mandateColumns.find(c => c.id === staff.mandate_id);
+                if (col) col.staff = col.staff.filter(s => s.id !== staff.id);
+            }
+
+            // 2. Add to target
+            const action = isFromPool ? 'add' : (isToPool ? 'remove' : 'move');
+            const updatedStaff = { ...staff, mandate_id: isToPool ? null : targetColumnId, pendingAction: action };
+
+            if (isToPool) {
+                newBoard.unassignedStaff.push(updatedStaff);
+            } else {
+                const col = newBoard.mandateColumns.find(c => c.id === targetColumnId);
+                if (col) col.staff.push(updatedStaff);
+            }
+
+            setPendingChanges(old => [...old.filter(p => p.staffId !== staff.id), {
+                staffId: staff.id, staff: updatedStaff, action, targetMandateId: isToPool ? null : targetColumnId
+            }]);
+            setHasUnsavedChanges(true);
+            return newBoard;
+        });
+        return true;
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent, targetColumnId: string) => {
+        e.preventDefault();
+        const staffData = e.dataTransfer.getData('application/json');
+        if (!staffData) return;
+        const staff: StaffMandateAssignment = JSON.parse(staffData);
+        if ((staff.mandate_id || 'unassigned') === targetColumnId) return;
+        handleLocalMove(staff, targetColumnId);
+    }, [handleLocalMove]);
+
+    const handleBulkMove = (targetMandateId: string) => {
+        if (selectedStaffIds.size === 0) return;
+        if (!boardData) return;
+
+        const staffToMove = [...boardData.unassignedStaff, ...boardData.mandateColumns.flatMap(c => c.staff)]
+            .filter(s => selectedStaffIds.has(s.id));
+
+        staffToMove.forEach(s => handleLocalMove(s, targetMandateId));
+        setSelectedStaffIds(new Set());
+    };
+
+    const handleBoardSaveChanges = async () => {
+        if (!boardData || pendingChanges.length === 0) return;
+        if (!selectedStationId) {
+            warning('Please select a Target Station first.');
+            return;
+        }
+
+        const assignment = assignments.find(a => a.id === selectedAssignment);
+
+        setLoading(true);
+        try {
+            await bulkSaveHODAssignments({
+                assignment: assignment!,
+                station: stationOptions.find(s => s.id === selectedStationId),
+                changes: pendingChanges,
+                numberOfNights: (assignment?.code === 'MAR-ACCR' || assignment?.code === 'OCT-ACCR') ? numberOfNights : undefined,
+                description: description
+            });
+            success(`${pendingChanges.length} changes committed successfully!`);
+            await loadBoardData(selectedAssignment);
+        } catch (err: any) {
+            error(err.message || 'Failed to save board changes');
+        } finally { setLoading(false); }
+    };
+
+    const onToggleSelect = useCallback((id: string) => {
+        setSelectedStaffIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+
+    const downloadCsvTemplate = () => {
+        const headers = ['StaffNo', 'MandateCode'];
+        const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "bulk_hod_assignment_template.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const filteredPool = useMemo(() => {
+        if (!boardData) return [];
+        const search = poolSearch.toLowerCase();
+        return boardData.unassignedStaff.filter(s =>
+            s.staff_name.toLowerCase().includes(search) ||
+            s.staff_no.includes(search) ||
+            s.current_station.toLowerCase().includes(search) ||
+            s.qualification?.toLowerCase().includes(search)
+        );
+    }, [boardData?.unassignedStaff, poolSearch]);
+
+    const filteredBoard = useMemo(() => {
+        if (!boardData) return [];
+        const search = boardSearch.toLowerCase();
+        return boardData.mandateColumns.map(col => ({
+            ...col,
+            staff: col.staff.filter(s =>
+                s.staff_name.toLowerCase().includes(search) ||
+                s.staff_no.includes(search) ||
+                s.current_station.toLowerCase().includes(search) ||
+                s.qualification?.toLowerCase().includes(search)
+            )
+        }));
+    }, [boardData?.mandateColumns, boardSearch]);
+
     // Get eligible HODs for selected assignment
     const eligibleHODs = useMemo(() => {
         if (!selectedAssignment || allHODs.length === 0) {
-            console.log('[HOD Filter] No assignment selected or no HODs loaded', { selectedAssignment, hodCount: allHODs.length });
             return [];
         }
         const assignmentRecord = assignments.find(a => a.id === selectedAssignment);
         if (!assignmentRecord) {
-            console.log('[HOD Filter] Assignment record not found', { selectedAssignment });
             return [];
         }
-        const apcField = assignmentFieldMap[assignmentRecord.code] || assignmentFieldMap[assignmentRecord.name];
+        const apcField = hodApcFieldMap[assignmentRecord.code] || hodApcFieldMap[assignmentRecord.name];
         if (!apcField) {
-            console.log('[HOD Filter] No APC field mapping found', {
-                assignmentCode: assignmentRecord.code,
-                assignmentName: assignmentRecord.name,
-                availableFields: Object.keys(assignmentFieldMap)
-            });
             return [];
         }
-
-        console.log('[HOD Filter] Using APC field:', apcField, 'for assignment:', assignmentRecord.name);
 
         // Pre-calculate posted counts
         const postedCountMap = new Map<string, number>();
@@ -212,16 +389,6 @@ const HODPostings: React.FC = () => {
             const totalAllotted = hod.count || 0;
             if (totalPosted >= totalAllotted) return false;
             return true;
-        });
-
-        console.log('[HOD Filter] Results:', {
-            totalHODs: allHODs.length,
-            activeHODs: allHODs.filter(h => h.active).length,
-            withFieldValue: allHODs.filter(h => {
-                const val = h[apcField as keyof HODApcRecord];
-                return val && val.toString().trim() !== '';
-            }).length,
-            eligibleCount: filtered.length
         });
 
         return filtered;
@@ -413,99 +580,13 @@ const HODPostings: React.FC = () => {
         }
     };
 
-    const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setCsvFile(file);
-        setCsvErrors([]);
-        setCsvPreview([]);
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const text = event.target?.result as string;
-            const lines = text.split('\n').filter(l => l.trim());
-            if (lines.length <= 1) {
-                setCsvErrors(['CSV file is empty or only contains headers.']);
-                return;
-            }
-
-            const errors: string[] = [];
-            const parsedData: { fileNo: string; venue: string }[] = [];
-            const validPostings: PostingCreate[] = [];
-
-            // Create lookup maps
-            const hodMap = new Map<string, HODApcRecord>(allHODs.map(h => [h.file_no.toString().padStart(4, '0'), h]));
-            const venueMap = new Map(venues.map(v => [v.name.toLowerCase(), v]));
-
-            // Duplicate Check
-            const targetMandate = mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate;
-            const alreadyAssignedStaffIds = new Set<string>();
-            existingPostings.forEach(p => {
-                if (Array.isArray(p.mandates) && p.mandates.some(m => m === targetMandate)) {
-                    alreadyAssignedStaffIds.add(p.file_no);
-                }
-            });
-
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim());
-                if (cols.length < 2) {
-                    errors.push(`Row ${i + 1}: Invalid format. Expected FileNo,Venue`);
-                    continue;
-                }
-                const fileNo = cols[0].toString().padStart(4, '0');
-                const venueName = cols[1];
-
-                const hod = hodMap.get(fileNo);
-                if (!hod) {
-                    errors.push(`Row ${i + 1}: Staff ${fileNo} not found in HOD records.`);
-                    continue;
-                }
-
-                if (alreadyAssignedStaffIds.has(hod.file_no)) {
-                    errors.push(`Row ${i + 1}: Staff ${fileNo} is already posted for mandate ${targetMandate}.`);
-                    continue;
-                }
-
-                const venue = venueMap.get(venueName.toLowerCase()) || venues.find(v => v.name.toLowerCase().includes(venueName.toLowerCase()));
-                if (!venue) {
-                    errors.push(`Row ${i + 1}: Venue "${venueName}" not found.`);
-                    continue;
-                }
-
-                parsedData.push({ fileNo, venue: venue.name });
-                validPostings.push({
-                    file_no: hod.file_no,
-                    name: hod.name,
-                    station: hod.station || '',
-                    conraiss: hod.conraiss || '',
-                    year: new Date().getFullYear().toString(),
-                    count: numberOfNights,
-                    posted_for: 1,
-                    to_be_posted: Math.max(0, (hod.count || 0) - 1),
-                    assignments: selectedAssignment ? [assignments.find(a => a.id === selectedAssignment)?.code || ''] : [],
-                    mandates: selectedMandate ? [mandates.find(m => m.id === selectedMandate)?.mandate || ''] : [],
-                    assignment_venue: [`${venue.code ? `${venue.code} | ` : ''}${venue.name} | ${venue.state_name}`],
-                    state: venue.state_name,
-                    zone: venue.zone,
-                    description: description || null
-                } as any);
-            }
-
-            setCsvData(parsedData);
-            setCsvErrors(errors);
-            setCsvPreview(validPostings);
-        };
-        reader.readAsText(file);
-    };
-
-    const handleSavePostings = async (postings: PostingCreate[]) => {
-        if (postings.length === 0) return;
+    const handleSavePostings = async (postingsToSave: PostingCreate[]) => {
+        if (postingsToSave.length === 0) return;
         setLoading(true);
         try {
-            await bulkCreateHODPostings({ items: postings });
-            success(`Successfully posted ${postings.length} HODs!`);
+            await bulkCreateHODPostings({ items: postingsToSave });
+            success(`Successfully posted ${postingsToSave.length} HODs!`);
             setGeneratedPostings([]);
-            setCsvPreview([]);
             setPreviewMode(false);
             fetchInitialData();
         } catch (err: any) {
@@ -849,95 +930,170 @@ const HODPostings: React.FC = () => {
                 )}
 
                 {activeTab === 'personalized' && (
-                    <div className="space-y-6">
-                        {/* Assignment/Mandate Selection */}
-                        <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800">
-                            <h3 className="text-lg font-bold mb-4">1. Select Assignment & Mandate</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Assignment</label>
-                                    <select className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700" value={selectedAssignment} onChange={e => setSelectedAssignment(e.target.value)}>
-                                        <option value="">Select Assignment</option>
-                                        {assignments.filter(a => a.active).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Mandate</label>
-                                    <select className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 disabled:opacity-50" value={selectedMandate} onChange={e => setSelectedMandate(e.target.value)} disabled={!selectedAssignment}>
-                                        <option value="">Select Mandate</option>
-                                        {mandates.filter(m => {
-                                            if (!selectedAssignment) return false;
-                                            const assignment = assignments.find(a => a.id === selectedAssignment);
-                                            return assignment?.mandates?.includes(m.code);
-                                        }).map(m => <option key={m.id} value={m.id}>{m.mandate}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Nights</label>
-                                    <input type="number" min="0" className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700" value={numberOfNights} onChange={e => setNumberOfNights(parseInt(e.target.value) || 0)} />
+                    <div className="flex-1 flex flex-col min-h-[600px] bg-white dark:bg-[#121b25] rounded-2xl border border-slate-200 dark:border-gray-800 overflow-hidden">
+                        {/* Board Workspace Header */}
+                        <header className="p-4 border-b border-slate-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex flex-wrap items-center gap-3 flex-1">
+                                {/* Assignment Dropdown */}
+                                <select
+                                    className="h-10 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-sm font-medium min-w-[200px]"
+                                    value={selectedAssignment}
+                                    onChange={e => setSelectedAssignment(e.target.value)}
+                                >
+                                    <option value="">Select Assignment</option>
+                                    {assignments.filter(a => a.active).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                </select>
+                                <SearchableSelect
+                                    options={stationOptions}
+                                    value={selectedStationId}
+                                    onChange={setSelectedStationId}
+                                    placeholder="Target Station..."
+                                    className="min-w-[240px]"
+                                />
+                                <button
+                                    onClick={() => setIsStationModalOpen(true)}
+                                    className="h-10 px-4 flex items-center justify-center rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-sm">hub</span>
+                                    Pick Station
+                                </button>
+                                <input
+                                    type="text"
+                                    placeholder="Description..."
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="h-10 px-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-indigo-500 outline-none transition-all flex-1"
+                                />
+                                <div className="flex flex-col">
+                                    <input
+                                        type="number"
+                                        placeholder="Nights..."
+                                        min="0"
+                                        value={numberOfNights}
+                                        onChange={(e) => setNumberOfNights(parseInt(e.target.value) || 0)}
+                                        className="h-10 px-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-indigo-500 outline-none transition-all w-20"
+                                    />
                                 </div>
                             </div>
-                        </div>
 
-                        {/* CSV Upload */}
-                        <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-bold">2. Upload CSV File</h3>
+                            <div className="flex items-center gap-3">
+                                {selectedStaffIds.size > 0 && (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
+                                        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{selectedStaffIds.size} Selected</span>
+                                        <button onClick={() => setSelectedStaffIds(new Set())} className="text-[10px] font-bold text-slate-500 hover:text-rose-500 uppercase">Clear</button>
+                                    </div>
+                                )}
                                 <button
-                                    type="button"
-                                    onClick={() => {
-                                        const csvContent = "FileNo,Venue\n0001,MAMP SCHOOL\n0002,GOVERNMENT COLLEGE (001)";
-                                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                                        const link = document.createElement('a');
-                                        link.href = URL.createObjectURL(blob);
-                                        link.download = 'hod_posting_template.csv';
-                                        link.click();
-                                    }}
-                                    className="text-sm font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                                    onClick={handleBoardSaveChanges}
+                                    disabled={!hasUnsavedChanges || loading}
+                                    className="h-10 px-6 rounded-xl bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 disabled:grayscale disabled:opacity-50 transition-all flex items-center gap-2 whitespace-nowrap"
                                 >
-                                    <span className="material-symbols-outlined text-lg">download</span>
-                                    Download Template
+                                    {loading ? <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span> : <span className="material-symbols-outlined text-sm">commit</span>}
+                                    Commit Changes
                                 </button>
                             </div>
-                            <p className="text-sm text-slate-500 mb-4">CSV format: <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">FileNo,Venue</code></p>
-                            <input type="file" accept=".csv" onChange={handleCsvUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" />
+                        </header>
 
-                            {csvErrors.length > 0 && (
-                                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-                                    <h4 className="font-bold text-red-700 dark:text-red-400 mb-2">Errors Found:</h4>
-                                    <ul className="list-disc list-inside text-sm text-red-600 dark:text-red-300 space-y-1">
-                                        {csvErrors.map((err, i) => <li key={i}>{err}</li>)}
-                                    </ul>
+                        {/* Board Content */}
+                        <div className="flex-1 flex overflow-hidden">
+                            {/* Pool Side */}
+                            <aside className="w-80 border-r border-slate-100 dark:border-gray-800 flex flex-col bg-slate-50/50 dark:bg-[#0f161d]/50">
+                                <div className="p-4 border-b border-white dark:border-gray-800">
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Search pool..."
+                                            value={poolSearch}
+                                            onChange={(e) => setPoolSearch(e.target.value)}
+                                            className="w-full h-9 pl-9 pr-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-gray-700 rounded-lg text-xs font-medium outline-none focus:ring-2 ring-indigo-500/20"
+                                        />
+                                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">person_search</span>
+                                    </div>
                                 </div>
-                            )}
+                                <div className="flex-1 overflow-hidden">
+                                    <MandateColumn
+                                        columnId="unassigned"
+                                        title="Eligible Pool"
+                                        staffList={filteredPool}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={handleDrop}
+                                        selectedStaffIds={selectedStaffIds}
+                                        onToggleSelect={onToggleSelect}
+                                    />
+                                </div>
+                            </aside>
+
+                            {/* Columns Side */}
+                            <section className="flex-1 flex flex-col overflow-hidden">
+                                <div className="h-12 px-6 flex items-center justify-between border-b border-slate-100 dark:border-gray-800 bg-white/50 dark:bg-transparent">
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter board..."
+                                                value={boardSearch}
+                                                onChange={(e) => setBoardSearch(e.target.value)}
+                                                className="h-8 pl-6 bg-transparent border-none text-xs font-bold outline-none placeholder:text-slate-300 w-48"
+                                            />
+                                            <span className="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 text-sm">search</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={downloadCsvTemplate} className="text-[10px] font-black uppercase text-slate-400 hover:text-indigo-500 transition-colors flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-sm">download</span> Template
+                                        </button>
+                                        <button onClick={() => setIsCsvModalOpen(true)} className="text-[10px] font-black uppercase text-slate-400 hover:text-indigo-500 transition-colors flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-sm">cloud_upload</span> Import CSV
+                                        </button>
+                                        <div className="w-[1px] h-3 bg-slate-200 dark:bg-slate-800"></div>
+                                        <button onClick={() => setShowHelp(true)} className="text-[10px] font-black uppercase text-slate-400 hover:text-indigo-500 transition-colors flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-sm">help</span> Help
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-x-auto custom-scrollbar p-6">
+                                    <div className="flex gap-4 h-full min-w-max">
+                                        {!selectedAssignment ? (
+                                            <div className="flex-1 flex flex-col items-center justify-center opacity-30 gap-4 grayscale h-full w-full">
+                                                <span className="material-symbols-outlined text-6xl">dashboard_customize</span>
+                                                <p className="text-xs font-black uppercase tracking-widest italic">Choose an assignment to initialize board</p>
+                                            </div>
+                                        ) : loading && !boardData ? (
+                                            <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full w-full">
+                                                <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                                                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest animate-pulse">Loading Workspace</p>
+                                            </div>
+                                        ) : (
+                                            filteredBoard.map((col, idx) => (
+                                                <div key={col.id} className="w-[300px] flex flex-col relative h-full">
+                                                    <MandateColumn
+                                                        columnId={col.id}
+                                                        title={col.title}
+                                                        subtitle={col.code}
+                                                        staffList={col.staff}
+                                                        onDragOver={(e) => e.preventDefault()}
+                                                        onDrop={handleDrop}
+                                                        colorTheme={['emerald', 'blue', 'purple', 'amber'][idx % 4] as any}
+                                                        isDropTarget={true}
+                                                        selectedStaffIds={selectedStaffIds}
+                                                        onToggleSelect={onToggleSelect}
+                                                    />
+                                                    {selectedStaffIds.size > 0 && (
+                                                        <button
+                                                            onClick={() => handleBulkMove(col.id)}
+                                                            className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-full shadow-lg border-2 border-white dark:border-slate-900 z-20 hover:scale-110 active:scale-95 transition-all animate-bounce"
+                                                        >
+                                                            MOVE {selectedStaffIds.size} TO THIS
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
                         </div>
-
-                        {/* CSV Preview */}
-                        {csvPreview.length > 0 && (
-                            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-bold">3. Preview ({csvPreview.length} Valid Rows)</h3>
-                                    <button
-                                        onClick={() => handleSavePostings(csvPreview)}
-                                        disabled={loading}
-                                        className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-emerald-700 disabled:opacity-50"
-                                    >
-                                        {loading ? 'Saving...' : 'Commit All'}
-                                    </button>
-                                </div>
-                                <table className="w-full text-left border-collapse">
-                                    <thead className="bg-slate-50 dark:bg-[#0f161d] text-sm uppercase font-bold text-slate-500">
-                                        <tr><th className="p-3">File No</th><th className="p-3">Name</th><th className="p-3">Venue</th></tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
-                                        {csvPreview.slice(0, 20).map((p, idx) => (
-                                            <tr key={idx}><td className="p-3 font-mono">{p.file_no}</td><td className="p-3">{p.name}</td><td className="p-3 text-purple-600 dark:text-purple-400">{p.assignment_venue?.[0]}</td></tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                {csvPreview.length > 20 && <p className="text-sm text-slate-500 mt-2 text-center">... and {csvPreview.length - 20} more</p>}
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
@@ -945,6 +1101,79 @@ const HODPostings: React.FC = () => {
             {/* Modals */}
             <StationTypeSelectionModal isOpen={isStationModalOpen} onClose={() => setIsStationModalOpen(false)} onSelect={handleStationTypeSelect} />
             <AlertModal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ ...alertModal, isOpen: false })} title={alertModal.title} message={alertModal.message} type={alertModal.type} />
+            <CsvUploadModal
+                isOpen={isCsvModalOpen}
+                onClose={() => setIsCsvModalOpen(false)}
+                staffPool={boardData ? [
+                    ...boardData.unassignedStaff,
+                    ...boardData.mandateColumns.flatMap(c => c.staff)
+                ] : []}
+                onUpload={(csvData) => {
+                    if (!boardData) return;
+
+                    let successCount = 0;
+                    let errorCount = 0;
+                    const errorDetails: string[] = [];
+                    const notFoundStaffNos: string[] = [];
+
+                    // 1. Create maps for faster lookup
+                    const staffMap = new Map<string, StaffMandateAssignment>();
+                    [...boardData.unassignedStaff, ...boardData.mandateColumns.flatMap(c => c.staff)].forEach(s => {
+                        staffMap.set(s.staff_no.toString().padStart(4, '0'), s);
+                    });
+
+                    const mandateMap = new Map<string, string>(); // code or title -> id
+                    boardData.mandateColumns.forEach(c => {
+                        mandateMap.set(c.code.toLowerCase(), c.id);
+                        mandateMap.set(c.title.toLowerCase(), c.id);
+                    });
+
+                    // 2. Process records
+                    csvData.forEach(record => {
+                        const staffNo = record.staffNo.toString().padStart(4, '0');
+                        const staff = staffMap.get(staffNo);
+                        const targetMandateId = record.mandateCode ? mandateMap.get(record.mandateCode.toLowerCase()) : null;
+
+                        if (!staff) {
+                            errorCount++;
+                            notFoundStaffNos.push(staffNo);
+                            return;
+                        }
+
+                        if (!targetMandateId) {
+                            errorCount++;
+                            errorDetails.push(`• Mandate ${record.mandateCode || 'NOT SPECIFIED'} not found on the board.`);
+                            return;
+                        }
+
+                        if (staff.mandate_id === targetMandateId) return;
+
+                        const moved = handleLocalMove(staff, targetMandateId);
+                        if (moved) successCount++;
+                        else errorCount++;
+                    });
+
+                    if (notFoundStaffNos.length > 0) {
+                        errorDetails.unshift(`File Nos: ${notFoundStaffNos.join(', ')} are not in the eligible pool of staff for this assignment/mandate`);
+                    }
+
+                    if (successCount > 0) {
+                        const msg = `Successfully assigned ${successCount} staff members. Review and click "Commit Changes" to save.`;
+                        if (errorCount === 0) {
+                            success(msg);
+                        } else {
+                            warning(`${msg}\n\n${errorDetails.join('\n')}`);
+                        }
+                    } else if (errorCount > 0) {
+                        error(errorDetails.join('\n'));
+                    }
+                }}
+            />
+            <HelpModal
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                helpData={helpContent.personalizedPost}
+            />
 
             {loading && <div className="fixed inset-0 bg-white/10 dark:bg-black/10 backdrop-blur-[1px] z-50 pointer-events-none"></div>}
         </div>

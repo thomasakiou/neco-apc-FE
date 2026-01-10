@@ -5,6 +5,11 @@ import { getNCEECentersByStateName } from '../../services/state';
 import { NCEECenter, NCEECenterCreate } from '../../types/nceeCenter';
 import AlertModal from '../../components/AlertModal';
 
+const padCode = (code: string | null | undefined) => {
+    if (!code) return '';
+    return code.toString().trim().padStart(5, '0');
+};
+
 const NCEECenters: React.FC = () => {
     const [searchParams] = useSearchParams();
     const stateFilter = searchParams.get('state');
@@ -144,10 +149,14 @@ const NCEECenters: React.FC = () => {
 
     const handleSubmit = async (data: NCEECenterCreate) => {
         try {
+            const paddedData = {
+                ...data,
+                code: data.code ? padCode(data.code) : data.code
+            };
             if (editingCenter) {
-                await updateNCEECenter(editingCenter.id, data);
+                await updateNCEECenter(editingCenter.id, paddedData);
             } else {
-                await createNCEECenter(data);
+                await createNCEECenter(paddedData);
             }
             fetchCenters();
             setIsModalOpen(false);
@@ -267,7 +276,7 @@ const NCEECenters: React.FC = () => {
                             onClick={() => {
                                 const headers = ['Code', 'Name', 'No. of Candidates', 'State', 'Location', 'Status'];
                                 const rows = filteredCenters.map(center => [
-                                    center.code || '',
+                                    padCode(center.code),
                                     center.name,
                                     center.numb_of_cand,
                                     center.state || '',
@@ -419,7 +428,9 @@ const NCEECenters: React.FC = () => {
                                                         onChange={(e) => handleSelectOne(center.id, e.target.checked)}
                                                     />
                                                 </td>
-                                                <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-200 text-sm">{center.code || '-'}</td>
+                                                <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-200 text-sm">
+                                                    {padCode(center.code) || '-'}
+                                                </td>
                                                 <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-sm">{center.name}</td>
                                                 <td className="px-4 py-4 text-slate-600 dark:text-slate-400">{center.numb_of_cand}</td>
                                                 <td className="px-4 py-4 text-slate-600 dark:text-slate-400">{center.state || '-'}</td>
@@ -554,7 +565,7 @@ const NCEECenterModal: React.FC<NCEECenterModalProps> = ({ isOpen, onClose, onSu
     useEffect(() => {
         if (initialData) {
             setFormData({
-                code: initialData.code || '',
+                code: padCode(initialData.code),
                 name: initialData.name || '',
                 numb_of_cand: initialData.numb_of_cand || 0,
                 state: initialData.state || '',

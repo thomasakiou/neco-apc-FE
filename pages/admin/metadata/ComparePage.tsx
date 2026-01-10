@@ -15,6 +15,9 @@ interface ComparisonRow {
     apcStation: string;
     sdlStation?: string;
     status: 'Match' | 'Mismatch' | 'MissingSDL';
+    nameMismatch?: boolean;
+    gradeMismatch?: boolean;
+    stationMismatch?: boolean;
 }
 
 interface MissingRow {
@@ -32,6 +35,7 @@ const ComparePage: React.FC = () => {
     const [missingInAPC, setMissingInAPC] = useState<MissingRow[]>([]);
     const [activeTab, setActiveTab] = useState<'compare' | 'mismatch' | 'missing'>('compare');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Match' | 'Mismatch' | 'MissingSDL'>('All');
+    const [mismatchTypeFilter, setMismatchTypeFilter] = useState<'All' | 'Name' | 'Grade' | 'Station'>('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(25);
@@ -51,7 +55,7 @@ const ComparePage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [activeTab, statusFilter, searchQuery]);
+    }, [activeTab, statusFilter, mismatchTypeFilter, searchQuery]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -110,7 +114,10 @@ const ComparePage: React.FC = () => {
                         sdlGrade: staff.conr || '-',
                         apcStation: apc.station || '-',
                         sdlStation: staff.station || '-',
-                        status: isPerfectMatch ? 'Match' : 'Mismatch'
+                        status: isPerfectMatch ? 'Match' : 'Mismatch',
+                        nameMismatch: !nameMatch,
+                        gradeMismatch: !conraissMatch,
+                        stationMismatch: !stationMatch
                     });
                 } else {
                     missingSDL++;
@@ -241,6 +248,8 @@ const ComparePage: React.FC = () => {
                                 setLimit={setLimit}
                                 statusFilter={statusFilter}
                                 setStatusFilter={setStatusFilter}
+                                mismatchTypeFilter={mismatchTypeFilter}
+                                setMismatchTypeFilter={setMismatchTypeFilter}
                             />
                         ) : activeTab === 'mismatch' ? (
                             <ComparisonTable
@@ -257,6 +266,8 @@ const ComparePage: React.FC = () => {
                                 limit={limit}
                                 setPage={setPage}
                                 setLimit={setLimit}
+                                mismatchTypeFilter={mismatchTypeFilter}
+                                setMismatchTypeFilter={setMismatchTypeFilter}
                             />
                         ) : (
                             <MissingTable
@@ -328,12 +339,20 @@ const TabButton = ({ active, onClick, label, count, icon, alert }: { active: boo
     </button>
 );
 
-const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, setStatusFilter }: { data: ComparisonRow[]; page: number; limit: number; setPage: (p: number) => void; setLimit: (l: number) => void; statusFilter?: string; setStatusFilter?: (filter: 'All' | 'Match' | 'Mismatch' | 'MissingSDL') => void }) => {
+const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, setStatusFilter, mismatchTypeFilter, setMismatchTypeFilter }: { data: ComparisonRow[]; page: number; limit: number; setPage: (p: number) => void; setLimit: (l: number) => void; statusFilter?: string; setStatusFilter?: (filter: 'All' | 'Match' | 'Mismatch' | 'MissingSDL') => void; mismatchTypeFilter?: string; setMismatchTypeFilter?: (filter: 'All' | 'Name' | 'Grade' | 'Station') => void }) => {
     const navigate = useNavigate();
+    const filteredData = data.filter(item => {
+        if (!mismatchTypeFilter || mismatchTypeFilter === 'All') return true;
+        if (mismatchTypeFilter === 'Name') return item.nameMismatch;
+        if (mismatchTypeFilter === 'Grade') return item.gradeMismatch;
+        if (mismatchTypeFilter === 'Station') return item.stationMismatch;
+        return true;
+    });
+
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedData = data.slice(startIndex, endIndex);
-    const totalPages = Math.ceil(data.length / limit);
+    const paginatedData = filteredData.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(filteredData.length / limit);
 
     return (
         <div className="flex flex-col gap-4">
@@ -357,6 +376,24 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                             </select>
                         </div>
                     )}
+                    {mismatchTypeFilter && setMismatchTypeFilter && (
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-slate-600">Mismatch:</label>
+                            <select
+                                value={mismatchTypeFilter}
+                                onChange={(e) => {
+                                    setMismatchTypeFilter(e.target.value as 'All' | 'Name' | 'Grade' | 'Station');
+                                    setPage(1);
+                                }}
+                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
+                            >
+                                <option value="All">All types</option>
+                                <option value="Name">Name</option>
+                                <option value="Grade">Grade</option>
+                                <option value="Station">Station</option>
+                            </select>
+                        </div>
+                    )}
                     <div className="flex items-center gap-2">
                         <label className="text-sm font-medium text-slate-600">Per page:</label>
                         <select
@@ -375,7 +412,7 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                     </div>
                 </div>
                 <p className="text-sm text-slate-500">
-                    Showing {data.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, data.length)} of {data.length} results
+                    Showing {filteredData.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, filteredData.length)} of {filteredData.length} results
                 </p>
             </div>
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-gray-700">
