@@ -30,6 +30,7 @@ import HODPostingsTable from './pages/admin/HODPostingsTable';
 import TTCenters from './pages/admin/TTCenters';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
+import Statistics from './pages/admin/Statistics';
 import AdminLayout from './components/AdminLayout';
 
 const ScrollToTop = () => {
@@ -91,6 +92,7 @@ const App: React.FC = () => {
               <Route path="assignments/hod" element={<ProtectedRoute moduleName="posting"><HODPostings /></ProtectedRoute>} />
               <Route path="assignments/hod/table" element={<ProtectedRoute moduleName="posting"><HODPostingsTable /></ProtectedRoute>} />
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
+              <Route path="statistics" element={<ProtectedRoute moduleName="reports"><Statistics /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />
 
               <Route path="configuration" element={<ProtectedRoute requiredRole="super_admin"><Configuration /></ProtectedRoute>} />

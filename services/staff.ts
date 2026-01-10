@@ -194,13 +194,17 @@ export const appendStaffCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
-export const promoteStaff = async (file: File, confirm: boolean = false): Promise<any> => {
+export const promoteStaff = async (file: File, confirm: boolean = false, promotionDate?: string): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
 
     const params = new URLSearchParams({
         confirm: confirm.toString(),
     });
+
+    if (promotionDate) {
+        params.append('promotion_date', promotionDate);
+    }
 
     const response = await fetch(`${API_URL}/promote?${params.toString()}`, {
         method: 'POST',

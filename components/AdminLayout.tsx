@@ -127,6 +127,8 @@ const AdminLayout: React.FC = () => {
               <NavItem to="/admin/mandates/history" icon="summarize" label="Generate Reports" active={isActive('/admin/mandates/history')} isLocked={isModuleLocked('reports') && !isSuperAdmin} />
             </CollapsibleNavSection>
 
+            <NavItem to="/admin/statistics" icon="bar_chart" label="Statistics" active={isActive('/admin/statistics')} isLocked={isModuleLocked('reports') && !isSuperAdmin} />
+
 
             {isSuperAdmin && (
               <CollapsibleNavSection title="Configuration" icon="settings" active={

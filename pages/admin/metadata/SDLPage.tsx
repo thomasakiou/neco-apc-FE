@@ -26,6 +26,7 @@ const SDLPage: React.FC = () => {
     const [selectedStateCoord, setSelectedStateCoord] = useState('All');
     const [selectedDirector, setSelectedDirector] = useState('All');
     const [selectedEducation, setSelectedEducation] = useState('All');
+    const [selectedPromotionDate, setSelectedPromotionDate] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -36,9 +37,10 @@ const SDLPage: React.FC = () => {
     const uniqueRanks = Array.from(new Set(allStaff.map(s => s.rank).filter(Boolean))) as string[];
     const uniqueConrs = Array.from(new Set(allStaff.map(s => s.conr).filter(Boolean))) as string[];
     const uniqueStates = Array.from(new Set(allStaff.map(s => s.state).filter(Boolean))).sort() as string[];
+    const uniquePromotionDates = Array.from(new Set(allStaff.map(s => s.dopa?.split('T')[0]?.split(' ')[0]).filter(Boolean))).sort() as string[];
 
     const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
-        selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All';
+        selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' || selectedPromotionDate !== 'All';
 
     const filteredStaff = staffList.filter(staff => {
         const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
@@ -54,8 +56,9 @@ const SDLPage: React.FC = () => {
         const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
         const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
         const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+        const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesPromotionDate;
     });
 
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -90,8 +93,9 @@ const SDLPage: React.FC = () => {
         const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
         const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
         const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+        const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesPromotionDate;
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -110,48 +114,51 @@ const SDLPage: React.FC = () => {
     const appendFileInputRef = useRef<HTMLInputElement>(null);
     const promoteFileInputRef = useRef<HTMLInputElement>(null);
 
+    const [promotionDate, setPromotionDate] = useState(new Date().toISOString().split('T')[0]);
+    const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
+    const [pendingPromoteFile, setPendingPromoteFile] = useState<File | null>(null);
+
     const handlePromoteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        setAlertModal({
-            isOpen: true,
-            title: 'Confirm Promotion',
-            message: 'Are you sure you want to promote staff based on this file? This will update their Rank and CONRAISS.',
-            type: 'warning',
-            onConfirm: async () => {
-                setLoading(true);
-                try {
-                    const response = await promoteStaff(file, true);
-                    setAlertModal({
-                        isOpen: true,
-                        title: 'Promotion Complete',
-                        message: `Successfully processed ${response.total_processed} records. ${response.updated_count} updated, ${response.missing_count} missing.`,
-                        type: 'success',
-                        details: {
-                            updated_count: response.updated_count,
-                            missing_count: response.missing_count,
-                            missing_filenos: response.missing_filenos || [],
-                            message: response.message
-                        }
-                    });
-                    fetchData();
-                    fetchAllStaff();
-                } catch (error: any) {
-                    console.error('Promotion failed:', error);
-                    setAlertModal({
-                        isOpen: true,
-                        title: 'Promotion Failed',
-                        message: error.message || 'An error occurred during promotion.',
-                        type: 'error'
-                    });
-                } finally {
-                    setLoading(false);
-                }
-            }
-        });
-
+        setPendingPromoteFile(file);
+        setIsPromoteModalOpen(true);
         if (promoteFileInputRef.current) promoteFileInputRef.current.value = '';
+    };
+
+    const confirmPromotion = async () => {
+        if (!pendingPromoteFile) return;
+        setIsPromoteModalOpen(false);
+
+        setLoading(true);
+        try {
+            const response = await promoteStaff(pendingPromoteFile, true, promotionDate);
+            setAlertModal({
+                isOpen: true,
+                title: 'Promotion Complete',
+                message: `Successfully processed ${response.total_processed} records. ${response.updated_count} updated, ${response.missing_count} missing.`,
+                type: 'success',
+                details: {
+                    updated_count: response.updated_count,
+                    missing_count: response.missing_count,
+                    missing_filenos: response.missing_filenos || [],
+                    message: response.message
+                }
+            });
+            fetchData();
+            fetchAllStaff();
+        } catch (error: any) {
+            console.error('Promotion failed:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Promotion Failed',
+                message: error.message || 'An error occurred during promotion.',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+            setPendingPromoteFile(null);
+        }
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,7 +250,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation]);
+    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedPromotionDate]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -268,8 +275,9 @@ const SDLPage: React.FC = () => {
                     const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
                     const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
                     const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+                    const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
+                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesPromotionDate;
                 });
 
                 const startIndex = (page - 1) * limit;
@@ -299,7 +307,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [page, searchTerm, limit, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation]);
+    }, [page, searchTerm, limit, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedPromotionDate]);
 
     useEffect(() => {
         fetchAllStaff();
@@ -665,6 +673,51 @@ const SDLPage: React.FC = () => {
                 onConfirm={alertModal.onConfirm}
             />
 
+            {/* Promotion Date Modal */}
+            {isPromoteModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-gray-800">
+                        <div className="p-6 border-b border-slate-100 dark:border-gray-800">
+                            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-200">Confirm Promotion</h2>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-slate-600 dark:text-slate-400">
+                                Please specify the <strong>Date of Present Appointment (DOPA)</strong> for this promotion.
+                            </p>
+                            <div className="space-y-2">
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                                    Promotion Date (DOPA)
+                                </label>
+                                <input
+                                    type="date"
+                                    value={promotionDate}
+                                    onChange={(e) => setPromotionDate(e.target.value)}
+                                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-bold text-slate-700 dark:text-slate-200"
+                                />
+                            </div>
+                            <p className="text-xs text-amber-600 dark:text-amber-500 font-medium bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg flex items-start gap-2">
+                                <span className="material-symbols-outlined text-base">warning</span>
+                                This will update Rank, CONRAISS, and DOPA for all matched staff.
+                            </p>
+                        </div>
+                        <div className="p-6 border-t border-slate-100 dark:border-gray-800 bg-slate-50 dark:bg-[#0b1015] rounded-b-2xl flex justify-end gap-3">
+                            <button
+                                onClick={() => setIsPromoteModalOpen(false)}
+                                className="px-6 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmPromotion}
+                                className="px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                            >
+                                Confirm Promotion
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200">
                 <div className="flex flex-col gap-2">
@@ -840,6 +893,12 @@ const SDLPage: React.FC = () => {
                             value={selectedEducation}
                             options={['Yes', 'No']}
                             onChange={setSelectedEducation}
+                        />
+                        <FilterSelect
+                            label="DOPA (Appt. Date)"
+                            value={selectedPromotionDate}
+                            options={uniquePromotionDates}
+                            onChange={setSelectedPromotionDate}
                         />
                         {/* Button moved to header */}
                     </div>
