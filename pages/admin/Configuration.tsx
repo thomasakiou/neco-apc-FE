@@ -338,6 +338,43 @@ const Configuration: React.FC = () => {
                                             icon="analytics"
                                         />
                                     </div>
+
+                                    {/* Staff Portal Controls - Separate Section */}
+                                    <div className="mt-4 bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-950/20 dark:to-teal-950/20 p-8 rounded-3xl border border-cyan-200/50 dark:border-cyan-800/30 flex flex-col md:flex-row items-center gap-8 shadow-inner">
+                                        <div className="size-20 rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-white shadow-xl shadow-cyan-500/20">
+                                            <span className="material-symbols-outlined text-4xl">public</span>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-2xl font-black text-slate-900 dark:text-white">Staff Portal Controls</h2>
+                                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                                                Control staff access to the external Staff Portal. Staff can login with their File Number and Date of Birth to view their own data.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <ModuleToggle
+                                            label="Portal Login"
+                                            description="Allow/Block staff from logging into the Staff Portal."
+                                            isLocked={moduleLocks['staff_portal_login']}
+                                            onToggle={() => handleToggleLock('staff_portal_login')}
+                                            icon="login"
+                                        />
+                                        <ModuleToggle
+                                            label="SDL Access"
+                                            description="Allow/Block staff from viewing their Staff Data (SDL)."
+                                            isLocked={moduleLocks['staff_portal_sdl']}
+                                            onToggle={() => handleToggleLock('staff_portal_sdl')}
+                                            icon="badge"
+                                        />
+                                        <ModuleToggle
+                                            label="APC Access"
+                                            description="Allow/Block staff from viewing their APC and Posting data."
+                                            isLocked={moduleLocks['staff_portal_apc']}
+                                            onToggle={() => handleToggleLock('staff_portal_apc')}
+                                            icon="assignment_ind"
+                                        />
+                                    </div>
                                 </div>
                             )}
 
