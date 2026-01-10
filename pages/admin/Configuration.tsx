@@ -361,11 +361,11 @@ const Configuration: React.FC = () => {
                                             icon="login"
                                         />
                                         <ModuleToggle
-                                            label="SDL Access"
-                                            description="Allow/Block staff from viewing their Staff Data (SDL)."
-                                            isLocked={moduleLocks['staff_portal_sdl']}
-                                            onToggle={() => handleToggleLock('staff_portal_sdl')}
-                                            icon="badge"
+                                            label="Posting Access"
+                                            description="Allow/Block staff from viewing their Posting data."
+                                            isLocked={moduleLocks['staff_portal_posting']}
+                                            onToggle={() => handleToggleLock('staff_portal_posting')}
+                                            icon="send"
                                         />
                                         <ModuleToggle
                                             label="APC Access"
