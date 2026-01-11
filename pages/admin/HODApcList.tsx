@@ -207,7 +207,7 @@ const HODApcList: React.FC = () => {
             // Fetch all current HOD records and all Staff records
             const [currentHODs, allStaff] = await Promise.all([
                 getAllHODApcRecords(false),
-                import('../../services/staff').then(m => m.getAllStaff(false))
+                import('../../services/staff').then(m => m.getAllStaff(true))
             ]);
 
             const staffMap = new Map(allStaff.map(s => [s.fileno, s]));

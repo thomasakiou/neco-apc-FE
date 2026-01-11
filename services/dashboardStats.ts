@@ -79,7 +79,7 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
 
     // 2. Fetch HEAVY DATA for charts (with longer timeout and graceful failure)
     const [allStaff, allPostings, allAPCs] = await Promise.all([
-        safeFetch(getAllStaff(), [], 60000),
+        safeFetch(getAllStaff(true), [], 60000),
         safeFetch(getAllPostingRecords(), [], 60000),
         safeFetch(getAllAPC(0, 50000, '', true).then(res => res.items).catch(() => []), [])
     ]);

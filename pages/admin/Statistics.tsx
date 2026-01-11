@@ -66,7 +66,7 @@ const Statistics: React.FC = () => {
             setLoading(true);
             try {
                 const [staffRes, apcRes, postingRes] = await Promise.all([
-                    getAllStaff(),
+                    getAllStaff(true),
                     getAllAPCRecords(),
                     getAllPostingRecords()
                 ]);
@@ -163,6 +163,16 @@ const Statistics: React.FC = () => {
         });
     }, [filteredData, tableSearch]);
 
+    // Valid APC File Numbers for quick lookup
+    const apcFileNoSet = useMemo(() => new Set(allAPC.map(a => a.file_no)), [allAPC]);
+
+    // Posting Map for detailed lookup
+    const postingMap = useMemo(() => {
+        const map = new Map<string, PostingResponse>();
+        allPostings.forEach(p => map.set(p.file_no, p));
+        return map;
+    }, [allPostings]);
+
     const paginatedData = useMemo(() => {
         const start = (page - 1) * limit;
         return tableFilteredData.slice(start, start + limit);
@@ -188,21 +198,26 @@ const Statistics: React.FC = () => {
             headStyles: { fillColor: [41, 128, 185] }
         });
 
-        // Detailed Table (Limit to top 100 for performance/pdf size if needed, or all)
-        // Asking user might be better, but for now export current filtered view
+        // Detailed Table
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY + 10,
-            head: [['Staff ID', 'Name', 'State', 'Sex', 'Conraiss', 'Station', 'Rank', 'DOPA']],
-            body: filteredData.map(d => [
-                d.fileno,
-                d.full_name,
-                d.state,
-                d.sex,
-                d.conr,
-                d.station,
-                d.rank,
-                d.dopa || '-'
-            ]),
+            head: [['Staff ID', 'Name', 'State', 'Sex', 'Conraiss', 'Station', 'Rank', 'APC Status', 'Post Status', 'DOPA']],
+            body: filteredData.map(d => {
+                const p = postingMap.get(d.fileno);
+                const isPosted = p && p.mandates && p.mandates.length > 0;
+                return [
+                    d.fileno,
+                    d.full_name,
+                    d.state,
+                    d.sex,
+                    d.conr,
+                    d.station,
+                    d.rank,
+                    apcFileNoSet.has(d.fileno) ? 'Active' : 'Missing',
+                    isPosted ? 'Posted' : 'Not Posted',
+                    d.dopa || '-'
+                ];
+            }),
             styles: { fontSize: 8 },
             headStyles: { fillColor: [52, 73, 94] }
         });
@@ -220,18 +235,24 @@ const Statistics: React.FC = () => {
         const summaryWS = XLSX.utils.json_to_sheet(summaryData);
 
         // 2. Details Sheet
-        const detailsData = filteredData.map(d => ({
-            'Staff ID': d.fileno,
-            'Name': d.full_name,
-            'State': d.state,
-            'Sex': d.sex,
-            'Conraiss': d.conr,
-            'Station': d.station,
-            'Rank': d.rank,
-            'DOPA': d.dopa || '-',
-            'Email': d.email,
-            'Phone': d.phone
-        }));
+        const detailsData = filteredData.map(d => {
+            const p = postingMap.get(d.fileno);
+            const isPosted = p && p.mandates && p.mandates.length > 0;
+            return {
+                'Staff ID': d.fileno,
+                'Name': d.full_name,
+                'State': d.state,
+                'Sex': d.sex,
+                'Conraiss': d.conr,
+                'Station': d.station,
+                'Rank': d.rank,
+                'APC Status': apcFileNoSet.has(d.fileno) ? 'Active' : 'Missing',
+                'Posting Status': isPosted ? 'Posted' : 'Not Posted',
+                'DOPA': d.dopa || '-',
+                'Email': d.email,
+                'Phone': d.phone
+            };
+        });
         const detailsWS = XLSX.utils.json_to_sheet(detailsData);
 
         const wb = XLSX.utils.book_new();
@@ -491,26 +512,55 @@ const Statistics: React.FC = () => {
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">Rank</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">Sex</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">State</th>
+                                <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">APC Status</th>
+                                <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">Post Status</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">DOPA</th>
                             </tr>
                         </thead>
                         <tbody>
                             {paginatedData.length > 0 ? (
-                                paginatedData.map(staff => (
-                                    <tr key={staff.fileno || staff.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="p-3 text-sm text-slate-700 dark:text-slate-300 font-medium">{staff.fileno}</td>
-                                        <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.full_name}</td>
-                                        <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.station}</td>
-                                        <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.conr}</td>
-                                        <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.rank}</td>
-                                        <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.sex}</td>
-                                        <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.state}</td>
-                                        <td className="p-3 text-sm font-mono text-slate-700 dark:text-slate-300">{staff.dopa || '-'}</td>
-                                    </tr>
-                                ))
+                                paginatedData.map(staff => {
+                                    const p = postingMap.get(staff.fileno);
+                                    const isPosted = p && p.mandates && p.mandates.length > 0;
+                                    const hasAPC = apcFileNoSet.has(staff.fileno);
+                                    return (
+                                        <tr key={staff.fileno || staff.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300 font-medium flex items-center gap-2">
+                                                {staff.fileno}
+                                                {!hasAPC && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                                        Not on APC
+                                                    </span>
+                                                )}
+                                                {hasAPC && !isPosted && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                                                        Not Posted
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.full_name}</td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.station}</td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.conr}</td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.rank}</td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.sex}</td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">{staff.state}</td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">
+                                                {apcFileNoSet.has(staff.fileno) ? 'Active' : 'Missing'}
+                                            </td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300">
+                                                {isPosted ? (
+                                                    <span className="text-emerald-600 font-medium">Posted</span>
+                                                ) : (
+                                                    hasAPC ? <span className="text-amber-600 font-medium">Not Posted</span> : '-'
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-sm font-mono text-slate-700 dark:text-slate-300">{staff.dopa || '-'}</td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                                    <td colSpan={10} className="p-8 text-center text-slate-500 dark:text-slate-400">
                                         No staff records found matching the criteria.
                                     </td>
                                 </tr>

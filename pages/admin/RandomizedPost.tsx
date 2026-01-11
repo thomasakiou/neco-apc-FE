@@ -260,7 +260,7 @@ const RandomizedPost: React.FC = () => {
                 getAllPostingRecords(),
                 getAllStations(true),
                 getAllStates(),
-                getAllStaff(false) // Fetch ALL staff to ensure we get the flags even if inactive in one list but active in logic? Or just active. APC only uses active. 'false' means fetch all? getAllStaff(onlyActive). services/staff: getAllStaff(onlyActive). Default false. So getting all is safe.
+                getAllStaff(true) // Fetch only ACTIVE staff for posting
             ]);
             setAllAPC(apcData);
             setAssignments(assignmentsData);

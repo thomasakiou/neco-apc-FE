@@ -150,7 +150,7 @@ const APCList: React.FC = () => {
         setLoading(true);
         try {
             const [all, postingsData] = await Promise.all([
-                getAllAPCRecords(false, true),
+                getAllAPCRecords(true, true),
                 getAllPostingRecords(true)
             ]);
             setAllRecords(all);
@@ -312,7 +312,7 @@ const APCList: React.FC = () => {
 
     // Report Modal State for PDF Title
     const [showReportModal, setShowReportModal] = useState(false);
-    const [reportTitle, setReportTitle] = useState('2025 STAFF APC');
+    const [reportTitle, setReportTitle] = useState('2026 STAFF APC REPORT');
 
     const handlePDFExport = async () => {
         try {
