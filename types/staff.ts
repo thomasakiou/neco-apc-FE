@@ -18,6 +18,8 @@ export interface Staff {
     is_hod: boolean;
     is_state_coordinator: boolean;
     is_state_cordinator?: boolean; // Backend typo mapping
+    is_secretary: boolean;
+    others: boolean;
     is_director: boolean;
     is_education: boolean;
     active: boolean;
@@ -55,6 +57,8 @@ export interface StaffCreate {
     is_hod?: boolean;
     is_state_coordinator?: boolean;
     is_state_cordinator?: boolean; // Backend typo mapping
+    is_secretary?: boolean;
+    others?: boolean;
     is_director?: boolean;
     is_education?: boolean;
     active?: boolean;

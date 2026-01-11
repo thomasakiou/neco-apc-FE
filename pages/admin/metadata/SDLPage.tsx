@@ -26,6 +26,8 @@ const SDLPage: React.FC = () => {
     const [selectedStateCoord, setSelectedStateCoord] = useState('All');
     const [selectedDirector, setSelectedDirector] = useState('All');
     const [selectedEducation, setSelectedEducation] = useState('All');
+    const [selectedSecretary, setSelectedSecretary] = useState('All');
+    const [selectedOthers, setSelectedOthers] = useState('All');
     const [selectedPromotionDate, setSelectedPromotionDate] = useState('All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchParams, setSearchParams] = useSearchParams();
@@ -40,7 +42,8 @@ const SDLPage: React.FC = () => {
     const uniquePromotionDates = Array.from(new Set(allStaff.map(s => s.dopa?.split('T')[0]?.split(' ')[0]).filter(Boolean))).sort() as string[];
 
     const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
-        selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' || selectedPromotionDate !== 'All';
+        selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' ||
+        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedPromotionDate !== 'All';
 
     const filteredStaff = staffList.filter(staff => {
         const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
@@ -56,9 +59,11 @@ const SDLPage: React.FC = () => {
         const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
         const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
         const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+        const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
+        const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
         const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesPromotionDate;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesPromotionDate;
     });
 
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -93,9 +98,11 @@ const SDLPage: React.FC = () => {
         const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
         const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
         const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+        const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
+        const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
         const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesPromotionDate;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesPromotionDate;
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -250,7 +257,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedPromotionDate]);
+    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -275,9 +282,11 @@ const SDLPage: React.FC = () => {
                     const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
                     const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
                     const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+                    const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
+                    const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
                     const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesPromotionDate;
+                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesPromotionDate;
                 });
 
                 const startIndex = (page - 1) * limit;
@@ -307,7 +316,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [page, searchTerm, limit, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedPromotionDate]);
+    }, [page, searchTerm, limit, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
 
     useEffect(() => {
         fetchAllStaff();
@@ -452,8 +461,10 @@ const SDLPage: React.FC = () => {
                 const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
                 const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
                 const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+                const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
+                const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
 
-                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation;
+                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers;
             });
 
             doc.text(`Total Records: ${exportStaff.length}`, 14, 33);
@@ -561,7 +572,7 @@ const SDLPage: React.FC = () => {
         const headers = [
             'fileno', 'full_name', 'station', 'qualification', 'sex',
             'dob', 'dofa', 'doan', 'dopa', 'rank', 'conr', 'state', 'lga', 'email', 'phone', 'remark',
-            'is_hod', 'is_state_coordinator', 'is_director', 'is_education'
+            'is_hod', 'is_state_coordinator', 'is_director', 'is_education', 'is_secretary', 'others'
         ];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
@@ -599,6 +610,8 @@ const SDLPage: React.FC = () => {
                 'State Coord': staff.is_state_coordinator ? 'Yes' : 'No',
                 'Director': staff.is_director ? 'Yes' : 'No',
                 'Education': staff.is_education ? 'Yes' : 'No',
+                'Secretary': staff.is_secretary ? 'Yes' : 'No',
+                'Others': staff.others ? 'Yes' : 'No',
                 'Remark': staff.remark
             }));
 
@@ -628,6 +641,8 @@ const SDLPage: React.FC = () => {
                 { wch: 8 },  // State Coord
                 { wch: 8 },  // Director
                 { wch: 8 },  // Education
+                { wch: 8 },  // Secretary
+                { wch: 8 },  // Others
                 { wch: 30 }  // Remark
             ];
             ws['!cols'] = colWidths;
@@ -883,16 +898,22 @@ const SDLPage: React.FC = () => {
                             onChange={setSelectedStateCoord}
                         />
                         <FilterSelect
-                            label="Director"
-                            value={selectedDirector}
-                            options={['Yes', 'No']}
-                            onChange={setSelectedDirector}
-                        />
-                        <FilterSelect
                             label="Education"
                             value={selectedEducation}
                             options={['Yes', 'No']}
                             onChange={setSelectedEducation}
+                        />
+                        <FilterSelect
+                            label="Secretary"
+                            value={selectedSecretary}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedSecretary}
+                        />
+                        <FilterSelect
+                            label="Others"
+                            value={selectedOthers}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedOthers}
                         />
                         <FilterSelect
                             label="DOPA (Appt. Date)"
@@ -1121,6 +1142,8 @@ const StaffRow: React.FC<{
                             {!!staff.is_state_coordinator && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 uppercase" title="State Coordinator">COORD</span>}
                             {!!staff.is_director && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase" title="Director">DIR</span>}
                             {!!staff.is_education && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase" title="Education">EDU</span>}
+                            {!!staff.is_secretary && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 uppercase" title="Secretary">SEC</span>}
+                            {!!staff.others && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300 border border-slate-200 dark:border-slate-800 uppercase" title="Others">OTH</span>}
                         </div>
                     </div>
                 </td>
@@ -1194,6 +1217,8 @@ const StaffRow: React.FC<{
                                     <RoleIndicator label="State Coordinator" active={staff.is_state_coordinator} icon="location_on" color="amber" />
                                     <RoleIndicator label="Director" active={staff.is_director} icon="grade" color="blue" />
                                     <RoleIndicator label="Education" active={staff.is_education} icon="school" color="indigo" />
+                                    <RoleIndicator label="Secretary" active={staff.is_secretary} icon="person_apron" color="cyan" />
+                                    <RoleIndicator label="Others" active={staff.others} icon="more_horiz" color="slate" />
                                 </div>
                             </div>
                             <div className="col-span-2 md:col-span-4 mt-2">

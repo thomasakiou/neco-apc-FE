@@ -2,6 +2,9 @@ import { APCRecord, APCListResponse, APCCreate, APCUpdate } from '../types/apc';
 
 import { API_BASE_URL } from '../src/config';
 import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+import { assignmentFieldMap } from './personalizedPost';
+import { getAllStaff } from './staff';
+import { Staff } from '../types/staff';
 
 const REQUEST_URL = `${API_BASE_URL}/apc`;
 
@@ -183,4 +186,89 @@ export const getRecentReactivations = async (): Promise<APCRecord[]> => {
         console.error('Failed to get recent reactivations:', error);
         return [];
     }
+};
+/**
+ * Determines the maximum number of assignments a staff member can undertake
+ * based on their CONRAISS level.
+ */
+export const getAssignmentLimit = (conraiss: string | number | undefined | null): number => {
+    if (!conraiss) return 1;
+
+    // Extract numerical value from string (e.g., "CONRAISS 07" -> 7)
+    const levelStr = conraiss.toString().replace(/[^0-9]/g, '');
+    const level = parseInt(levelStr);
+
+    if (isNaN(level)) return 1;
+
+    if (level >= 3 && level <= 7) return 1;
+    if (level >= 8 && level <= 9) return 2;
+    if (level >= 10 && level <= 12) return 3;
+    if (level >= 13 && level <= 14) return 4;
+
+    return 1; // Default
+};
+
+/**
+ * Calculates current assignment usage from an APC record.
+ * Checks all assignment fields for non-empty/returned values.
+ */
+export const getAssignmentUsage = (record: APCRecord): number => {
+    const assignmentFields = [
+        'tt', 'mar_accr', 'ncee', 'gifted', 'becep', 'bece_mrkp',
+        'ssce_int', 'swapping', 'ssce_int_mrk', 'oct_accr', 'ssce_ext',
+        'ssce_ext_mrk', 'pur_samp', 'int_audit', 'stock_tk'
+    ];
+
+    return assignmentFields.filter(field => {
+        const val = (record as any)[field];
+        return val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED';
+    }).length;
+};
+
+/**
+ * Processes a custom APC update from CSV data.
+ * CSV should have: fileno, assignment_code, mandate_code (optional)
+ */
+export const createCustomAPCFromCSV = async (data: { fileno: string; assignmentCode: string; mandateCode?: string }[]): Promise<any> => {
+    const results = { updated: 0, errors: 0 };
+
+    // Get current APC records to check existence
+    const allAPC = await getAllAPCRecords(false, true);
+    const apcMap = new Map(allAPC.map(r => [r.file_no, r]));
+
+    for (const item of data) {
+        try {
+            const fieldName = assignmentFieldMap[item.assignmentCode];
+            if (!fieldName) throw new Error(`Invalid assignment code: ${item.assignmentCode}`);
+
+            const existing = apcMap.get(item.fileno);
+            const val = item.mandateCode || 'Post';
+
+            if (existing) {
+                const { id, created_at, updated_at, created_by, updated_by, ...clean } = existing;
+                await updateAPC(id, { ...clean, [fieldName]: val });
+                results.updated++;
+            } else {
+                results.errors++;
+            }
+        } catch (e) {
+            results.errors++;
+        }
+    }
+    return results;
+};
+
+/**
+ * Fetches staff eligible for APC assignment.
+ * Criterion: Active, !Director, !HOD, !State Coordinator
+ */
+export const getEligibleStaffForAPC = async (): Promise<Staff[]> => {
+    const allStaff = await getAllStaff(true);
+    return allStaff.filter(s =>
+        !s.is_director &&
+        !s.is_hod &&
+        !s.is_state_coordinator &&
+        !s.is_secretary &&
+        !s.others
+    );
 };

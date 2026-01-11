@@ -28,7 +28,8 @@ const mapApiStaffToStaff = (apiStaff: any): Staff => {
         is_hod: toBool(apiStaff.is_hod),
         is_director: toBool(apiStaff.is_director),
         is_education: toBool(apiStaff.is_education),
-        active: toBool(apiStaff.active),
+        is_secretary: toBool(apiStaff.is_secretary),
+        others: toBool(apiStaff.others),
         // Backend uses 'is_state_cordinator' (with typo)
         is_state_coordinator: toBool(apiStaff.is_state_cordinator ?? apiStaff.is_state_coordinator),
     } as Staff;
@@ -78,6 +79,8 @@ const cleanPayload = (data: any, id?: string) => {
     if (data.is_hod !== undefined) cleaned.is_hod = toBool(data.is_hod);
     if (data.is_education !== undefined) cleaned.is_education = toBool(data.is_education);
     if (data.is_director !== undefined) cleaned.is_director = toBool(data.is_director);
+    if (data.is_secretary !== undefined) cleaned.is_secretary = toBool(data.is_secretary);
+    if (data.others !== undefined) cleaned.others = toBool(data.others);
 
     // Send ONLY the correct field name used by backend (is_state_cordinator)
     const stateCoordVal = data.is_state_coordinator ?? data.is_state_cordinator;

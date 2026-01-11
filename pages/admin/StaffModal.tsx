@@ -27,6 +27,8 @@ const initialFormState: StaffCreate = {
     remark: '',
     is_hod: false,
     is_state_coordinator: false,
+    is_secretary: false,
+    others: false,
     is_director: false,
     is_education: false,
     active: true,
@@ -57,6 +59,8 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                 remark: initialData.remark || '',
                 is_hod: initialData.is_hod ?? false,
                 is_state_coordinator: initialData.is_state_coordinator ?? false,
+                is_secretary: initialData.is_secretary ?? false,
+                others: initialData.others ?? false,
                 is_director: initialData.is_director ?? false,
                 is_education: initialData.is_education ?? false,
                 active: initialData.active ?? true,
@@ -181,6 +185,28 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                                     className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-amber-600 focus:ring-amber-500 cursor-pointer"
                                 />
                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">State Coordinator?</span>
+                            </label>
+
+                            <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-1">
+                                <input
+                                    type="checkbox"
+                                    name="is_secretary"
+                                    checked={!!formData.is_secretary}
+                                    onChange={handleCheckboxChange}
+                                    className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Secretary?</span>
+                            </label>
+
+                            <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-1">
+                                <input
+                                    type="checkbox"
+                                    name="others"
+                                    checked={!!formData.others}
+                                    onChange={handleCheckboxChange}
+                                    className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-slate-600 focus:ring-slate-500 cursor-pointer"
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Others?</span>
                             </label>
 
                             <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-1">

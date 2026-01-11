@@ -152,10 +152,11 @@ const FlaggedStaffPage: React.FC = () => {
         if (!match) return 0;
         const grade = parseInt(match[0]);
 
-        if (grade === 6 || grade === 7) return 1;
-        if (grade >= 8 && grade <= 10) return 2;
-        if (grade === 11 || grade === 12) return 3;
-        if (grade === 13 || grade === 14) return 4;
+        // Align with services/apc.ts getAssignmentLimit
+        if (grade >= 3 && grade <= 7) return 1;
+        if (grade >= 8 && grade <= 9) return 2;
+        if (grade >= 10 && grade <= 12) return 3;
+        if (grade >= 13 && grade <= 14) return 4;
         return 0;
     };
 

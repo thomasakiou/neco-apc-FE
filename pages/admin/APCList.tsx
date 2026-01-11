@@ -59,6 +59,10 @@ const APCList: React.FC = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const appendFileInputRef = useRef<HTMLInputElement>(null);
+    const customFileInputRef = useRef<HTMLInputElement>(null);
+
+    const [showCustomModal, setShowCustomModal] = useState(false);
+    const [showRandomModal, setShowRandomModal] = useState(false);
 
     useEffect(() => {
         const f = searchParams.get('f');
@@ -306,94 +310,220 @@ const APCList: React.FC = () => {
         }
     }, [searchFileNo, searchName, filterConraiss, filterStation]);
 
-    const handleExportPdf = useCallback(() => {
+    // Report Modal State for PDF Title
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportTitle, setReportTitle] = useState('2025 STAFF APC');
+
+    const handlePDFExport = async () => {
         try {
             setLoading(true);
-            const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for many columns
+            const doc = new jsPDF('l', 'mm', 'a4');
+            const width = doc.internal.pageSize.getWidth();
+            const height = doc.internal.pageSize.getHeight();
 
-            // Add title
-            doc.setFontSize(22);
-            doc.setTextColor(20, 158, 136); // Emerald-600
-            doc.text('Annual Posting Calendar (APC)', 14, 20);
+            // Load Logo and Signature
+            const logoUrl = '/images/neco.png';
+            const signatureUrl = '/images/signature.png';
 
-            // Add metadata
-            doc.setFontSize(10);
-            doc.setTextColor(100);
-            const dateStr = new Date().toLocaleString();
-            doc.text(`Generated on: ${dateStr}`, 14, 28);
-            doc.text(`Total Records: ${filteredRecords.length}`, 14, 33);
+            const [logoImg, signatureImg] = await Promise.all([
+                new Promise<HTMLImageElement>((resolve, reject) => {
+                    const img = new Image();
+                    img.src = logoUrl;
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                }),
+                new Promise<HTMLImageElement>((resolve, reject) => {
+                    const img = new Image();
+                    img.src = signatureUrl;
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null as any);
+                })
+            ]);
 
-            const tableColumn = ["S/N", "File No", "Name", "Qual.", "Sex", "Station", "CONR", "Year", "Assignments", "Status", "Remark"];
-            const tableRows = filteredRecords.map((record, index) => {
-                // Collect any active assignments
-                const activeAssignments = [];
-                if (record.mar_accr) activeAssignments.push('MAR-ACCR');
-                if (record.ncee) activeAssignments.push('NCEE');
-                if (record.gifted) activeAssignments.push('GIFTED');
-                if (record.becep) activeAssignments.push('BECEP');
-                if (record.bece_mrkp) activeAssignments.push('BECE-MRKP');
-                if (record.ssce_int) activeAssignments.push('SSCE-INT');
-                if (record.swapping) activeAssignments.push('SWAPPING');
-                if (record.ssce_int_mrk) activeAssignments.push('SSCE-INT-MRK');
-                if (record.oct_accr) activeAssignments.push('OCT-ACCR');
-                if (record.ssce_ext) activeAssignments.push('SSCE-EXT');
-                if (record.ssce_ext_mrk) activeAssignments.push('SSCE-EXT-MRK');
-                if (record.pur_samp) activeAssignments.push('PUR-SAMP');
-                if (record.int_audit) activeAssignments.push('INT-AUDIT');
-                if (record.stock_tk) activeAssignments.push('STOCK-TK');
+            // Build dynamic filter title
+            const buildFilterTitle = (): string => {
+                const parts: string[] = [];
+
+                // Assignment filter
+                if (filterAssignment) {
+                    const assignmentName = assignmentOptions.find(a => a.code === filterAssignment)?.name || filterAssignment;
+                    parts.push(`FOR ${assignmentName.toUpperCase()} ASSIGNMENT`);
+                }
+
+                // CONRAISS filter
+                if (filterConraiss) {
+                    parts.push(`FOR CONRAISS ${filterConraiss} STAFF`);
+                }
+
+                // Station filter
+                if (filterStation) {
+                    parts.push(`IN ${filterStation.toUpperCase()} OFFICE`);
+                }
+
+                if (parts.length === 0) {
+                    return ''; // No filters active
+                }
+
+                return `APC REPORT ${parts.join(' ')}`;
+            };
+
+            const filterTitle = buildFilterTitle();
+
+            const drawPageHeader = (data: any) => {
+                const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+                const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+
+                // Watermark
+                doc.saveGraphicsState();
+                doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+                const wmWidth = 120;
+                const imgAspectRatio = logoImg.width / logoImg.height;
+                const wmHeight = wmWidth / imgAspectRatio;
+                doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmHeight) / 2, wmWidth, wmHeight);
+                doc.restoreGraphicsState();
+
+                // --- Header ---
+                const aspectRatio = logoImg.width / logoImg.height;
+                doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
+
+                doc.setTextColor(0, 128, 0); // Green for NECO
+                doc.setFontSize(18);
+                doc.setFont("helvetica", "bold");
+                doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", width / 2, 18, { align: 'center' });
+
+                doc.setTextColor(0);
+                doc.setFontSize(14);
+                doc.text(reportTitle.toUpperCase(), width / 2, 26, { align: 'center' });
+
+                // Third header line for filter context
+                if (filterTitle) {
+                    doc.setFontSize(11);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(filterTitle, width / 2, 32, { align: 'center' });
+                }
+
+                // --- Signature ---
+                const signatureY = pageHeight - 20;
+
+                if (signatureImg) {
+                    const sigWidth = 35;
+                    const sigAspectRatio = signatureImg.width / signatureImg.height;
+                    const sigH = sigWidth / sigAspectRatio;
+                    doc.addImage(signatureImg, 'PNG', 15, signatureY - sigH - 8, sigWidth, sigH);
+                }
+
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(0);
+                doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
+                doc.setFontSize(10);
+                doc.text("REG/CE", 15, signatureY + 5);
+
+                // --- Footer ---
+                doc.setFontSize(8);
+                doc.setTextColor(100);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Generated ${new Date().toLocaleDateString()} By NECO APCIC Manager`, 15, pageHeight - 10);
+                doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+            };
+
+            const tableColumn = ["S/N", "FILE NO", "NAME", "CONRAISS", "STATION", "ASSIGNMENT"];
+
+            // Create a map for code to name lookup
+            const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
+
+            // Sort by CONRAISS descending (14, 13, 12...) before generating PDF
+            const sortedRecords = [...filteredRecords].sort((a, b) => {
+                const conrA = parseInt((a.conraiss || '0').replace(/\D/g, ''), 10);
+                const conrB = parseInt((b.conraiss || '0').replace(/\D/g, ''), 10);
+                return conrB - conrA; // Descending
+            });
+
+            // Roman numeral helper
+            const toRoman = (num: number): string => {
+                const romanNumerals = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii', 'xiii', 'xiv', 'xv'];
+                return romanNumerals[num - 1] || num.toString();
+            };
+
+            // Prepare Data
+            const tableRows = sortedRecords.map((record, index) => {
+                // Aggregate Assignments with Roman numerals
+                const assignments: string[] = [];
+                const processedFields = new Set<string>();
+
+                // 1. Iterate over official assignments (codes) first
+                assignmentOptions.forEach(opt => {
+                    const field = assignmentFieldMap[opt.code];
+                    // Skip if we don't know the field for this code
+                    if (!field) return;
+
+                    if (!processedFields.has(field)) {
+                        const val = record[field as keyof APCRecord];
+                        if (val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED') {
+                            assignments.push(opt.name);
+                            processedFields.add(field);
+                        }
+                    }
+                });
+
+                // 2. Fallback check for any extra fields in assignmentFieldMap not covered by options (just in case)
+                Object.entries(assignmentFieldMap).forEach(([key, field]) => {
+                    if (processedFields.has(field)) return;
+
+                    const val = record[field as keyof APCRecord];
+                    if (val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED') {
+                        assignments.push(assignmentNameMap.get(key) || key);
+                        processedFields.add(field);
+                    }
+                });
+
+                // Format with Roman numerals
+                const formattedAssignments = assignments.map((a, i) => `${toRoman(i + 1)}. ${a}`).join('\n');
 
                 return [
-                    (index + 1).toString(),
+                    index + 1,
                     record.file_no,
                     record.name,
-                    record.qualification || '',
-                    record.sex || '',
-                    record.station || '',
-                    record.conraiss || '',
-                    record.year || '',
-                    activeAssignments.join(', ') || 'None',
-                    record.active ? 'Active' : 'Inactive',
-                    record.remark || ''
+                    record.conraiss,
+                    record.station || '-',
+                    formattedAssignments || '-'
                 ];
             });
+
+            // Increase line spacing slightly for readability
+            doc.setLineHeightFactor(1.4);
 
             autoTable(doc, {
                 head: [tableColumn],
                 body: tableRows,
-                startY: 38,
-                styles: { fontSize: 8.5, font: 'helvetica' },
-                headStyles: { fillColor: [20, 158, 136], textColor: [255, 255, 255], fontStyle: 'bold' },
-                alternateRowStyles: { fillColor: [245, 247, 250] },
-                margin: { top: 38 },
-                didDrawPage: (data) => {
-                    const str = "Page " + doc.getNumberOfPages();
-                    doc.setFontSize(10);
-                    const pageSize = doc.internal.pageSize;
-                    const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-                    doc.text(str, data.settings.margin.left, pageHeight - 10);
-                }
+                startY: 35,
+                margin: { top: 35, bottom: 50 },
+                theme: 'grid',
+                styles: { fontSize: 10, cellPadding: 1.5, minCellHeight: 6 },
+                bodyStyles: { fontStyle: 'bold' },
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green header
+                columnStyles: {
+                    0: { cellWidth: 12, halign: 'center' }, // S/N
+                    1: { cellWidth: 25 }, // File No
+                    2: { cellWidth: 70 }, // Name
+                    3: { cellWidth: 20, halign: 'center' }, // CONRAISS
+                    4: { cellWidth: 40 }, // Station
+                    5: { cellWidth: 'auto' } // Assignment
+                },
+                alternateRowStyles: { fillColor: [240, 253, 244] },
+                didDrawPage: (data) => drawPageHeader(data)
             });
 
-            doc.save(`APC_Filtered_Export_${new Date().toISOString().split('T')[0]}.pdf`);
-
-            setAlertModal({
-                isOpen: true,
-                title: 'Export Successful',
-                message: `${filteredRecords.length} APC records have been exported to PDF.`,
-                type: 'success'
-            });
-        } catch (error) {
-            console.error('PDF Export Failed:', error);
-            setAlertModal({
-                isOpen: true,
-                title: 'Export Failed',
-                message: 'Failed to export APC records to PDF.',
-                type: 'error'
-            });
+            doc.save(`Staff_APC_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+            setShowReportModal(false);
+            setAlertModal({ isOpen: true, title: 'Success', message: 'PDF Report generated successfully.', type: 'success' });
+        } catch (error: any) {
+            console.error("PDF Export failed:", error);
+            setAlertModal({ isOpen: true, title: 'Error', message: `Failed to generate PDF: ${error.message}`, type: 'error' });
         } finally {
             setLoading(false);
         }
-    }, [filteredRecords]);
+    };
 
     const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -473,6 +603,7 @@ const APCList: React.FC = () => {
         setEditingRecord(record);
         setShowAddModal(true);
     }, []);
+
 
     const handleDelete = useCallback(async (id: string) => {
         setAlertModal({
@@ -554,11 +685,11 @@ const APCList: React.FC = () => {
                         </button>
                     )}
                     <button
-                        onClick={handleExportPdf}
+                        onClick={() => setShowReportModal(true)}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200"
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-rose-400 to-rose-600 dark:from-rose-300 dark:to-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
-                        Export PDF
+                        Print Report
                     </button>
                     <button
                         onClick={handleExport}
@@ -613,6 +744,7 @@ const APCList: React.FC = () => {
                     </button>
                 </div>
             </div>
+
 
             <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
                 {/* Filters */}
@@ -859,6 +991,45 @@ const APCList: React.FC = () => {
                 details={alertModal.details}
                 onConfirm={alertModal.onConfirm}
             />
+
+            {showReportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200 dark:border-gray-800 animate-in zoom-in-95 duration-200">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Report Configuration</h3>
+
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                                Report Title
+                            </label>
+                            <input
+                                type="text"
+                                value={reportTitle}
+                                onChange={(e) => setReportTitle(e.target.value)}
+                                className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                placeholder="e.g. 2025 STAFF APC"
+                            />
+                            <p className="text-xs text-slate-400 mt-2">This title will appear at the top of the generated PDF report.</p>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setShowReportModal(false)}
+                                className="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-sm transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handlePDFExport}
+                                disabled={loading}
+                                className={`px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            >
+                                {loading && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
+                                {loading ? 'Generating...' : 'Generate PDF'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <APCModal
                 isOpen={showAddModal}

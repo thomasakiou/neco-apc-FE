@@ -94,6 +94,8 @@ const AdminLayout: React.FC = () => {
               isActive('/admin/apc/list')
             }>
               <NavItem to="/admin/apc/list" icon="table_view" label="Staff APC" active={isActive('/admin/apc/list')} isLocked={isModuleLocked('apc') && !isSuperAdmin} />
+              <NavItem to="/admin/apc/custom" icon="person_add" label="Custom APC" active={isActive('/admin/apc/custom')} isLocked={isModuleLocked('apc') && !isSuperAdmin} />
+              <NavItem to="/admin/apc/random" icon="casino" label="Random APC" active={isActive('/admin/apc/random')} isLocked={isModuleLocked('apc') && !isSuperAdmin} />
             </CollapsibleNavSection>
 
 

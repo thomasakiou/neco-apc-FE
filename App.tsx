@@ -10,6 +10,8 @@ import MarkingVenueManagement from './pages/admin/MarkingVenueManagement';
 import PostingModes from './pages/admin/PostingModes';
 import AnnualPostings from './pages/admin/AnnualPostings';
 import APCList from './pages/admin/APCList';
+import CustomAPC from './pages/admin/CustomAPC';
+import RandomAPC from './pages/admin/RandomAPC';
 import NCEECenters from './pages/admin/NCEECenters';
 import BECECustodians from './pages/admin/BECECustodians';
 import SSCECustodians from './pages/admin/SSCECustodians';
@@ -66,6 +68,8 @@ const App: React.FC = () => {
 
               <Route path="apc/modes" element={<ProtectedRoute moduleName="posting"><PostingModes /></ProtectedRoute>} />
               <Route path="apc/list" element={<ProtectedRoute moduleName="apc"><APCList /></ProtectedRoute>} />
+              <Route path="apc/custom" element={<ProtectedRoute moduleName="apc"><CustomAPC /></ProtectedRoute>} />
+              <Route path="apc/random" element={<ProtectedRoute moduleName="apc"><RandomAPC /></ProtectedRoute>} />
               <Route path="apc/hod" element={<ProtectedRoute moduleName="apc"><HODApcList /></ProtectedRoute>} />
               <Route path="apc/annual" element={<ProtectedRoute moduleName="posting"><AnnualPostings /></ProtectedRoute>} />
 
