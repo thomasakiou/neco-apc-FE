@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { PasswordChangeModal } from './PasswordChangeModal';
+import EnvironmentSwitcher from './EnvironmentSwitcher';
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
@@ -209,6 +210,8 @@ const AdminLayout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+
+      <EnvironmentSwitcher />
     </div>
   );
 };
