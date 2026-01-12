@@ -898,6 +898,12 @@ const SDLPage: React.FC = () => {
                             onChange={setSelectedStateCoord}
                         />
                         <FilterSelect
+                            label="Director"
+                            value={selectedDirector}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedDirector}
+                        />
+                        <FilterSelect
                             label="Education"
                             value={selectedEducation}
                             options={['Yes', 'No']}
