@@ -59,6 +59,7 @@ const Statistics: React.FC = () => {
     const [tableSearch, setTableSearch] = useState('');
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'posted' | 'not_posted' | 'not_on_apc'>('all');
 
     // Fetch Data on Mount
     useEffect(() => {
@@ -141,7 +142,18 @@ const Statistics: React.FC = () => {
             postingStatus: [
                 { name: 'Posted', value: totalWithPosting },
                 { name: 'Not Posted', value: totalWithoutPosting < 0 ? 0 : totalWithoutPosting }
-            ]
+            ],
+            byConraiss: Object.entries(filteredData.reduce((acc, curr) => {
+                const key = curr.conr || 'Unknown';
+                acc[key] = (acc[key] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>))
+                .map(([name, value]) => ({ name, value }))
+                .sort((a, b) => {
+                    const numA = parseInt(a.name);
+                    const numB = parseInt(b.name);
+                    return !isNaN(numA) && !isNaN(numB) ? numB - numA : b.name.localeCompare(a.name);
+                })
         };
     }, [filteredData, allAPC, allPostings]);
 
@@ -150,18 +162,7 @@ const Statistics: React.FC = () => {
         setPage(1);
     }, [selectedState, selectedSex, selectedConraiss, selectedStation, selectedZone, selectedPromotionDate]);
 
-    // Table specific options/filtering
-    const tableFilteredData = useMemo(() => {
-        return filteredData.filter(staff => {
-            if (!tableSearch) return true;
-            const searchLower = tableSearch.toLowerCase();
-            return (
-                staff.full_name?.toLowerCase().includes(searchLower) ||
-                staff.fileno?.toLowerCase().includes(searchLower) ||
-                staff.station?.toLowerCase().includes(searchLower)
-            );
-        });
-    }, [filteredData, tableSearch]);
+
 
     // Valid APC File Numbers for quick lookup
     const apcFileNoSet = useMemo(() => new Set(allAPC.map(a => a.file_no)), [allAPC]);
@@ -172,6 +173,30 @@ const Statistics: React.FC = () => {
         allPostings.forEach(p => map.set(p.file_no, p));
         return map;
     }, [allPostings]);
+
+    // Table specific options/filtering
+    const tableFilteredData = useMemo(() => {
+        return filteredData.filter(staff => {
+            // Status Filter Logic
+            if (statusFilter !== 'all') {
+                const hasAPC = apcFileNoSet.has(staff.fileno);
+                const p = postingMap.get(staff.fileno);
+                const isPosted = p && p.mandates && p.mandates.length > 0;
+
+                if (statusFilter === 'posted' && !isPosted) return false;
+                if (statusFilter === 'not_posted' && (!hasAPC || isPosted)) return false;
+                if (statusFilter === 'not_on_apc' && hasAPC) return false;
+            }
+
+            if (!tableSearch) return true;
+            const searchLower = tableSearch.toLowerCase();
+            return (
+                staff.full_name?.toLowerCase().includes(searchLower) ||
+                staff.fileno?.toLowerCase().includes(searchLower) ||
+                staff.station?.toLowerCase().includes(searchLower)
+            );
+        });
+    }, [filteredData, tableSearch, statusFilter, apcFileNoSet, postingMap]);
 
     const paginatedData = useMemo(() => {
         const start = (page - 1) * limit;
@@ -403,7 +428,7 @@ const Statistics: React.FC = () => {
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                    <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">Staff Distribution by State (Top 15)</h3>
+                    <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">Staff Distribution by State of Origin (Top 15)</h3>
                     <div className="h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={stats.byState} margin={{ bottom: 20 }}>
@@ -480,24 +505,65 @@ const Statistics: React.FC = () => {
                         </ResponsiveContainer>
                     </div>
                 </div>
+
+                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">Staff by CONRAISS Level</h3>
+                    <div className="h-80 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.byConraiss} margin={{ bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#334155' : '#e2e8f0'} />
+                                <XAxis
+                                    dataKey="name"
+                                    stroke={theme === 'dark' ? '#94a3b8' : '#64748b'}
+                                    height={40}
+                                    tick={{ fontSize: 10 }}
+                                />
+                                <YAxis stroke={theme === 'dark' ? '#94a3b8' : '#64748b'} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: theme === 'dark' ? '#1e293b' : '#fff', borderColor: theme === 'dark' ? '#334155' : '#e2e8f0' }}
+                                    itemStyle={{ color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}
+                                />
+                                <Legend />
+                                <Bar dataKey="value" name="Staff Count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
             </div>
 
             {/* Staff Details Table */}
             <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Staff Details</h3>
-                    <div className="relative w-full md:w-64">
-                        <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400">search</span>
-                        <input
-                            type="text"
-                            placeholder="Search table..."
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0b1015] focus:ring-2 focus:ring-primary/50 outline-none transition-shadow"
-                            value={tableSearch}
-                            onChange={(e) => {
-                                setTableSearch(e.target.value);
-                                setPage(1); // Reset to first page on search
-                            }}
-                        />
+                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                        <div className="relative w-full sm:w-40">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => {
+                                    setStatusFilter(e.target.value as any);
+                                    setPage(1);
+                                }}
+                                className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0b1015] focus:ring-2 focus:ring-primary/50 outline-none transition-shadow text-sm text-slate-700 dark:text-slate-300 font-medium"
+                            >
+                                <option value="all">All Status</option>
+                                <option value="posted">Posted</option>
+                                <option value="not_posted">Not Posted</option>
+                                <option value="not_on_apc">Not on APC</option>
+                            </select>
+                        </div>
+                        <div className="relative w-full sm:w-64">
+                            <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400">search</span>
+                            <input
+                                type="text"
+                                placeholder="Search table..."
+                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0b1015] focus:ring-2 focus:ring-primary/50 outline-none transition-shadow"
+                                value={tableSearch}
+                                onChange={(e) => {
+                                    setTableSearch(e.target.value);
+                                    setPage(1); // Reset to first page on search
+                                }}
+                            />
+                        </div>
                     </div>
                 </div>
 
