@@ -20,7 +20,9 @@ import { helpContent } from '../../data/helpContent';
 const PersonalizedPost: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('');
-    const [selectedStationId, setSelectedStationId] = useState<string>('');
+    const [selectedStationIds, setSelectedStationIds] = useState<string[]>([]);
+    const [showVenueDropdown, setShowVenueDropdown] = useState(false);
+    const venueDropdownRef = React.useRef<HTMLDivElement>(null);
     const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null; group?: string }[]>([]);
     const [boardData, setBoardData] = useState<AssignmentBoardData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -57,6 +59,17 @@ const PersonalizedPost: React.FC = () => {
             setSelectedStaffIds(new Set());
         }
     }, [selectedAssignmentId]);
+
+    // Click outside to close dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (venueDropdownRef.current && !venueDropdownRef.current.contains(event.target as Node)) {
+                setShowVenueDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const loadAssignments = async () => {
         try {
@@ -158,8 +171,8 @@ const PersonalizedPost: React.FC = () => {
 
     const handleSaveChanges = async () => {
         if (!boardData || pendingChanges.length === 0) return;
-        if (!selectedStationId) {
-            showAlert('Requirement', 'Please select a Target Station first.', 'warning');
+        if (selectedStationIds.length === 0) {
+            showAlert('Requirement', 'Please select at least one Target Station.', 'warning');
             return;
         }
 
@@ -167,9 +180,19 @@ const PersonalizedPost: React.FC = () => {
 
         setLoading(true);
         try {
+            // Join selected station names
+            const selectedStations = stationOptions.filter(s => selectedStationIds.includes(s.id));
+            const combinedStationName = selectedStations.map(s => s.name).join(' | ');
+            const primaryStation = selectedStations[0]; // Use first one for metadata like state
+
             await bulkSaveAssignments({
                 assignment: assignment!,
-                station: stationOptions.find(s => s.id === selectedStationId),
+                station: {
+                    id: selectedStationIds.join(','),
+                    name: combinedStationName,
+                    type: primaryStation.type,
+                    state: primaryStation.state
+                },
                 changes: pendingChanges,
                 numberOfNights: (assignment?.code === 'MAR-ACCR' || assignment?.code === 'OCT-ACCR') ? numberOfNights : undefined,
                 description: description // Pass description
@@ -296,13 +319,144 @@ const PersonalizedPost: React.FC = () => {
                             {assignments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
 
-                        <SearchableSelect
-                            options={stationOptions}
-                            value={selectedStationId}
-                            onChange={setSelectedStationId}
-                            placeholder="Target Station..."
-                            className="w-full sm:min-w-[240px] flex-1"
-                        />
+                        <div ref={venueDropdownRef} className="relative w-full sm:min-w-[240px] flex-1">
+                            <button
+                                type="button"
+                                onClick={() => setShowVenueDropdown(!showVenueDropdown)}
+                                className={`w-full h-10 px-4 rounded-xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold flex items-center justify-between cursor-pointer hover:border-indigo-400 outline-none transition-all`}
+                            >
+                                <span className="truncate">
+                                    {selectedStationIds.length === 0
+                                        ? 'Select Target Station(s)...'
+                                        : selectedStationIds.length === 1
+                                            ? (() => {
+                                                const s = stationOptions.find(opt => opt.id === selectedStationIds[0]);
+                                                return s ? s.name : '1 station selected';
+                                            })()
+                                            : `${selectedStationIds.length} stations selected`
+                                    }
+                                </span>
+                                <span className="material-symbols-outlined text-slate-400">
+                                    {showVenueDropdown ? 'expand_less' : 'expand_more'}
+                                </span>
+                            </button>
+
+                            {/* Dropdown Panel */}
+                            {showVenueDropdown && (
+                                <div className="absolute z-50 top-full left-0 mt-2 w-[400px] max-h-80 overflow-y-auto bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                                    {/* Quick Actions */}
+                                    <div className="sticky top-0 bg-white dark:bg-[#1E293B] p-3 border-b border-slate-100 dark:border-slate-800 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedStationIds(stationOptions.map(v => v.id))}
+                                            className="flex-1 text-xs font-bold px-2 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
+                                        >
+                                            Select All
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedStationIds([])}
+                                            className="flex-1 text-xs font-bold px-2 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                        >
+                                            Clear All
+                                        </button>
+                                    </div>
+
+                                    {/* Grouped Stations */}
+                                    {(() => {
+                                        const grouped = stationOptions.reduce((acc, opt) => {
+                                            const group = opt.group || 'Others';
+                                            if (!acc[group]) acc[group] = [];
+                                            acc[group].push(opt);
+                                            return acc;
+                                        }, {} as { [key: string]: typeof stationOptions });
+
+                                        const sortedGroups = Object.keys(grouped).sort((a, b) => {
+                                            if (a === 'All States') return -1;
+                                            if (b === 'All States') return 1;
+                                            if (a === 'Others') return 1;
+                                            if (b === 'Others') return -1;
+                                            return a.localeCompare(b);
+                                        });
+
+                                        return sortedGroups.map(group => {
+                                            const groupOpts = grouped[group].sort((a, b) => a.name.localeCompare(b.name));
+                                            const allGroupSelected = groupOpts.every(v => selectedStationIds.includes(v.id));
+                                            const someGroupSelected = groupOpts.some(v => selectedStationIds.includes(v.id));
+
+                                            return (
+                                                <div key={group}>
+                                                    {/* Group Header */}
+                                                    <div
+                                                        className="sticky top-[53px] px-4 py-2.5 bg-slate-50 dark:bg-[#161F2F] border-b border-slate-100 dark:border-slate-800 flex items-center gap-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+                                                        onClick={() => {
+                                                            if (allGroupSelected) {
+                                                                setSelectedStationIds(prev => prev.filter(id => !groupOpts.some(v => v.id === id)));
+                                                            } else {
+                                                                setSelectedStationIds(prev => [...new Set([...prev, ...groupOpts.map(v => v.id)])]);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={allGroupSelected}
+                                                            ref={input => {
+                                                                if (input) input.indeterminate = someGroupSelected && !allGroupSelected;
+                                                            }}
+                                                            onChange={() => { }}
+                                                            className="w-4 h-4 text-indigo-600 rounded cursor-pointer accent-indigo-600"
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider font-mono">{group}</span>
+                                                            <span className="text-[10px] text-slate-400 font-bold">{groupOpts.length} items</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Station Items */}
+                                                    {groupOpts.map(v => {
+                                                        const isSelected = selectedStationIds.includes(v.id);
+                                                        return (
+                                                            <div
+                                                                key={v.id}
+                                                                onClick={() => {
+                                                                    if (isSelected) {
+                                                                        setSelectedStationIds(prev => prev.filter(id => id !== v.id));
+                                                                    } else {
+                                                                        setSelectedStationIds(prev => [...prev, v.id]);
+                                                                    }
+                                                                }}
+                                                                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer transition-all ${isSelected ? 'bg-indigo-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => { }}
+                                                                    className="w-4 h-4 text-indigo-600 rounded cursor-pointer accent-indigo-600"
+                                                                />
+                                                                <span className={`text-sm ${isSelected ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                    {v.name}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        });
+                                    })()}
+
+                                    {/* Done Button */}
+                                    <div className="sticky bottom-0 bg-white dark:bg-[#1E293B] p-3 border-t border-slate-100 dark:border-slate-800">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowVenueDropdown(false)}
+                                            className="w-full text-sm font-black px-4 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
+                                        >
+                                            Done ({selectedStationIds.length} selected)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         <div className="flex items-center gap-2">
                             <span className="material-symbols-outlined text-indigo-500 dark:text-indigo-400 animate-point text-lg">pan_tool_alt</span>

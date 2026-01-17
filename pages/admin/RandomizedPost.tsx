@@ -458,9 +458,37 @@ const RandomizedPost: React.FC = () => {
                 const count = (p.assignments || []).length;
                 postedCountMap.set(p.file_no, (postedCountMap.get(p.file_no) || 0) + count);
 
-                if (Array.isArray(p.mandates) && p.mandates.some(m => m === targetMandate)) {
-                    alreadyAssignedStaffIds.add(p.file_no);
+                // Helper for robust comparison
+                const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
+                const targetCode = normalize(assignmentCode);
+                const targetName = normalize(assignmentName);
+                const targetMandateNorm = normalize(targetMandate);
+
+                let matchesAssignment = false;
+                if (Array.isArray(p.assignments)) {
+                    matchesAssignment = p.assignments.some(a => {
+                        const normA = normalize(a);
+                        return (targetCode && normA === targetCode) || (targetName && normA === targetName);
+                    });
                 }
+
+                // Matches mandate logic is secondary if we enforce strict 1-assignment-per-staff
+                let matchesMandate = false;
+                if (Array.isArray(p.mandates)) {
+                    matchesMandate = p.mandates.some(m => normalize(m) === targetMandateNorm);
+                }
+
+                if (matchesAssignment || matchesMandate) {
+                    alreadyAssignedStaffIds.add(String(p.file_no).padStart(4, '0'));
+                }
+            });
+
+            console.log('DEBUG: Staff Duplicate Check', {
+                assignmentCode,
+                assignmentName,
+                totalExisting: existingPostings.length,
+                foundDuplicates: alreadyAssignedStaffIds.size,
+                samplePosting: existingPostings[0]
             });
 
             // 2. Filter Eligible Staff (Strict check on Global Quota + Mandate CONRAISS Range)
@@ -930,11 +958,11 @@ const RandomizedPost: React.FC = () => {
                     }), { state: 0, zone: 0, other: 0 })
                 });
                 if (skippedDueToDuplicate > 0) {
-                    warning(`${skippedDueToDuplicate} staff members were skipped because they are already posted for this mandate.`);
+                    warning(`${skippedDueToDuplicate} staff members were skipped because they are already posted for this Assignment.`);
                 }
             } else {
                 if (skippedDueToDuplicate > 0) {
-                    warning(`${skippedDueToDuplicate} staff members were skipped because they are already posted for this mandate.`);
+                    warning(`${skippedDueToDuplicate} staff members were skipped because they are already posted for this Assignment.`);
                 }
                 info('No staff matched criteria or quotas already met.');
             }

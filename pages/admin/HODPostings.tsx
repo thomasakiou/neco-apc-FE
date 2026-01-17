@@ -88,12 +88,26 @@ const HODPostings: React.FC = () => {
     const [poolSearch, setPoolSearch] = useState('');
     const [boardSearch, setBoardSearch] = useState('');
     const [selectedStationId, setSelectedStationId] = useState<string>('');
+    const [selectedStationIdsPersonalized, setSelectedStationIdsPersonalized] = useState<string[]>([]);
+    const [showPersonalizedStationDropdown, setShowPersonalizedStationDropdown] = useState(false);
+    const personalizedStationDropdownRef = useRef<HTMLDivElement>(null);
     const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null; group?: string }[]>([]);
     const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
 
     useEffect(() => {
         fetchInitialData();
+    }, []);
+
+    // Click outside to close personalized station dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (personalizedStationDropdownRef.current && !personalizedStationDropdownRef.current.contains(event.target as Node)) {
+                setShowPersonalizedStationDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const fetchInitialData = async () => {
@@ -290,8 +304,8 @@ const HODPostings: React.FC = () => {
 
     const handleBoardSaveChanges = async () => {
         if (!boardData || pendingChanges.length === 0) return;
-        if (!selectedStationId) {
-            warning('Please select a Target Station first.');
+        if (selectedStationIdsPersonalized.length === 0) {
+            warning('Please select at least one Target Station.');
             return;
         }
 
@@ -299,9 +313,19 @@ const HODPostings: React.FC = () => {
 
         setLoading(true);
         try {
+            // Join selected station names
+            const selectedStations = stationOptions.filter(s => selectedStationIdsPersonalized.includes(s.id));
+            const combinedStationName = selectedStations.map(s => s.name).join(' | ');
+            const primaryStation = selectedStations[0];
+
             await bulkSaveHODAssignments({
                 assignment: assignment!,
-                station: stationOptions.find(s => s.id === selectedStationId),
+                station: {
+                    id: selectedStationIdsPersonalized.join(','),
+                    name: combinedStationName,
+                    type: primaryStation.type,
+                    state: primaryStation.state
+                },
                 changes: pendingChanges,
                 numberOfNights: (assignment?.code === 'MAR-ACCR' || assignment?.code === 'OCT-ACCR') ? numberOfNights : undefined,
                 description: description
@@ -421,12 +445,43 @@ const HODPostings: React.FC = () => {
 
             // 1. Existing Assignments Lookup (duplicate prevention)
             const alreadyAssignedStaffIds = new Set<string>();
+            const assignmentName = assignmentRecord?.name || '';
+
+            // Helper for robust comparison
+            const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
+            const targetCode = normalize(assignmentCode);
+            const targetName = normalize(assignmentName);
+            const targetMandateNorm = normalize(targetMandate);
+
             existingPostings.forEach(p => {
-                if (Array.isArray(p.mandates) && p.mandates.some(m => m === targetMandate)) {
-                    alreadyAssignedStaffIds.add(p.file_no);
+                // Check if posted for this assignment (by code or name)
+                let matchesAssignment = false;
+                if (Array.isArray(p.assignments)) {
+                    matchesAssignment = p.assignments.some(a => {
+                        const normA = normalize(a);
+                        return (targetCode && normA === targetCode) || (targetName && normA === targetName);
+                    });
+                }
+
+                // Fallback: check mandates if assignment check was insufficient or for specific mandate constraints
+                let matchesMandate = false;
+                if (Array.isArray(p.mandates)) {
+                    matchesMandate = p.mandates.some(m => normalize(m) === targetMandateNorm);
+                }
+
+                if (matchesAssignment || matchesMandate) {
+                    // Ensure file_no is normalized to match other comparisons
+                    alreadyAssignedStaffIds.add(String(p.file_no).padStart(4, '0'));
                 }
             });
 
+            console.log('DEBUG: Duplicate Check', {
+                assignmentCode,
+                assignmentName,
+                totalExisting: existingPostings.length,
+                foundDuplicates: alreadyAssignedStaffIds.size,
+                samplePosting: existingPostings[0]
+            });
             // 2. Filter Eligible HODs
             let skippedDueToDuplicate = 0;
             const eligibleHODs = allHODs.filter(hod => {
@@ -570,7 +625,7 @@ const HODPostings: React.FC = () => {
                 info('No HODs matched criteria or quotas already met.');
             }
             if (skippedDueToDuplicate > 0) {
-                warning(`${skippedDueToDuplicate} HOD(s) were skipped because they are already posted for this mandate.`);
+                warning(`${skippedDueToDuplicate} HOD(s) were skipped because they are already posted for this Assignment.`);
             }
         } catch (err) {
             console.error("Error generating postings", err);
@@ -621,6 +676,7 @@ const HODPostings: React.FC = () => {
                             <tr>
                                 <th className="p-3">File No</th>
                                 <th className="p-3">Name</th>
+                                <th className="p-3">Station</th>
                                 <th className="p-3">CON</th>
                                 <th className="p-3">Venue</th>
                                 <th className="p-3">State</th>
@@ -631,6 +687,7 @@ const HODPostings: React.FC = () => {
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
                                     <td className="p-3 font-mono font-bold">{p.file_no}</td>
                                     <td className="p-3 font-medium">{p.name}</td>
+                                    <td className="p-3 font-bold text-xs text-slate-500">{p.station || '-'}</td>
                                     <td className="p-3 font-bold">{p.conraiss}</td>
                                     <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">{p.assignment_venue?.[0]}</td>
                                     <td className="p-3">{p.state || (p as any).state_name || '-'}</td>
@@ -943,13 +1000,144 @@ const HODPostings: React.FC = () => {
                                     <option value="">Select Assignment</option>
                                     {assignments.filter(a => a.active).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                                 </select>
-                                <SearchableSelect
-                                    options={stationOptions}
-                                    value={selectedStationId}
-                                    onChange={setSelectedStationId}
-                                    placeholder="Target Station..."
-                                    className="min-w-[240px]"
-                                />
+                                <div ref={personalizedStationDropdownRef} className="relative min-w-[240px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPersonalizedStationDropdown(!showPersonalizedStationDropdown)}
+                                        className={`w-full h-10 px-4 rounded-xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold flex items-center justify-between cursor-pointer hover:border-indigo-400 outline-none transition-all`}
+                                    >
+                                        <span className="truncate">
+                                            {selectedStationIdsPersonalized.length === 0
+                                                ? 'Select Target Station(s)...'
+                                                : selectedStationIdsPersonalized.length === 1
+                                                    ? (() => {
+                                                        const s = stationOptions.find(opt => opt.id === selectedStationIdsPersonalized[0]);
+                                                        return s ? s.name : '1 station selected';
+                                                    })()
+                                                    : `${selectedStationIdsPersonalized.length} stations selected`
+                                            }
+                                        </span>
+                                        <span className="material-symbols-outlined text-slate-400">
+                                            {showPersonalizedStationDropdown ? 'expand_less' : 'expand_more'}
+                                        </span>
+                                    </button>
+
+                                    {/* Dropdown Panel */}
+                                    {showPersonalizedStationDropdown && (
+                                        <div className="absolute z-50 top-full left-0 mt-2 w-[400px] max-h-80 overflow-y-auto bg-white dark:bg-[#1A2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                                            {/* Quick Actions */}
+                                            <div className="sticky top-0 bg-white dark:bg-[#1A2533] p-3 border-b border-slate-100 dark:border-gray-800 flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedStationIdsPersonalized(stationOptions.map(v => v.id))}
+                                                    className="flex-1 text-xs font-bold px-2 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
+                                                >
+                                                    Select All
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedStationIdsPersonalized([])}
+                                                    className="flex-1 text-xs font-bold px-2 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                >
+                                                    Clear All
+                                                </button>
+                                            </div>
+
+                                            {/* Grouped Stations */}
+                                            {(() => {
+                                                const grouped = stationOptions.reduce((acc, opt) => {
+                                                    const group = opt.group || 'Others';
+                                                    if (!acc[group]) acc[group] = [];
+                                                    acc[group].push(opt);
+                                                    return acc;
+                                                }, {} as { [key: string]: typeof stationOptions });
+
+                                                const sortedGroups = Object.keys(grouped).sort((a, b) => {
+                                                    if (a === 'All States') return -1;
+                                                    if (b === 'All States') return 1;
+                                                    if (a === 'Others') return 1;
+                                                    if (b === 'Others') return -1;
+                                                    return a.localeCompare(b);
+                                                });
+
+                                                return sortedGroups.map(group => {
+                                                    const groupOpts = grouped[group].sort((a, b) => a.name.localeCompare(b.name));
+                                                    const allGroupSelected = groupOpts.every(v => selectedStationIdsPersonalized.includes(v.id));
+                                                    const someGroupSelected = groupOpts.some(v => selectedStationIdsPersonalized.includes(v.id));
+
+                                                    return (
+                                                        <div key={group}>
+                                                            {/* Group Header */}
+                                                            <div
+                                                                className="sticky top-[53px] px-4 py-2.5 bg-slate-100 dark:bg-[#161F2F] border-b border-slate-200 dark:border-gray-800 flex items-center gap-3 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800/50 transition-colors"
+                                                                onClick={() => {
+                                                                    if (allGroupSelected) {
+                                                                        setSelectedStationIdsPersonalized(prev => prev.filter(id => !groupOpts.some(v => v.id === id)));
+                                                                    } else {
+                                                                        setSelectedStationIdsPersonalized(prev => [...new Set([...prev, ...groupOpts.map(v => v.id)])]);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={allGroupSelected}
+                                                                    ref={input => {
+                                                                        if (input) input.indeterminate = someGroupSelected && !allGroupSelected;
+                                                                    }}
+                                                                    onChange={() => { }}
+                                                                    className="w-4 h-4 text-indigo-600 rounded cursor-pointer accent-indigo-600"
+                                                                />
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider font-mono">{group}</span>
+                                                                    <span className="text-[10px] text-slate-500 font-bold">{groupOpts.length} items</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Station Items */}
+                                                            {groupOpts.map(v => {
+                                                                const isSelected = selectedStationIdsPersonalized.includes(v.id);
+                                                                return (
+                                                                    <div
+                                                                        key={v.id}
+                                                                        onClick={() => {
+                                                                            if (isSelected) {
+                                                                                setSelectedStationIdsPersonalized(prev => prev.filter(id => id !== v.id));
+                                                                            } else {
+                                                                                setSelectedStationIdsPersonalized(prev => [...prev, v.id]);
+                                                                            }
+                                                                        }}
+                                                                        className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer transition-all ${isSelected ? 'bg-indigo-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isSelected}
+                                                                            onChange={() => { }}
+                                                                            className="w-4 h-4 text-indigo-600 rounded cursor-pointer accent-indigo-600"
+                                                                        />
+                                                                        <span className={`text-sm ${isSelected ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                            {v.name}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+
+                                            {/* Done Button */}
+                                            <div className="sticky bottom-0 bg-white dark:bg-[#1A2533] p-3 border-t border-slate-200 dark:border-gray-800">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPersonalizedStationDropdown(false)}
+                                                    className="w-full text-sm font-black px-4 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
+                                                >
+                                                    Done ({selectedStationIdsPersonalized.length} selected)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                                 <button
                                     onClick={() => setIsStationModalOpen(true)}
                                     className="h-10 px-4 flex items-center justify-center rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all gap-2"
