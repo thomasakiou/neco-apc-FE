@@ -35,7 +35,9 @@ export interface BECEMarkingVenue {
     state?: string | null;
     name: string;
     code?: string | null;
-    numb_of_staff: number;
+    address?: string | null;
+    parcels: number;
+    numb_of_staff?: number;
     active: boolean;
     created_at?: string;
     updated_at?: string;
@@ -45,6 +47,8 @@ export interface BECEMarkingVenueCreate {
     state?: string | null;
     name: string;
     code?: string | null;
+    address?: string | null;
+    parcels?: number;
     numb_of_staff?: number;
     active?: boolean;
 }

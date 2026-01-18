@@ -245,7 +245,7 @@ const BECEMarkingVenues: React.FC = () => {
     const isAllSelected = filteredVenues.length > 0 && filteredVenues.every(v => selectedIds.has(v.id));
 
     const downloadCsvTemplate = () => {
-        const headers = ['state', 'name', 'code', 'numb_of_staff', 'active'];
+        const headers = ['state', 'name', 'code', 'address', 'parcels', 'active'];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -322,7 +322,8 @@ const BECEMarkingVenues: React.FC = () => {
                                     <SortableHeader field="name" label="Venue Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                     <SortableHeader field="code" label="Code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                     <th className="px-4 py-3">State</th>
-                                    <SortableHeader field="numb_of_staff" label="Staff" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
+                                    <SortableHeader field="address" label="Address" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                    <SortableHeader field="parcels" label="Parcels" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
                                     <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} center />
                                     <th className="px-4 py-3 text-center">Actions</th>
                                 </tr>
@@ -334,7 +335,8 @@ const BECEMarkingVenues: React.FC = () => {
                                         <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-200">{venue.name}</td>
                                         <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{venue.code || '-'}</td>
                                         <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{venue.state || '-'}</td>
-                                        <td className="px-4 py-4 text-center text-slate-600 dark:text-slate-300">{venue.numb_of_staff}</td>
+                                        <td className="px-4 py-4 text-slate-600 dark:text-slate-400 text-sm truncate max-w-xs">{venue.address || '-'}</td>
+                                        <td className="px-4 py-4 text-center text-slate-600 dark:text-slate-300">{venue.parcels || 0}</td>
                                         <td className="px-4 py-4 text-center">
                                             <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${venue.active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                                 {venue.active ? 'Active' : 'Inactive'}
