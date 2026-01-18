@@ -38,9 +38,67 @@ const stateToZoneFallback: { [key: string]: string } = {
 // ########################################################################################### //
 // BACKDOOR: Pre-allocated staff-to-location mappings
 // Staff in this map will be prioritized for their target location during randomization
-const preAllocatedStaff: { [file_no: string]: { targetState: string } } = {
+// 
+// MATCHING OPTIONS (use one or combine):
+//   targetState: 'Adamawa'           - Match venues in this state
+//   targetVenueName: 'NCEE MINNA'    - Match venues containing this text (partial match)
+//   targetVenueType: 'tt_center'     - Match only specific venue types:
+//                                      'state', 'school', 'bece_custodian', 'ssce_custodian',
+//                                      'ncee_center', 'tt_center', 'marking_venue'
+//
+// EXAMPLES:
+//   '1234': { targetState: 'Lagos' }
+//   '5678': { targetVenueName: 'TT CENTER KADUNA' }
+//   '9999': { targetState: 'Kano', targetVenueType: 'ssce_custodian' }
+//   '1111': { targetVenueName: 'GOVERNMENT COLLEGE', targetState: 'Rivers' }
+//
+
+// const preAllocatedStaff: { [file_no: string]: PreAllocation } = {
+//     // Staff 2082 → Adamawa state (any venue type)
+//     '2082': { targetState: 'Adamawa' },
+
+//     // Staff 1234 → Any TT Center in Lagos
+//     '1234': { targetState: 'Lagos', targetVenueType: 'tt_center' },
+
+//     // Staff 5678 → Specific custodian point by name
+//     '5678': { targetVenueName: 'GSS MINNA', targetVenueType: 'ssce_custodian' },
+
+//     // Staff 9999 → Any venue with "FEDERAL COLLEGE" in the name
+//     '9999': { targetVenueName: 'FEDERAL COLLEGE' },
+
+//     // Staff 1111 → BECE Custodian in Kano
+//     '1111': { targetState: 'Kano', targetVenueType: 'bece_custodian' },
+
+//     // Staff 2222 → Specific Marking Venue
+//     '2222': { targetVenueName: 'MARKING VENUE ABUJA', targetVenueType: 'marking_venue' },
+// };
+
+/////// CORRECT VENUES TO USE /////////////////////
+
+// What you see in UI	What to write in targetVenueType
+// States	                    'state'
+// Schools	                    'school'
+// BECE Custodians	            'bece_custodian'
+// SSCE Custodians	            'ssce_custodian'
+// NCEE Centers	                'ncee_center'
+// TT Centers	                'tt_center'
+// Marking Venues	            'marking_venue'
+
+// // ✅ CORRECT - use the code
+// '2082': { targetState: 'Adamawa', targetVenueType: 'ssce_custodian' }
+
+// // ❌ WRONG - don't use the display name
+// '2082': { targetState: 'Adamawa', targetVenueType: 'SSCE Custodian' }
+
+interface PreAllocation {
+    targetState?: string;
+    targetVenueName?: string;
+    targetVenueType?: string;
+}
+
+const preAllocatedStaff: { [file_no: string]: PreAllocation } = {
     '2082': { targetState: 'Adamawa' },
-    // Add more mappings as needed: 'file_no': { targetState: 'StateName' }
+    // Add more mappings as needed
 };
 // ############################################################################################ //
 
@@ -804,18 +862,51 @@ const RandomizedPost: React.FC = () => {
                                 // BACKDOOR: Check if this staff has a pre-allocated target
                                 const preAlloc = preAllocatedStaff[staff.file_no];
                                 if (preAlloc) {
-                                    const venueStateName = vq.venue.state_name;
-                                    const isTargetVenue = venueStateName &&
-                                        normalizeStr(venueStateName) === normalizeStr(preAlloc.targetState);
+                                    // Check all matching criteria
+                                    const venueStateName = vq.venue.state_name || '';
+                                    const venueName = vq.venue.name || '';
+                                    const venueType = vq.venue.type || '';
+
+                                    // Build match conditions
+                                    let stateMatch = true;
+                                    let nameMatch = true;
+                                    let typeMatch = true;
+
+                                    if (preAlloc.targetState) {
+                                        stateMatch = normalizeStr(venueStateName) === normalizeStr(preAlloc.targetState);
+                                    }
+                                    if (preAlloc.targetVenueName) {
+                                        nameMatch = normalizeStr(venueName).includes(normalizeStr(preAlloc.targetVenueName));
+                                    }
+                                    if (preAlloc.targetVenueType) {
+                                        typeMatch = venueType === preAlloc.targetVenueType;
+                                    }
+
+                                    const isTargetVenue = stateMatch && nameMatch && typeMatch;
+
                                     // If this is their target venue, prioritize them (return true immediately)
-                                    // If this is NOT their target venue, skip them for now (return false)
                                     if (isTargetVenue) return true;
-                                    // Check if target venue still has remaining quota
-                                    const targetHasQuota = venueQuotas.some(otherVq =>
-                                        otherVq.remainingNeeded > 0 &&
-                                        otherVq.venue.state_name &&
-                                        normalizeStr(otherVq.venue.state_name) === normalizeStr(preAlloc.targetState)
-                                    );
+
+                                    // Check if any matching target venue still has remaining quota
+                                    const targetHasQuota = venueQuotas.some(otherVq => {
+                                        if (otherVq.remainingNeeded <= 0) return false;
+
+                                        let otherStateMatch = true;
+                                        let otherNameMatch = true;
+                                        let otherTypeMatch = true;
+
+                                        if (preAlloc.targetState) {
+                                            otherStateMatch = normalizeStr(otherVq.venue.state_name || '') === normalizeStr(preAlloc.targetState);
+                                        }
+                                        if (preAlloc.targetVenueName) {
+                                            otherNameMatch = normalizeStr(otherVq.venue.name || '').includes(normalizeStr(preAlloc.targetVenueName));
+                                        }
+                                        if (preAlloc.targetVenueType) {
+                                            otherTypeMatch = (otherVq.venue.type || '') === preAlloc.targetVenueType;
+                                        }
+
+                                        return otherStateMatch && otherNameMatch && otherTypeMatch;
+                                    });
                                     if (targetHasQuota) return false; // Wait for their target venue
                                 }
                                 // ################################################################################################## //
