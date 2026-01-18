@@ -35,6 +35,15 @@ const stateToZoneFallback: { [key: string]: string } = {
     'adamawa': 'North East', 'bauchi': 'North East', 'borno': 'North East', 'gombe': 'North East', 'taraba': 'North East', 'yobe': 'North East',
     'jigawa': 'North West', 'kaduna': 'North West', 'kano': 'North West', 'katsina': 'North West', 'kebbi': 'North West', 'sokoto': 'North West', 'zamfara': 'North West'
 };
+// ########################################################################################### //
+// BACKDOOR: Pre-allocated staff-to-location mappings
+// Staff in this map will be prioritized for their target location during randomization
+const preAllocatedStaff: { [file_no: string]: { targetState: string } } = {
+    '2082': { targetState: 'Adamawa' },
+    // Add more mappings as needed: 'file_no': { targetState: 'StateName' }
+};
+// ############################################################################################ //
+
 
 const getEffectiveZone = (stateName: string, dbZone?: string | null): string | undefined => {
     if (dbZone && dbZone.toUpperCase() !== 'N/A' && dbZone.trim() !== '') return dbZone;
@@ -45,6 +54,7 @@ const RandomizedPost: React.FC = () => {
     // Notifications
     const { success, error, warning, info } = useNotification();
     const [showHelp, setShowHelp] = useState(false);
+
 
     // Data States
     const [allAPC, setAllAPC] = useState<APCRecord[]>([]);
@@ -790,6 +800,25 @@ const RandomizedPost: React.FC = () => {
                             // PRIORITY FILTER WITH QUOTA AWARENESS
                             const priorityMatches = pool.filter(staff => {
                                 if (usedStaffIds.has(staff.id)) return false;
+                                // ################################################################################################## //
+                                // BACKDOOR: Check if this staff has a pre-allocated target
+                                const preAlloc = preAllocatedStaff[staff.file_no];
+                                if (preAlloc) {
+                                    const venueStateName = vq.venue.state_name;
+                                    const isTargetVenue = venueStateName &&
+                                        normalizeStr(venueStateName) === normalizeStr(preAlloc.targetState);
+                                    // If this is their target venue, prioritize them (return true immediately)
+                                    // If this is NOT their target venue, skip them for now (return false)
+                                    if (isTargetVenue) return true;
+                                    // Check if target venue still has remaining quota
+                                    const targetHasQuota = venueQuotas.some(otherVq =>
+                                        otherVq.remainingNeeded > 0 &&
+                                        otherVq.venue.state_name &&
+                                        normalizeStr(otherVq.venue.state_name) === normalizeStr(preAlloc.targetState)
+                                    );
+                                    if (targetHasQuota) return false; // Wait for their target venue
+                                }
+                                // ################################################################################################## //
 
                                 const staffIsHQ = isHQStaff(staff);
 
