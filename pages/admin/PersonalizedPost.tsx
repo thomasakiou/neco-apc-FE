@@ -9,8 +9,8 @@ import AlertModal from '../../components/AlertModal';
 import StationTypeSelectionModal from '../../components/StationTypeSelectionModal';
 import { getAllSchools } from '../../services/school';
 import { getAllNCEECenters } from '../../services/nceeCenter';
-import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
-import { getAllMarkingVenues } from '../../services/markingVenue';
+import { getAllBECECustodians, getAllSSCECustodians, getAllSSCEExtCustodians } from '../../services/custodianSpecific';
+import { getAllMarkingVenues, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from '../../services/markingVenue';
 import { getAllTTCenters } from '../../services/ttCenter';
 import CsvUploadModal from '../../components/CsvUploadModal';
 import SearchableSelect from '../../components/SearchableSelect';
@@ -216,8 +216,11 @@ const PersonalizedPost: React.FC = () => {
             } else if (type === 'school') data = await getAllSchools(true);
             else if (type === 'bece_custodian') data = await getAllBECECustodians(true);
             else if (type === 'ssce_custodian') data = await getAllSSCECustodians(true);
+            else if (type === 'ssce_ext_custodian') data = await getAllSSCEExtCustodians(true);
             else if (type === 'ncee_center') data = await getAllNCEECenters(true);
             else if (type === 'tt_center') data = await getAllTTCenters(true);
+            else if (type === 'ssce_ext_marking_venue') data = await getAllSSCEExtMarkingVenues(true);
+            else if (type === 'bece_marking_venue') data = await getAllBECEMarkingVenues(true);
             else data = await getAllMarkingVenues(true);
 
             setStationOptions(data.map(s => {

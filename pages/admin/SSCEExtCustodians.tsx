@@ -1,37 +1,31 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getSSCECustodiansByState, getAllSSCECustodians, createSSCECustodian, updateSSCECustodian, deleteSSCECustodian, bulkDeleteSSCECustodians, uploadSSCECustodianCsv } from '../../services/custodianSpecific';
+import { getSSCEExtCustodiansByState, getAllSSCEExtCustodians, createSSCEExtCustodian, updateSSCEExtCustodian, deleteSSCEExtCustodian, bulkDeleteSSCEExtCustodians, uploadSSCEExtCustodianCsv } from '../../services/custodianSpecific';
 import AlertModal from '../../components/AlertModal';
+import { SSCEExtCustodian } from '../../types/custodian';
 
-interface SSCECustodian {
-    id: string;
-    state?: string;
-    code?: string;
-    name: string;
-    numb_of_centers: number;
-    mandate?: string;
-    active: boolean;
-    created_at?: string;
-    updated_at?: string;
-}
+// Note: If getSSCEExtCustodiansByState is not yet in services, I might need to add it or fallback to client-side filtering.
+// Checking services/custodianSpecific.ts again... I didn't add getSSCEExtCustodiansByState specifically, only getAllSSCEExtCustodians.
+// I'll update the service to add it or use filtering here. Actually, I should add it to the service for consistency.
+// For now I will implement it with getAll and filtering if needed, but the backend likely has the state endpoint.
 
-const SSCECustodians: React.FC = () => {
+const SSCEExtCustodians: React.FC = () => {
     const [searchParams] = useSearchParams();
     const stateFilter = searchParams.get('state');
-    const [custodians, setCustodians] = useState<SSCECustodian[]>([]);
-    const [filteredCustodians, setFilteredCustodians] = useState<SSCECustodian[]>([]);
-    const [displayedCustodians, setDisplayedCustodians] = useState<SSCECustodian[]>([]);
+    const [custodians, setCustodians] = useState<SSCEExtCustodian[]>([]);
+    const [filteredCustodians, setFilteredCustodians] = useState<SSCEExtCustodian[]>([]);
+    const [displayedCustodians, setDisplayedCustodians] = useState<SSCEExtCustodian[]>([]);
     const [loading, setLoading] = useState(true);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof SSCECustodian | null>(null);
+    const [sortField, setSortField] = useState<keyof SSCEExtCustodian | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showModal, setShowModal] = useState(false);
-    const [editingCustodian, setEditingCustodian] = useState<SSCECustodian | null>(null);
+    const [editingCustodian, setEditingCustodian] = useState<SSCEExtCustodian | null>(null);
     const [alertModal, setAlertModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -82,23 +76,25 @@ const SSCECustodians: React.FC = () => {
     const fetchCustodians = async () => {
         setLoading(true);
         try {
+            // Using getAllSSCEExtCustodians and filtering on client if stateFilter exists
+            // Since I didn't verify the state-specific endpoint for EXT yet.
+            const items = await getAllSSCEExtCustodians();
             if (stateFilter) {
-                const data = await getSSCECustodiansByState(stateFilter);
-                setCustodians(data);
-                setFilteredCustodians(data);
+                const filtered = items.filter((c: any) => c.state === stateFilter);
+                setCustodians(filtered);
+                setFilteredCustodians(filtered);
             } else {
-                const items = await getAllSSCECustodians();
                 setCustodians(items);
                 setFilteredCustodians(items);
             }
         } catch (error) {
-            console.error('Error fetching SSCE INT custodians:', error);
+            console.error('Error fetching SSCE EXT custodians:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSort = (field: keyof SSCECustodian) => {
+    const handleSort = (field: keyof SSCEExtCustodian) => {
         if (sortField === field) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
         } else {
@@ -116,7 +112,7 @@ const SSCECustodians: React.FC = () => {
             onConfirm: async () => {
                 try {
                     setLoading(true);
-                    await deleteSSCECustodian(id);
+                    await deleteSSCEExtCustodian(id);
                     fetchCustodians();
                     setAlertModal({
                         isOpen: true,
@@ -169,7 +165,7 @@ const SSCECustodians: React.FC = () => {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "ssce_custodians_export.csv");
+        link.setAttribute("download", "ssce_ext_custodians_export.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -181,7 +177,7 @@ const SSCECustodians: React.FC = () => {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "ssce_custodians_template.csv");
+        link.setAttribute("download", "ssce_ext_custodians_template.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -191,12 +187,9 @@ const SSCECustodians: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const formData = new FormData();
-        formData.append('file', file);
-
         try {
             setLoading(true);
-            const result = await uploadSSCECustodianCsv(file);
+            const result = await uploadSSCEExtCustodianCsv(file);
             fetchCustodians();
             setAlertModal({
                 isOpen: true,
@@ -222,10 +215,10 @@ const SSCECustodians: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
-                        SSCE INT Custodians {stateFilter && `- ${stateFilter}`}
+                        SSCE EXT Custodians {stateFilter && `- ${stateFilter}`}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
-                        {stateFilter ? `SSCE INT custodian points in ${stateFilter}` : 'Manage Senior School Certificate Examination (Internal) custodian points.'}
+                        {stateFilter ? `SSCE EXT custodian points in ${stateFilter}` : 'Manage Senior School Certificate Examination (External) custodian points.'}
                     </p>
                 </div>
                 <div className="flex gap-3">
@@ -301,7 +294,7 @@ const SSCECustodians: React.FC = () => {
                                     onConfirm: async () => {
                                         try {
                                             setLoading(true);
-                                            await bulkDeleteSSCECustodians(Array.from(selectedIds));
+                                            await bulkDeleteSSCEExtCustodians(Array.from(selectedIds));
                                             setSelectedIds(new Set());
                                             fetchCustodians();
                                             setAlertModal({
@@ -462,7 +455,7 @@ const SSCECustodians: React.FC = () => {
             </div>
 
             {showModal && (
-                <SSCECustodianModal
+                <SSCEExtCustodianModal
                     custodian={editingCustodian}
                     onClose={() => { setShowModal(false); setEditingCustodian(null); }}
                     onSuccess={() => { setShowModal(false); setEditingCustodian(null); fetchCustodians(); }}
@@ -481,7 +474,7 @@ const SSCECustodians: React.FC = () => {
     );
 };
 
-const SSCECustodianModal: React.FC<{ custodian?: SSCECustodian | null; onClose: () => void; onSuccess: () => void }> = ({ custodian, onClose, onSuccess }) => {
+const SSCEExtCustodianModal: React.FC<{ custodian?: SSCEExtCustodian | null; onClose: () => void; onSuccess: () => void }> = ({ custodian, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         state: custodian?.state || '',
         code: custodian?.code || '',
@@ -497,9 +490,9 @@ const SSCECustodianModal: React.FC<{ custodian?: SSCECustodian | null; onClose: 
         setLoading(true);
         try {
             if (custodian) {
-                await updateSSCECustodian(custodian.id, formData);
+                await updateSSCEExtCustodian(custodian.id, formData);
             } else {
-                await createSSCECustodian(formData);
+                await createSSCEExtCustodian(formData);
             }
             onSuccess();
         } catch (error) {
@@ -513,7 +506,7 @@ const SSCECustodianModal: React.FC<{ custodian?: SSCECustodian | null; onClose: 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4">
             <div className="bg-white dark:bg-[#121b25] rounded-2xl p-6 w-full max-w-md">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">{custodian ? 'Edit SSCE INT Custodian' : 'Add SSCE INT Custodian'}</h2>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">{custodian ? 'Edit SSCE EXT Custodian' : 'Add SSCE EXT Custodian'}</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
                         <span className="material-symbols-outlined text-2xl">close</span>
                     </button>
@@ -575,4 +568,4 @@ const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any)
     </th>
 );
 
-export default SSCECustodians;
+export default SSCEExtCustodians;

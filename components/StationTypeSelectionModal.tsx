@@ -15,10 +15,13 @@ const StationTypeSelectionModal: React.FC<StationTypeSelectionModalProps> = ({ i
         { id: 'state', label: 'State', icon: 'map' },
         { id: 'school', label: 'School', icon: 'school' },
         { id: 'bece_custodian', label: 'BECE Custodian', icon: 'security' },
-        { id: 'ssce_custodian', label: 'SSCE Custodian', icon: 'verified_user' },
+        { id: 'ssce_custodian', label: 'SSCE INT Custodian', icon: 'verified_user' },
+        { id: 'ssce_ext_custodian', label: 'SSCE EXT Custodian', icon: 'verified_user' },
         { id: 'ncee_center', label: 'NCEE Exam Center', icon: 'location_city' },
         { id: 'tt_center', label: 'TT Center', icon: 'science' },
-        { id: 'marking_venue', label: 'Marking Venue', icon: 'edit_note' },
+        { id: 'marking_venue', label: 'SSCE INT Marking Venue', icon: 'edit_note' },
+        { id: 'ssce_ext_marking_venue', label: 'SSCE EXT Marking Venue', icon: 'edit_location' },
+        { id: 'bece_marking_venue', label: 'BECE Marking Venue', icon: 'edit_location' },
     ];
 
     const handleConfirm = () => {

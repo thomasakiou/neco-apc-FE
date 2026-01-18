@@ -52,7 +52,8 @@ const AdminDashboard: React.FC = () => {
   const safeStats = stats || {
     counts: {
       staff: 0, apc: 0, completedPostings: 0, ssceCustodians: 0,
-      beceCustodians: 0, states: 0, markingVenues: 0, nceeCenters: 0
+      beceCustodians: 0, ssceExtCustodians: 0, states: 0, markingVenues: 0,
+      ssceExtMarkingVenues: 0, beceMarkingVenues: 0, nceeCenters: 0
     },
     charts: {
       staffDistribution: [],
@@ -316,10 +317,13 @@ const AdminDashboard: React.FC = () => {
             <div className="absolute top-0 right-0 size-64 md:size-96 bg-emerald-500/10 blur-[80px] md:blur-[100px] rounded-full -mr-32 -mt-32 md:-mr-48 md:-mt-48"></div>
             <div className="absolute bottom-0 left-0 size-64 md:size-96 bg-blue-500/5 blur-[80px] md:blur-[100px] rounded-full -ml-32 -mb-32 md:-ml-48 md:-mb-48"></div>
 
-            <div className="relative z-10 grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-              <MiniOperational title="SSCE Custodians" value={counts.ssceCustodians} icon="shield_person" />
+            <div className="relative z-10 grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-6 md:gap-8">
+              <MiniOperational title="SSCE INT Custodians" value={counts.ssceCustodians} icon="shield_person" />
+              <MiniOperational title="SSCE EXT Custodians" value={counts.ssceExtCustodians} icon="shield_person" />
               <MiniOperational title="BECE Custodians" value={counts.beceCustodians} icon="security" />
-              <MiniOperational title="Marking Venues" value={counts.markingVenues} icon="room_preferences" />
+              <MiniOperational title="SSCE INT MV" value={counts.markingVenues} icon="room_preferences" />
+              <MiniOperational title="SSCE EXT MV" value={counts.ssceExtMarkingVenues} icon="room_preferences" />
+              <MiniOperational title="BECE MV" value={counts.beceMarkingVenues} icon="room_preferences" />
               <MiniOperational title="NCEE Centers" value={counts.nceeCenters} icon="account_balance" />
             </div>
           </section>

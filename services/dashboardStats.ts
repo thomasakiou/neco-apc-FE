@@ -2,9 +2,9 @@ import { getStaffList, getAllStaff } from './staff';
 import { getAllAPC } from './apc';
 import { getAllPostingRecords } from './posting';
 import { getStateList } from './state';
-import { getMarkingVenueList } from './markingVenue';
-import { getAllSSCECustodians, getAllBECECustodians } from './custodianSpecific';
+import { getAllSSCECustodians, getAllBECECustodians, getAllSSCEExtCustodians } from './custodianSpecific';
 import { getAllNCEECenters } from './nceeCenter';
+import { getMarkingVenueList, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from './markingVenue';
 
 // Define the response shape for the dashboard
 export interface DashboardStats {
@@ -14,8 +14,11 @@ export interface DashboardStats {
         completedPostings: number;
         ssceCustodians: number;
         beceCustodians: number;
+        ssceExtCustodians: number;
         states: number;
         markingVenues: number;
+        ssceExtMarkingVenues: number;
+        beceMarkingVenues: number;
         nceeCenters: number;
     };
     charts: {
@@ -58,7 +61,10 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         venueData,
         nceeData,
         ssceCustodians,
-        beceCustodians
+        beceCustodians,
+        ssceExtCustodians,
+        ssceExtMarkingVenues,
+        beceMarkingVenues
     ] = await Promise.all([
         safeFetch(getStaffList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
         safeFetch(getAllAPC(0, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
@@ -66,7 +72,10 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         safeFetch(getMarkingVenueList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
         safeFetch(getAllNCEECenters(), [], 10000),
         safeFetch(getAllSSCECustodians(), [], 10000),
-        safeFetch(getAllBECECustodians(), [], 10000)
+        safeFetch(getAllBECECustodians(), [], 10000),
+        safeFetch(getAllSSCEExtCustodians(), [], 10000),
+        safeFetch(getAllSSCEExtMarkingVenues(), [], 10000),
+        safeFetch(getAllBECEMarkingVenues(), [], 10000)
     ]);
 
     const staffCount = staffData.total || 0;
@@ -76,6 +85,9 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
     const nceeCount = nceeData.length;
     const ssceCount = ssceCustodians.length;
     const beceCount = beceCustodians.length;
+    const ssceExtCustodianCount = ssceExtCustodians.length;
+    const ssceExtMarkingVenueCount = ssceExtMarkingVenues.length;
+    const beceMarkingVenueCount = beceMarkingVenues.length;
 
     // 2. Fetch HEAVY DATA for charts (with longer timeout and graceful failure)
     const [allStaff, allPostings, allAPCs] = await Promise.all([
@@ -147,8 +159,11 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
             completedPostings: completed,
             ssceCustodians: ssceCount,
             beceCustodians: beceCount,
+            ssceExtCustodians: ssceExtCustodianCount,
             states: statesCount,
             markingVenues: venuesCount,
+            ssceExtMarkingVenues: ssceExtMarkingVenueCount,
+            beceMarkingVenues: beceMarkingVenueCount,
             nceeCenters: nceeCount
         },
         charts: {

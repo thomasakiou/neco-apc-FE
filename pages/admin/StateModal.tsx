@@ -119,7 +119,7 @@ const StateModal: React.FC<StateModalProps> = ({ isOpen, onClose, onSubmit, init
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Entity Counts (Optional)</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <FloatingInput
-                                label="Marking Venues"
+                                label="SSCE INT Marking Venues"
                                 name="mkv_count"
                                 type="number"
                                 value={formData.mkv_count?.toString() || '0'}

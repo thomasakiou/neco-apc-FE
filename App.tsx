@@ -17,6 +17,9 @@ import BECECustodians from './pages/admin/BECECustodians';
 import SSCECustodians from './pages/admin/SSCECustodians';
 import MandateConfig from './pages/admin/MandateConfig';
 import AssignmentConfig from './pages/admin/AssignmentConfig';
+import SSCEExtCustodians from './pages/admin/SSCEExtCustodians';
+import SSCEExtMarkingVenues from './pages/admin/SSCEExtMarkingVenues';
+import BECEMarkingVenues from './pages/admin/BECEMarkingVenues';
 import PersonalizedPost from './pages/admin/PersonalizedPost';
 import AssignmentHistory from './pages/admin/AssignmentHistory';
 import SDLPage from './pages/admin/metadata/SDLPage';
@@ -80,6 +83,9 @@ const App: React.FC = () => {
               <Route path="tt-centers" element={<ProtectedRoute moduleName="metadata"><TTCenters /></ProtectedRoute>} />
               <Route path="bece-custodians" element={<ProtectedRoute moduleName="metadata"><BECECustodians /></ProtectedRoute>} />
               <Route path="ssce-custodians" element={<ProtectedRoute moduleName="metadata"><SSCECustodians /></ProtectedRoute>} />
+              <Route path="ssce-ext-custodians" element={<ProtectedRoute moduleName="metadata"><SSCEExtCustodians /></ProtectedRoute>} />
+              <Route path="ssce-ext-marking-venues" element={<ProtectedRoute moduleName="metadata"><SSCEExtMarkingVenues /></ProtectedRoute>} />
+              <Route path="bece-marking-venues" element={<ProtectedRoute moduleName="metadata"><BECEMarkingVenues /></ProtectedRoute>} />
 
               <Route path="mandates/config" element={<ProtectedRoute moduleName="metadata"><MandateConfig /></ProtectedRoute>} />
               <Route path="assignments/config" element={<ProtectedRoute moduleName="metadata"><AssignmentConfig /></ProtectedRoute>} />

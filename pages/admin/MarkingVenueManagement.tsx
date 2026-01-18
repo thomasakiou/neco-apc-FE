@@ -335,9 +335,9 @@ const MarkingVenueManagement: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-gray-800">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-500 tracking-tight">
-                        Marking Venue Management
+                        SSCE INT Marking Venue Management
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Manage marking venues and locations</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Manage Senior School Certificate Examination (Internal) marking venues and locations</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
                     <input
@@ -388,7 +388,7 @@ const MarkingVenueManagement: React.FC = () => {
                             />
                         </div>
                         <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Per page:</label>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">Per page:</label>
                             <select
                                 value={limit}
                                 onChange={(e) => {

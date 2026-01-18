@@ -8,6 +8,7 @@ interface MarkingVenueModalProps {
     onClose: () => void;
     onSubmit: (data: MarkingVenueCreate) => Promise<void>;
     initialData?: MarkingVenue | null;
+    titlePrefix?: string;
 }
 
 const initialFormState: MarkingVenueCreate = {
@@ -19,7 +20,7 @@ const initialFormState: MarkingVenueCreate = {
     active: true,
 };
 
-const MarkingVenueModal: React.FC<MarkingVenueModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+const MarkingVenueModal: React.FC<MarkingVenueModalProps> = ({ isOpen, onClose, onSubmit, initialData, titlePrefix = 'SSCE INT' }) => {
     const [formData, setFormData] = useState<MarkingVenueCreate>(initialFormState);
     const [loading, setLoading] = useState(false);
     const [states, setStates] = useState<State[]>([]);
@@ -88,9 +89,9 @@ const MarkingVenueModal: React.FC<MarkingVenueModalProps> = ({ isOpen, onClose, 
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-gray-800 bg-gradient-to-r from-emerald-50/50 via-white to-teal-50/50 dark:from-emerald-900/20 dark:via-[#121b25] dark:to-teal-900/20 rounded-t-2xl">
                     <div className="flex flex-col">
                         <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-400 tracking-tight">
-                            {initialData ? 'Edit Marking Venue' : 'Add New Marking Venue'}
+                            {initialData ? `Edit ${titlePrefix} Marking Venue` : `Add New ${titlePrefix} Marking Venue`}
                         </h2>
-                        <p className="text-slate-500 text-xs font-medium uppercase tracking-widest mt-1">Marking Venue Configuration</p>
+                        <p className="text-slate-500 text-xs font-medium uppercase tracking-widest mt-1">{titlePrefix} Marking Venue Configuration</p>
                     </div>
                     <button
                         onClick={onClose}

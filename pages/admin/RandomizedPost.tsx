@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
-import { getAllMarkingVenues } from '../../services/markingVenue';
+import { getAllMarkingVenues, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from '../../services/markingVenue';
 import { bulkCreatePostings, getAllPostingRecords } from '../../services/posting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
@@ -13,7 +13,7 @@ import StationTypeSelectionModal from '../../components/StationTypeSelectionModa
 import { getAllSchools } from '../../services/school';
 import { PostingResponse } from '../../types/posting';
 import { getAllNCEECenters } from '../../services/nceeCenter';
-import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
+import { getAllBECECustodians, getAllSSCECustodians, getAllSSCEExtCustodians } from '../../services/custodianSpecific';
 import { getAllStates } from '../../services/state';
 import { getAllTTCenters } from '../../services/ttCenter';
 import { getAllStations } from '../../services/station';
@@ -79,10 +79,13 @@ const stateToZoneFallback: { [key: string]: string } = {
 // States	                    'state'
 // Schools	                    'school'
 // BECE Custodians	            'bece_custodian'
-// SSCE Custodians	            'ssce_custodian'
+// SSCE INT Custodians	            'ssce_custodian'
+// SSCE EXT Custodians	            'ssce_ext_custodian'
 // NCEE Centers	                'ncee_center'
 // TT Centers	                'tt_center'
-// Marking Venues	            'marking_venue'
+// SSCE INT Marking Venues	            'marking_venue'
+// SSCE EXT Marking Venues	            'ssce_ext_marking_venue'
+// BECE Marking Venues	            'bece_marking_venue'
 
 // // ✅ CORRECT - use the code
 // '2082': { targetState: 'Adamawa', targetVenueType: 'ssce_custodian' }
@@ -388,9 +391,12 @@ const RandomizedPost: React.FC = () => {
                     type === 'school' ? getAllSchools(true) :
                         type === 'bece_custodian' ? getAllBECECustodians(true) :
                             type === 'ssce_custodian' ? getAllSSCECustodians(true) :
-                                type === 'ncee_center' ? getAllNCEECenters(true) :
-                                    type === 'tt_center' ? getAllTTCenters(true) :
-                                        getAllMarkingVenues(true)
+                                type === 'ssce_ext_custodian' ? getAllSSCEExtCustodians(true) :
+                                    type === 'ncee_center' ? getAllNCEECenters(true) :
+                                        type === 'tt_center' ? getAllTTCenters(true) :
+                                            type === 'ssce_ext_marking_venue' ? getAllSSCEExtMarkingVenues(true) :
+                                                type === 'bece_marking_venue' ? getAllBECEMarkingVenues(true) :
+                                                    getAllMarkingVenues(true)
                 ]);
 
                 const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
