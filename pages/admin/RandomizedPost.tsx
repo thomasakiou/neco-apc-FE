@@ -13,6 +13,7 @@ import StationTypeSelectionModal from '../../components/StationTypeSelectionModa
 import { getAllSchools } from '../../services/school';
 import { PostingResponse } from '../../types/posting';
 import { getAllNCEECenters } from '../../services/nceeCenter';
+import { getAllGiftedCenters } from '../../services/giftedCenter';
 import { getAllBECECustodians, getAllSSCECustodians, getAllSSCEExtCustodians } from '../../services/custodianSpecific';
 import { getAllStates } from '../../services/state';
 import { getAllTTCenters } from '../../services/ttCenter';
@@ -393,10 +394,11 @@ const RandomizedPost: React.FC = () => {
                             type === 'ssce_custodian' ? getAllSSCECustodians(true) :
                                 type === 'ssce_ext_custodian' ? getAllSSCEExtCustodians(true) :
                                     type === 'ncee_center' ? getAllNCEECenters(true) :
-                                        type === 'tt_center' ? getAllTTCenters(true) :
-                                            type === 'ssce_ext_marking_venue' ? getAllSSCEExtMarkingVenues(true) :
-                                                type === 'bece_marking_venue' ? getAllBECEMarkingVenues(true) :
-                                                    getAllMarkingVenues(true)
+                                        type === 'gifted_center' ? getAllGiftedCenters(true) :
+                                            type === 'tt_center' ? getAllTTCenters(true) :
+                                                type === 'ssce_ext_marking_venue' ? getAllSSCEExtMarkingVenues(true) :
+                                                    type === 'bece_marking_venue' ? getAllBECEMarkingVenues(true) :
+                                                        getAllMarkingVenues(true)
                 ]);
 
                 const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));

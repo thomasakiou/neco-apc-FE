@@ -13,6 +13,7 @@ import APCList from './pages/admin/APCList';
 import CustomAPC from './pages/admin/CustomAPC';
 import RandomAPC from './pages/admin/RandomAPC';
 import NCEECenters from './pages/admin/NCEECenters';
+import GiftedCenters from './pages/admin/GiftedCenters';
 import BECECustodians from './pages/admin/BECECustodians';
 import SSCECustodians from './pages/admin/SSCECustodians';
 import MandateConfig from './pages/admin/MandateConfig';
@@ -80,6 +81,7 @@ const App: React.FC = () => {
               <Route path="stations" element={<ProtectedRoute moduleName="metadata"><StationManagement /></ProtectedRoute>} />
               <Route path="marking-venues" element={<ProtectedRoute moduleName="metadata"><MarkingVenueManagement /></ProtectedRoute>} />
               <Route path="ncee-centers" element={<ProtectedRoute moduleName="metadata"><NCEECenters /></ProtectedRoute>} />
+              <Route path="gifted-centers" element={<ProtectedRoute moduleName="metadata"><GiftedCenters /></ProtectedRoute>} />
               <Route path="tt-centers" element={<ProtectedRoute moduleName="metadata"><TTCenters /></ProtectedRoute>} />
               <Route path="bece-custodians" element={<ProtectedRoute moduleName="metadata"><BECECustodians /></ProtectedRoute>} />
               <Route path="ssce-custodians" element={<ProtectedRoute moduleName="metadata"><SSCECustodians /></ProtectedRoute>} />

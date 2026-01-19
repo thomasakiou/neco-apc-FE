@@ -86,6 +86,7 @@ const AdminLayout: React.FC = () => {
               <NavItem to="/admin/stations" icon="location_on" label="Stations" active={isActive('/admin/stations')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/marking-venues" icon="edit_location" label="SSCE INT Marking Venues" active={isActive('/admin/marking-venues')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/ncee-centers" icon="school" label="NCEE Centers" active={isActive('/admin/ncee-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
+              <NavItem to="/admin/gifted-centers" icon="auto_awesome" label="Gifted Centers" active={isActive('/admin/gifted-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/tt-centers" icon="science" label="TT Centers" active={isActive('/admin/tt-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/bece-custodians" icon="security" label="BECE Custodians" active={isActive('/admin/bece-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/ssce-custodians" icon="verified_user" label="SSCE INT Custodians" active={isActive('/admin/ssce-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />

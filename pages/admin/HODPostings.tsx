@@ -14,6 +14,7 @@ import AlertModal from '../../components/AlertModal';
 import StationTypeSelectionModal from '../../components/StationTypeSelectionModal';
 import { getAllSchools } from '../../services/school';
 import { getAllNCEECenters } from '../../services/nceeCenter';
+import { getAllGiftedCenters } from '../../services/giftedCenter';
 import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
 import { getAllTTCenters } from '../../services/ttCenter';
 import { State } from '../../types/state';
@@ -165,8 +166,9 @@ const HODPostings: React.FC = () => {
                         type === 'bece_custodian' ? getAllBECECustodians(true) :
                             type === 'ssce_custodian' ? getAllSSCECustodians(true) :
                                 type === 'ncee_center' ? getAllNCEECenters(true) :
-                                    type === 'tt_center' ? getAllTTCenters(true) :
-                                        getAllMarkingVenues(true)
+                                    type === 'gifted_center' ? getAllGiftedCenters(true) :
+                                        type === 'tt_center' ? getAllTTCenters(true) :
+                                            getAllMarkingVenues(true)
                 ]);
                 const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
 

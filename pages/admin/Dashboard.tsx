@@ -53,7 +53,7 @@ const AdminDashboard: React.FC = () => {
     counts: {
       staff: 0, apc: 0, completedPostings: 0, ssceCustodians: 0,
       beceCustodians: 0, ssceExtCustodians: 0, states: 0, markingVenues: 0,
-      ssceExtMarkingVenues: 0, beceMarkingVenues: 0, nceeCenters: 0
+      ssceExtMarkingVenues: 0, beceMarkingVenues: 0, nceeCenters: 0, giftedCenters: 0
     },
     charts: {
       staffDistribution: [],
@@ -325,6 +325,7 @@ const AdminDashboard: React.FC = () => {
               <MiniOperational title="SSCE EXT MV" value={counts.ssceExtMarkingVenues} icon="room_preferences" />
               <MiniOperational title="BECE MV" value={counts.beceMarkingVenues} icon="room_preferences" />
               <MiniOperational title="NCEE Centers" value={counts.nceeCenters} icon="account_balance" />
+              <MiniOperational title="Gifted Centers" value={counts.giftedCenters} icon="school" />
             </div>
           </section>
 

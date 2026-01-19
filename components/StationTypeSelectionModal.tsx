@@ -18,6 +18,7 @@ const StationTypeSelectionModal: React.FC<StationTypeSelectionModalProps> = ({ i
         { id: 'ssce_custodian', label: 'SSCE INT Custodian', icon: 'verified_user' },
         { id: 'ssce_ext_custodian', label: 'SSCE EXT Custodian', icon: 'verified_user' },
         { id: 'ncee_center', label: 'NCEE Exam Center', icon: 'location_city' },
+        { id: 'gifted_center', label: 'Gifted Center', icon: 'auto_awesome' },
         { id: 'tt_center', label: 'TT Center', icon: 'science' },
         { id: 'marking_venue', label: 'SSCE INT Marking Venue', icon: 'edit_note' },
         { id: 'ssce_ext_marking_venue', label: 'SSCE EXT Marking Venue', icon: 'edit_location' },

@@ -9,6 +9,7 @@ import AlertModal from '../../components/AlertModal';
 import StationTypeSelectionModal from '../../components/StationTypeSelectionModal';
 import { getAllSchools } from '../../services/school';
 import { getAllNCEECenters } from '../../services/nceeCenter';
+import { getAllGiftedCenters } from '../../services/giftedCenter';
 import { getAllBECECustodians, getAllSSCECustodians, getAllSSCEExtCustodians } from '../../services/custodianSpecific';
 import { getAllMarkingVenues, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from '../../services/markingVenue';
 import { getAllTTCenters } from '../../services/ttCenter';
@@ -218,6 +219,7 @@ const PersonalizedPost: React.FC = () => {
             else if (type === 'ssce_custodian') data = await getAllSSCECustodians(true);
             else if (type === 'ssce_ext_custodian') data = await getAllSSCEExtCustodians(true);
             else if (type === 'ncee_center') data = await getAllNCEECenters(true);
+            else if (type === 'gifted_center') data = await getAllGiftedCenters(true);
             else if (type === 'tt_center') data = await getAllTTCenters(true);
             else if (type === 'ssce_ext_marking_venue') data = await getAllSSCEExtMarkingVenues(true);
             else if (type === 'bece_marking_venue') data = await getAllBECEMarkingVenues(true);

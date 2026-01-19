@@ -5,6 +5,7 @@ import { getAllPostingRecords } from '../../services/posting';
 import { getAllAPCRecords } from '../../services/apc';
 import { getAllStates } from '../../services/state';
 import { getAllNCEECenters } from '../../services/nceeCenter';
+import { getAllGiftedCenters } from '../../services/giftedCenter';
 import { APCRecord } from '../../types/apc';
 import { useNotification } from '../../context/NotificationContext';
 import { PostingResponse } from '../../types/posting';
@@ -128,18 +129,19 @@ const GeneratePage: React.FC = () => {
     const fetchInitialData = async () => {
         try {
             setLoading(true);
-            const [postingsData, activeAPC, statesData, nceeCenters] = await Promise.all([
+            const [postingsData, activeAPC, statesData, nceeCenters, giftedCenters] = await Promise.all([
                 getAllPostingRecords(),
                 getAllAPCRecords(true),
                 getAllStates(),
-                getAllNCEECenters()
+                getAllNCEECenters(),
+                getAllGiftedCenters()
             ]);
 
             const activeFileNos = new Set(activeAPC.map(a => a.file_no));
             const activePostings = postingsData.filter(p => activeFileNos.has(p.file_no));
 
             // FLATTEN DATA
-            const flattened = flattenPostings(activePostings, statesData, nceeCenters);
+            const flattened = flattenPostings(activePostings, statesData, nceeCenters, giftedCenters);
 
             setAllFlatRows(flattened);
             setStates(statesData);
@@ -226,7 +228,7 @@ const GeneratePage: React.FC = () => {
         if (page > maxPage) setPage(maxPage);
     }, [total, limit]);
 
-    const flattenPostings = (list: PostingResponse[], stateList: any[] = [], nceeList: NCEECenter[] = []): FlatPostingRow[] => {
+    const flattenPostings = (list: PostingResponse[], stateList: any[] = [], nceeList: NCEECenter[] = [], giftedList: any[] = []): FlatPostingRow[] => {
         const result: FlatPostingRow[] = [];
         const normalize = (name: string) => name.toUpperCase().replace(/[-\s]/g, '');
         const stateMap = new Map<string, string>();
@@ -237,6 +239,16 @@ const GeneratePage: React.FC = () => {
             const label = c.within_capital ? 'Within Capital' : c.outside_capital ? 'Outside Capital' : '-';
             if (c.name) nceeMap.set(normalize(c.name), label);
             if (c.code) nceeMap.set(normalize(c.code), label);
+        });
+
+        const giftedMap = new Map<string, string>();
+        giftedList.forEach(c => {
+            // Assuming Gifted Centers follow similar structure or just default to 'Gifted Center'
+            // If Gifted Centers have within_capital/outside_capital, use that. 
+            // Looking at GiftedCenter type (copied from NCEE), it should have them.
+            const label = c.within_capital ? 'Within Capital' : c.outside_capital ? 'Outside Capital' : '-';
+            if (c.name) giftedMap.set(normalize(c.name), label);
+            if (c.code) giftedMap.set(normalize(c.code), label);
         });
 
         const extractCode = (text: string) => {
@@ -330,9 +342,14 @@ const GeneratePage: React.FC = () => {
                     year: p.year || '-',
                     location: nceeMap.get(normalize(vName)) ||
                         nceeMap.get(normalize(posting)) ||
+                        giftedMap.get(normalize(vName)) ||
+                        giftedMap.get(normalize(posting)) ||
                         (extractCode(vName) ? nceeMap.get(extractCode(vName)!) : null) ||
+                        (extractCode(vName) ? giftedMap.get(extractCode(vName)!) : null) ||
                         nceeMap.get(cleanName(vName)) ||
                         nceeMap.get(cleanName(posting)) ||
+                        giftedMap.get(cleanName(vName)) ||
+                        giftedMap.get(cleanName(posting)) ||
                         '-',
                     posted_for: p.posted_for || 0,
                     to_be_posted: p.to_be_posted || 0,

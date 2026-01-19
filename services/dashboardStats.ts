@@ -4,6 +4,7 @@ import { getAllPostingRecords } from './posting';
 import { getStateList } from './state';
 import { getAllSSCECustodians, getAllBECECustodians, getAllSSCEExtCustodians } from './custodianSpecific';
 import { getAllNCEECenters } from './nceeCenter';
+import { getAllGiftedCenters } from './giftedCenter';
 import { getMarkingVenueList, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from './markingVenue';
 
 // Define the response shape for the dashboard
@@ -20,6 +21,7 @@ export interface DashboardStats {
         ssceExtMarkingVenues: number;
         beceMarkingVenues: number;
         nceeCenters: number;
+        giftedCenters: number;
     };
     charts: {
         staffDistribution: { name: string; value: number }[];
@@ -64,7 +66,8 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         beceCustodians,
         ssceExtCustodians,
         ssceExtMarkingVenues,
-        beceMarkingVenues
+        beceMarkingVenues,
+        giftedData
     ] = await Promise.all([
         safeFetch(getStaffList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
         safeFetch(getAllAPC(0, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
@@ -75,7 +78,8 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         safeFetch(getAllBECECustodians(), [], 10000),
         safeFetch(getAllSSCEExtCustodians(), [], 10000),
         safeFetch(getAllSSCEExtMarkingVenues(), [], 10000),
-        safeFetch(getAllBECEMarkingVenues(), [], 10000)
+        safeFetch(getAllBECEMarkingVenues(), [], 10000),
+        safeFetch(getAllGiftedCenters(), [], 10000)
     ]);
 
     const staffCount = staffData.total || 0;
@@ -88,6 +92,7 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
     const ssceExtCustodianCount = ssceExtCustodians.length;
     const ssceExtMarkingVenueCount = ssceExtMarkingVenues.length;
     const beceMarkingVenueCount = beceMarkingVenues.length;
+    const giftedCount = (giftedData as any[]).length;
 
     // 2. Fetch HEAVY DATA for charts (with longer timeout and graceful failure)
     const [allStaff, allPostings, allAPCs] = await Promise.all([
@@ -164,7 +169,8 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
             markingVenues: venuesCount,
             ssceExtMarkingVenues: ssceExtMarkingVenueCount,
             beceMarkingVenues: beceMarkingVenueCount,
-            nceeCenters: nceeCount
+            nceeCenters: nceeCount,
+            giftedCenters: giftedCount
         },
         charts: {
             staffDistribution,
