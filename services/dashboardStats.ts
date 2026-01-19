@@ -5,6 +5,7 @@ import { getStateList } from './state';
 import { getAllSSCECustodians, getAllBECECustodians, getAllSSCEExtCustodians } from './custodianSpecific';
 import { getAllNCEECenters } from './nceeCenter';
 import { getAllGiftedCenters } from './giftedCenter';
+import { getAllTTCenters } from './ttCenter';
 import { getMarkingVenueList, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from './markingVenue';
 
 // Define the response shape for the dashboard
@@ -22,6 +23,7 @@ export interface DashboardStats {
         beceMarkingVenues: number;
         nceeCenters: number;
         giftedCenters: number;
+        ttCenters: number;
     };
     charts: {
         staffDistribution: { name: string; value: number }[];
@@ -67,7 +69,8 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         ssceExtCustodians,
         ssceExtMarkingVenues,
         beceMarkingVenues,
-        giftedData
+        giftedData,
+        ttData
     ] = await Promise.all([
         safeFetch(getStaffList(1, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
         safeFetch(getAllAPC(0, 1), { items: [], total: 0, skip: 0, limit: 1 }, 10000),
@@ -79,7 +82,8 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         safeFetch(getAllSSCEExtCustodians(), [], 10000),
         safeFetch(getAllSSCEExtMarkingVenues(), [], 10000),
         safeFetch(getAllBECEMarkingVenues(), [], 10000),
-        safeFetch(getAllGiftedCenters(), [], 10000)
+        safeFetch(getAllGiftedCenters(), [], 10000),
+        safeFetch(getAllTTCenters(), [], 10000)
     ]);
 
     const staffCount = staffData.total || 0;
@@ -90,9 +94,34 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
     const ssceCount = ssceCustodians.length;
     const beceCount = beceCustodians.length;
     const ssceExtCustodianCount = ssceExtCustodians.length;
-    const ssceExtMarkingVenueCount = ssceExtMarkingVenues.length;
     const beceMarkingVenueCount = beceMarkingVenues.length;
     const giftedCount = (giftedData as any[]).length;
+    const ssceExtMarkingVenueCount = ssceExtMarkingVenues.length;
+    const ttCount = (ttData as any[]).length;
+    // const ttData = (arguments[0] as any)[11] || []; // No, destructuring is cleaner if I can update it.
+    // I need to update the destructuring variable list too.
+
+    // Actually, I should update the destructuring list first or in the same go. but I can't do non-contiguous edits easily.
+    // I will use `ttData` from the array access for now, OR I will restart and use `replace_file_content` on the destructuring list first.
+    // The previous tool called `replace_file_content` on lines 80-82.
+    // Destructuring is on lines 59-70.
+
+    // I will access the 11th element (index 11, since 0-10 were used) from the result array.
+    // Wait, `Promise.all` returns an array.
+    // I destructured it into variables.
+    // I didn't add a variable for the 12th element (index 11) in the destructuring list yet.
+    // So `Promise.all` result is being destructured into 11 variables.
+    // The 12th element is ignored.
+
+    // I MUST update the destructuring list.
+    // I will do that in the next tool call.
+    // For this tool call (which targets lines 93-95), I'll just add `ttCount`.
+    // But `ttData` isn't available yet.
+
+    // Use `arguments` hack or similar? No, strictly typed.
+    // I'll update the destructuring list FIRST in the NEXT step (wait, I should have done it before).
+    // I'll update the destructuring list NOW using `replace_file_content` on the destructuring block.
+
 
     // 2. Fetch HEAVY DATA for charts (with longer timeout and graceful failure)
     const [allStaff, allPostings, allAPCs] = await Promise.all([
@@ -170,7 +199,8 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
             ssceExtMarkingVenues: ssceExtMarkingVenueCount,
             beceMarkingVenues: beceMarkingVenueCount,
             nceeCenters: nceeCount,
-            giftedCenters: giftedCount
+            giftedCenters: giftedCount,
+            ttCenters: ttCount
         },
         charts: {
             staffDistribution,
