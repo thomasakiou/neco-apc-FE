@@ -8,7 +8,7 @@ import { bulkCreateHODPostings, getAllHODPostings } from '../../services/hodPost
 import { HODApcRecord } from '../../types/hodApc';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
-import { PostingCreate, PostingResponse } from '../../types/posting';
+import { HODPostingCreate as PostingCreate, HODPostingResponse as PostingResponse } from '../../types/hodPosting';
 import { useNotification } from '../../context/NotificationContext';
 import AlertModal from '../../components/AlertModal';
 import StationTypeSelectionModal from '../../components/StationTypeSelectionModal';
@@ -602,7 +602,9 @@ const HODPostings: React.FC = () => {
                             const mergedAssignments = existingRecord?.assignments ? [...existingRecord.assignments] : [];
                             const mergedMandates = existingRecord?.mandates ? [...existingRecord.mandates] : [];
                             const mergedVenues = existingRecord?.assignment_venue ? [...existingRecord.assignment_venue] : [];
-                            const mergedStates = existingRecord?.state ? [...existingRecord.state] : (existingRecord?.assignment_venue?.map((_: any) => '') || []);
+                            const mergedStates = existingRecord?.state
+                                ? (typeof existingRecord.state === 'string' ? existingRecord.state.split(' | ') : [...existingRecord.state])
+                                : (existingRecord?.assignment_venue?.map((_: any) => '') || []);
 
                             mergedAssignments.push(assignmentCode);
                             mergedMandates.push(targetMandate);
@@ -615,15 +617,13 @@ const HODPostings: React.FC = () => {
                                 station: pickedHOD.station || '',
                                 conraiss: pickedHOD.conraiss || '',
                                 year: new Date().getFullYear().toString(),
-                                count: numberOfNights,
                                 posted_for: mergedAssignments.length,
-                                tree_node_id: null,
                                 to_be_posted: newToBePosted,
                                 assignments: mergedAssignments,
                                 mandates: mergedMandates,
                                 assignment_venue: mergedVenues,
-                                state: mergedStates,
-                                zone: vNeed.venue.zone,
+                                state: mergedStates.join(' | '),
+                                numb_of__nites: numberOfNights,
                                 description: description || null
                             } as any);
 

@@ -1,14 +1,14 @@
-import { PostingResponse, PostingCreate, PostingListResponse, BulkPostingCreateRequest, BulkUploadResponse } from '../types/posting';
+import { HODPostingResponse, HODPostingCreate, HODPostingListResponse, BulkHODPostingCreateRequest, HODPostingBulkUploadResponse } from '../types/hodPosting';
 import { API_BASE_URL } from '../src/config';
 import { getAuthHeaders } from './apiUtils';
 
 const REQUEST_URL = `${API_BASE_URL}/hod-posting`;
 
-let postingCache: PostingResponse[] | null = null;
+let postingCache: HODPostingResponse[] | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export const getAllHODPostings = async (forceRefresh: boolean = false): Promise<PostingResponse[]> => {
+export const getAllHODPostings = async (forceRefresh: boolean = false): Promise<HODPostingResponse[]> => {
     const now = Date.now();
     if (!forceRefresh && postingCache && (now - lastFetchTime) < CACHE_DURATION) {
         return postingCache;
@@ -20,13 +20,13 @@ export const getAllHODPostings = async (forceRefresh: boolean = false): Promise<
     if (!response.ok) {
         throw new Error('Failed to fetch HOD posting records');
     }
-    const data: PostingListResponse = await response.json();
+    const data: HODPostingListResponse = await response.json();
     postingCache = data.items;
     lastFetchTime = now;
     return data.items;
 };
 
-export const getHODPostingById = async (id: string): Promise<PostingResponse> => {
+export const getHODPostingById = async (id: string): Promise<HODPostingResponse> => {
     const response = await fetch(`${REQUEST_URL}/${id}`, {
         headers: getAuthHeaders(),
     });
@@ -36,7 +36,7 @@ export const getHODPostingById = async (id: string): Promise<PostingResponse> =>
     return response.json();
 };
 
-export const createHODPosting = async (data: PostingCreate): Promise<PostingResponse> => {
+export const createHODPosting = async (data: HODPostingCreate): Promise<HODPostingResponse> => {
     const response = await fetch(REQUEST_URL, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -49,7 +49,7 @@ export const createHODPosting = async (data: PostingCreate): Promise<PostingResp
     return response.json();
 };
 
-export const updateHODPosting = async (id: string, data: Partial<PostingCreate>): Promise<PostingResponse> => {
+export const updateHODPosting = async (id: string, data: Partial<HODPostingCreate>): Promise<HODPostingResponse> => {
     const response = await fetch(`${REQUEST_URL}/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
@@ -62,7 +62,7 @@ export const updateHODPosting = async (id: string, data: Partial<PostingCreate>)
     return response.json();
 };
 
-export const bulkCreateHODPostings = async (request: BulkPostingCreateRequest): Promise<BulkUploadResponse> => {
+export const bulkCreateHODPostings = async (request: BulkHODPostingCreateRequest): Promise<HODPostingBulkUploadResponse> => {
     const response = await fetch(`${REQUEST_URL}/bulk`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -70,6 +70,16 @@ export const bulkCreateHODPostings = async (request: BulkPostingCreateRequest): 
     });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+
+        // Handle Pydantic validation errors which come in an 'detail' array
+        if (Array.isArray(errorData.detail)) {
+            const messages = errorData.detail.map((err: any) => {
+                const loc = err.loc ? err.loc.join('.') : 'unknown';
+                return `${loc}: ${err.msg}`;
+            });
+            throw new Error(messages.join(' | '));
+        }
+
         throw new Error(errorData.detail || 'Failed to bulk create HOD postings');
     }
     postingCache = null; // Invalidate cache

@@ -3,7 +3,7 @@ import { getMandatesByAssignment } from './assignment';
 import { getAllHODApcRecords, updateHODApc, assignmentFieldMap } from './hodApc';
 import { Assignment } from '../types/assignment';
 import { getAllHODPostings, bulkCreateHODPostings } from './hodPosting';
-import { PostingCreate } from '../types/posting';
+import { HODPostingCreate as PostingCreate } from '../types/hodPosting';
 
 export const getHODAssignmentBoardData = async (assignment: Assignment): Promise<AssignmentBoardData> => {
     // 1. Fetch data
@@ -156,7 +156,9 @@ export const bulkSaveHODAssignments = async (
             const newAssignments = postingRecord?.assignments ? [...postingRecord.assignments] : [];
             const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : [];
             const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : [];
-            const newStates = postingRecord?.state ? [...postingRecord.state] : (postingRecord?.assignment_venue?.map(_ => '') || []);
+            const newStates = postingRecord?.state
+                ? (typeof postingRecord.state === 'string' ? postingRecord.state.split(' | ') : [...postingRecord.state])
+                : (postingRecord?.assignment_venue?.map(_ => '') || []);
 
             const existingIdx = newAssignments.indexOf(assignment.code);
             if (existingIdx !== -1) {
@@ -178,13 +180,8 @@ export const bulkSaveHODAssignments = async (
                 station: change.staff.current_station,
                 conraiss: change.staff.conr,
                 year: new Date().getFullYear().toString(),
-                count: allottedCount,
-                posted_for: newAssignments.length,
-                to_be_posted: apcLimit - newAssignments.length,
-                assignments: newAssignments,
-                mandates: newMandates,
-                assignment_venue: newVenues,
-                state: newStates,
+                state: newStates.join(' | '),
+                numb_of__nites: allottedCount,
                 description: description || null
             });
             modifiedStaffNos.add(normalizedStaffNo);
@@ -201,11 +198,19 @@ export const bulkSaveHODAssignments = async (
                     postingRecord.assignments.splice(idx, 1);
                     postingRecord.mandates.splice(idx, 1);
                     postingRecord.assignment_venue.splice(idx, 1);
-                    if (postingRecord.state && postingRecord.state.length > idx) {
-                        postingRecord.state.splice(idx, 1);
+
+                    // Handle string-based state removal
+                    const states = typeof postingRecord.state === 'string'
+                        ? postingRecord.state.split(' | ')
+                        : (postingRecord.state || []);
+                    if (states.length > idx) {
+                        states.splice(idx, 1);
                     }
+                    postingRecord.state = states.join(' | ');
+
                     postingRecord.posted_for = postingRecord.assignments.length;
                     postingRecord.to_be_posted = allottedCount - postingRecord.posted_for;
+                    postingRecord.numb_of__nites = allottedCount;
                     modifiedStaffNos.add(normalizedStaffNo);
                 }
             }

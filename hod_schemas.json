@@ -1,0 +1,238 @@
+{
+  "HODPostingCreate": {
+    "properties": {
+      "file_no": {
+        "type": "string",
+        "maxLength": 50,
+        "title": "File No"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 255,
+        "title": "Name"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "State"
+      },
+      "station": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Station"
+      },
+      "conraiss": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 50
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Conraiss"
+      },
+      "year": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 10
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Year"
+      },
+      "assignment_venue": {
+        "anyOf": [
+          {
+            "items": {},
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Assignment Venue"
+      },
+      "assignments": {
+        "anyOf": [
+          {
+            "items": {},
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Assignments"
+      },
+      "mandates": {
+        "anyOf": [
+          {
+            "items": {},
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Mandates"
+      },
+      "count": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Count",
+        "default": 0
+      },
+      "posted_for": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Posted For"
+      },
+      "to_be_posted": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "To Be Posted",
+        "default": 0
+      },
+      "numb_of__nites": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Numb Of  Nites"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Description"
+      }
+    },
+    "type": "object",
+    "required": [
+      "file_no",
+      "name"
+    ],
+    "title": "HODPostingCreate"
+  },
+  "BulkHODPostingCreateRequest": {
+    "properties": {
+      "items": {
+        "items": {
+          "$ref": "#/components/schemas/HODPostingCreate"
+        },
+        "type": "array",
+        "title": "Items"
+      }
+    },
+    "type": "object",
+    "required": [
+      "items"
+    ],
+    "title": "BulkHODPostingCreateRequest"
+  },
+  "HODPostingMessageResponse": {
+    "properties": {
+      "message": {
+        "type": "string",
+        "title": "Message"
+      },
+      "success": {
+        "type": "boolean",
+        "title": "Success",
+        "default": true
+      }
+    },
+    "type": "object",
+    "required": [
+      "message"
+    ],
+    "title": "HODPostingMessageResponse"
+  },
+  "HODPostingBulkUploadResponse": {
+    "properties": {
+      "created_count": {
+        "type": "integer",
+        "title": "Created Count"
+      },
+      "skipped_count": {
+        "type": "integer",
+        "title": "Skipped Count"
+      },
+      "error_count": {
+        "type": "integer",
+        "title": "Error Count"
+      },
+      "skipped": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array",
+        "title": "Skipped"
+      },
+      "errors": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array",
+        "title": "Errors"
+      }
+    },
+    "type": "object",
+    "required": [
+      "created_count",
+      "skipped_count",
+      "error_count",
+      "skipped",
+      "errors"
+    ],
+    "title": "HODPostingBulkUploadResponse"
+  }
+}
