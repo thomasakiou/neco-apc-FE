@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAllAPCRecords } from '../../../services/apc';
-import { getAllPostingRecords } from '../../../services/posting';
+import { getAllFinalPostings } from '../../../services/finalPosting';
 import { assignmentFieldMap } from '../../../services/personalizedPost';
 import { APCRecord } from '../../../types/apc';
-import { PostingResponse } from '../../../types/posting';
+import { FinalPostingResponse } from '../../../types/finalPosting';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -151,14 +151,25 @@ const OutstandingPostingsPage: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [apcRecords, postingRecords] = await Promise.all([
+            const [apcRecords, finalPostingData] = await Promise.all([
                 getAllAPCRecords(true, true), // Active records only
-                getAllPostingRecords(true)    // Fresh fetch
+                getAllFinalPostings()         // Get final postings
             ]);
 
-            // Create Posting Map for fast lookup
-            const postingMap = new Map<string, PostingResponse>();
-            postingRecords.forEach(p => postingMap.set(p.file_no.trim().padStart(4, '0'), p));
+            // Handle both array and object response formats
+            const finalPostingRecords: FinalPostingResponse[] = finalPostingData.items || (Array.isArray(finalPostingData) ? finalPostingData : []);
+
+            // Create Final Posting Map for fast lookup (Aggregated by File No)
+            const postingMap = new Map<string, string[]>();
+            finalPostingRecords.forEach(p => {
+                const normFileNo = p.file_no.trim().padStart(4, '0');
+                const existing = postingMap.get(normFileNo) || [];
+                const newAssignments = (p.assignments || []).map((a: any) =>
+                    typeof a === 'string' ? a : a.code || a.name
+                ).filter(Boolean);
+
+                postingMap.set(normFileNo, Array.from(new Set([...existing, ...newAssignments])));
+            });
 
             // Static deterministic map for display codes
             // Ensures 1-to-1 mapping from DB field to Display Code
@@ -197,15 +208,7 @@ const OutstandingPostingsPage: React.FC = () => {
                 });
 
                 const normFileNo = staff.file_no.trim().padStart(4, '0');
-                const posting = postingMap.get(normFileNo);
-
-                const posted: string[] = [];
-                if (posting && posting.assignments) {
-                    posting.assignments.forEach((a: any) => {
-                        const val = typeof a === 'string' ? a : a.code || a.name;
-                        if (val) posted.push(val);
-                    });
-                }
+                const posted = postingMap.get(normFileNo) || [];
 
                 // Combine Pending + Posted to get the Original Schedule
                 // We use a Set to avoid duplicates if data state is inconsistent, but typically they should be mutually exclusive

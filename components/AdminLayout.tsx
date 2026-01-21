@@ -121,6 +121,7 @@ const AdminLayout: React.FC = () => {
             <CollapsibleNavSection title="Posting Management" icon="folder_shared" isLocked={isModuleLocked('posting') && !isSuperAdmin} active={
               isActive('/admin/apc/modes') ||
               isActive('/admin/apc/annual') ||
+              isActive('/admin/apc/final') ||
               isActive('/admin/assignments/board') ||
               isActive('/admin/assignments/random')
             }>
@@ -128,6 +129,7 @@ const AdminLayout: React.FC = () => {
               <NavItem to="/admin/apc/annual" icon="list_alt" label="Post Table" active={isActive('/admin/apc/annual')} isLocked={isModuleLocked('posting') && !isSuperAdmin} />
               <NavItem to="/admin/assignments/board" icon="view_kanban" label="Personalized-Post" active={isActive('/admin/assignments/board')} isLocked={isModuleLocked('posting') && !isSuperAdmin} />
               <NavItem to="/admin/assignments/random" icon="shuffle" label="Randomized-Post" active={isActive('/admin/assignments/random')} isLocked={isModuleLocked('posting') && !isSuperAdmin} />
+              <NavItem to="/admin/apc/final" icon="verified" label="Final Post Table" active={isActive('/admin/apc/final')} isLocked={isModuleLocked('posting') && !isSuperAdmin} />
             </CollapsibleNavSection>
 
 

@@ -156,15 +156,20 @@ export const bulkSaveHODAssignments = async (
             const newAssignments = postingRecord?.assignments ? [...postingRecord.assignments] : [];
             const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : [];
             const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : [];
+            const newStates = postingRecord?.state ? [...postingRecord.state] : (postingRecord?.assignment_venue?.map(_ => '') || []);
 
             const existingIdx = newAssignments.indexOf(assignment.code);
             if (existingIdx !== -1) {
-                newAssignments.splice(existingIdx, 1); newMandates.splice(existingIdx, 1); newVenues.splice(existingIdx, 1);
+                newAssignments.splice(existingIdx, 1);
+                newMandates.splice(existingIdx, 1);
+                newVenues.splice(existingIdx, 1);
+                newStates.splice(existingIdx, 1);
             }
 
             newAssignments.push(assignment.code);
             newMandates.push(mandateName.substring(0, 50));
             newVenues.push(venue);
+            newStates.push(station?.state || '');
 
             postingMap.set(normalizedStaffNo, {
                 ...(postingRecord || {}),
@@ -179,7 +184,7 @@ export const bulkSaveHODAssignments = async (
                 assignments: newAssignments,
                 mandates: newMandates,
                 assignment_venue: newVenues,
-                state: station?.state || null,
+                state: newStates,
                 description: description || null
             });
             modifiedStaffNos.add(normalizedStaffNo);
@@ -196,6 +201,9 @@ export const bulkSaveHODAssignments = async (
                     postingRecord.assignments.splice(idx, 1);
                     postingRecord.mandates.splice(idx, 1);
                     postingRecord.assignment_venue.splice(idx, 1);
+                    if (postingRecord.state && postingRecord.state.length > idx) {
+                        postingRecord.state.splice(idx, 1);
+                    }
                     postingRecord.posted_for = postingRecord.assignments.length;
                     postingRecord.to_be_posted = allottedCount - postingRecord.posted_for;
                     modifiedStaffNos.add(normalizedStaffNo);

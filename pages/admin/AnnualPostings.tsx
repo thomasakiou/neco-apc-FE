@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import * as XLSX from 'xlsx';
+import { archivePostings } from '../../services/finalPosting';
 import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings, updatePosting } from '../../services/posting';
-import { getAllAPCRecords, updateAPC } from '../../services/apc';
+import { getAllAPCRecords, updateAPC, getAssignmentLimit } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllStates } from '../../services/state';
 import { getAllMarkingVenues } from '../../services/markingVenue';
@@ -28,6 +29,11 @@ interface CollapsibleRowProps {
   onSwap: () => void;
   onEdit: () => void;
 }
+
+const normalizeString = (str: string | null | undefined): string => {
+  if (!str) return '';
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
 
 const formatVenueName = (venue: string | null | undefined): string => {
   if (!venue) return '-';
@@ -111,16 +117,50 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
           </span>
         </td>
         <td className="px-4 py-4">
-          <div className="flex flex-wrap gap-1 max-w-[150px]">
+          <div className="flex flex-col gap-1.5">
             {record.assignments.map((assignment, idx) => (
-              <span key={idx} className="inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase whitespace-nowrap">
-                {typeof assignment === 'string' ? assignment : assignment.name || assignment.code}
-              </span>
+              <div key={idx}>
+                <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase whitespace-nowrap">
+                  {typeof assignment === 'string' ? assignment : assignment.name || assignment.code}
+                </span>
+              </div>
             ))}
           </div>
         </td>
-        <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-sm">{formatVenueName(record.assignment_venue?.[0])}</td>
-        <td className="px-4 py-4 font-black text-rose-600 dark:text-rose-400 text-sm text-center">{record.to_be_posted || 0}</td>
+        <td className="px-4 py-4">
+          <div className="flex flex-col gap-1.5">
+            {record.mandates?.map((mandate, idx) => (
+              <div key={idx} className="text-xs font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]" title={typeof mandate === 'string' ? mandate : mandate.mandate || mandate.code}>
+                {typeof mandate === 'string' ? mandate : mandate.mandate || mandate.code}
+              </div>
+            ))}
+          </div>
+        </td>
+        <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-xs">
+          <div className="flex flex-col gap-1.5">
+            {record.assignment_venue?.map((venue, idx) => (
+              <div key={idx} className="whitespace-normal min-w-[200px]" title={formatVenueName(venue)}>
+                {formatVenueName(venue)}
+              </div>
+            ))}
+          </div>
+        </td>
+        <td className="px-4 py-4">
+          <div className="flex flex-col gap-1.5">
+            {record.assignment_venue?.map((venue, idx) => {
+              const venueStr = typeof venue === 'string' ? venue : venue.name || venue.code;
+              // If we have a specific state array in record it would be better, but derivation from venue is the current pattern
+              const state = record.state?.[idx] || (venueStr?.includes('|') ? venueStr.split('|').pop().trim() : '-');
+              return (
+                <div key={idx}>
+                  <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 uppercase">
+                    {state}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </td>
         <td className="px-4 py-4 text-center">
           <div className="flex items-center justify-center gap-1">
             <button
@@ -188,7 +228,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Posting Stats</span>
                   <div className="flex flex-col gap-1">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500">Nights:</span>
+                      <span className="text-slate-500">Count:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-300">{record.count || 0}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
@@ -217,7 +257,8 @@ const AnnualPostings: React.FC = () => {
   const [postings, setPostings] = useState<PostingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
-  const [deletionProgress, setDeletionProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [archiveProgress, setArchiveProgress] = useState<{ current: number; total: number } | null>(null);
   const { success, error } = useNotification();
 
   // Swap State
@@ -316,6 +357,11 @@ const AnnualPostings: React.FC = () => {
     fetchInitialData();
   }, [fetchInitialData]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedFileNo, debouncedName, debouncedStation, debouncedAssignmentSearch, filterMandate, filterVenue, filterState, filterAssignmentsLeft, filterToBePosted, filterDescription]);
+
   // UI for global loading/progress overlay
   const renderLoadingOverlay = () => {
     if (!loading) return null;
@@ -325,26 +371,28 @@ const AnnualPostings: React.FC = () => {
           <div className="relative">
             <div className="w-16 h-16 border-4 border-teal-500/20 border-t-teal-500 rounded-full animate-spin"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="material-symbols-outlined text-teal-500 animate-pulse">sync</span>
+              <span className="material-symbols-outlined text-teal-500 animate-pulse">
+                {archiveProgress ? 'archive' : 'sync'}
+              </span>
             </div>
           </div>
 
           <div className="text-center">
             <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-2">
-              {deletionProgress ? 'Processing Deletion' : 'Loading Data'}
+              {archiveProgress ? 'Archiving Postings' : 'Loading Data'}
             </h3>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {deletionProgress
-                ? `Returning staff to pool: ${deletionProgress.current} / ${deletionProgress.total}`
+              {archiveProgress
+                ? `Archiving staff records: ${archiveProgress.current} / ${archiveProgress.total}`
                 : 'Please wait while we sync with the server...'}
             </p>
           </div>
 
-          {deletionProgress && (
+          {archiveProgress && (
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
               <div
                 className="bg-teal-500 h-full transition-all duration-300"
-                style={{ width: `${(deletionProgress.current / deletionProgress.total) * 100}%` }}
+                style={{ width: `${(archiveProgress.current / archiveProgress.total) * 100}%` }}
               ></div>
             </div>
           )}
@@ -394,10 +442,10 @@ const AnnualPostings: React.FC = () => {
     let result = postings;
 
     if (debouncedFileNo) {
-      result = result.filter(p => p.file_no?.toLowerCase().includes(debouncedFileNo.toLowerCase()));
+      result = result.filter(p => String(p.file_no || '').toLowerCase().includes(debouncedFileNo.toLowerCase()));
     }
     if (debouncedName) {
-      result = result.filter(p => p.name?.toLowerCase().includes(debouncedName.toLowerCase()));
+      result = result.filter(p => String(p.name || '').toLowerCase().includes(debouncedName.toLowerCase()));
     }
     if (debouncedStation) {
       result = result.filter(p => p.station?.toLowerCase().includes(debouncedStation.toLowerCase()));
@@ -443,7 +491,14 @@ const AnnualPostings: React.FC = () => {
       result = result.filter(p => p.description === filterDescription);
     }
     if (filterState) {
-      result = result.filter(p => p.state?.toLowerCase() === filterState.toLowerCase());
+      const normalizedFilter = normalizeString(filterState);
+      result = result.filter(p => {
+        const recordStates = p.state?.length
+          ? p.state
+          : (p.assignment_venue?.[0]?.includes('|') ? [p.assignment_venue[0].split('|').pop().trim()] : []);
+
+        return recordStates.some(s => normalizeString(s) === normalizedFilter);
+      });
     }
 
     return result;
@@ -513,8 +568,14 @@ const AnnualPostings: React.FC = () => {
 
       // 4. Update Posting Records (Targeted Updates to prevent duplication)
       await Promise.all([
-        updatePosting(swapSource.id, { assignment_venue: [...target.assignment_venue] }),
-        updatePosting(target.id, { assignment_venue: [...swapSource.assignment_venue] })
+        updatePosting(swapSource.id, {
+          assignment_venue: [...target.assignment_venue || []],
+          state: [...(target.state || [])]
+        }),
+        updatePosting(target.id, {
+          assignment_venue: [...swapSource.assignment_venue || []],
+          state: [...(swapSource.state || [])]
+        })
       ]);
 
       setSwapSource(null);
@@ -539,25 +600,11 @@ const AnnualPostings: React.FC = () => {
       if (!sourceAPC) throw new Error("Original staff not found in APC database.");
 
       // Calculate target's current total posted assignments
-      const targetCurrentPosted = postings
-        .filter(p => p.file_no === targetAPC.file_no)
-        .reduce((sum, p) => sum + (p.assignments?.length || 0), 0);
+      const normTargetFileNo = targetAPC.file_no.toString().padStart(4, '0');
+      const existingTargetRecord = postings.find(p => p.file_no.toString().padStart(4, '0') === normTargetFileNo);
+      const targetCurrentPosted = existingTargetRecord ? (existingTargetRecord.assignments?.length || 0) : 0;
 
-      // 2. Prepare Updates
-      const newTargetRecord: PostingCreate = {
-        file_no: targetAPC.file_no,
-        name: targetAPC.name,
-        station: targetAPC.station,
-        conraiss: targetAPC.conraiss,
-        year: replacementSource.year,
-        count: replacementSource.count,
-        posted_for: replacementSource.assignments.length,
-        to_be_posted: (targetAPC.count || 0) - (targetCurrentPosted + replacementSource.assignments.length),
-        assignments: replacementSource.assignments,
-        mandates: replacementSource.mandates,
-        assignment_venue: replacementSource.assignment_venue,
-        description: replacementSource.description
-      };
+      // 2. Prepare Updates (Cleaned up redundant newTargetRecord)
 
       // 3. Update Source APC (Return to Pool)
       const updateSourceAPC = async () => {
@@ -573,22 +620,53 @@ const AnnualPostings: React.FC = () => {
       // 4. Update Target APC (Assign Posting)
       const updateTargetAPC = async () => {
         const updates: any = { ...targetAPC };
+        const combinedAssignments = existingTargetRecord?.assignments ? [...existingTargetRecord.assignments] : [];
+        const combinedMandates = existingTargetRecord?.mandates ? [...existingTargetRecord.mandates] : [];
+        const combinedVenues = existingTargetRecord?.assignment_venue ? [...existingTargetRecord.assignment_venue] : [];
+        const combinedStates = existingTargetRecord?.state ? [...existingTargetRecord.state] : (existingTargetRecord?.assignment_venue?.map(_ => '') || []);
+
         replacementSource.assignments.forEach((code, idx) => {
           const field = assignmentFieldMap[code];
           if (field) {
             updates[field] = replacementSource.assignment_venue[idx] || '';
           }
+          // Merge logic
+          if (!combinedAssignments.includes(code)) {
+            combinedAssignments.push(code);
+            combinedMandates.push(replacementSource.mandates[idx]);
+            combinedVenues.push(replacementSource.assignment_venue[idx]);
+            combinedStates.push(replacementSource.state?.[idx] || '');
+          }
         });
         const { id, created_at, updated_at, created_by, updated_by, ...clean } = updates;
         await updateAPC(id, clean);
+
+        return { combinedAssignments, combinedMandates, combinedVenues, combinedStates };
       };
 
       // 5. Execute API Calls
+      const { combinedAssignments, combinedMandates, combinedVenues, combinedStates } = await updateTargetAPC();
+
+      const payload: PostingCreate = {
+        file_no: normTargetFileNo,
+        name: targetAPC.name,
+        station: targetAPC.station,
+        conraiss: targetAPC.conraiss,
+        year: replacementSource.year,
+        count: targetAPC.count || replacementSource.count, // Prefer target's count from APC
+        posted_for: combinedAssignments.length,
+        to_be_posted: (targetAPC.count || 0) - combinedAssignments.length,
+        assignments: combinedAssignments,
+        mandates: combinedMandates,
+        assignment_venue: combinedVenues,
+        state: combinedStates,
+        description: existingTargetRecord?.description || replacementSource.description
+      };
+
       await Promise.all([
         updateSourceAPC(),
-        updateTargetAPC(),
-        bulkDeletePostings([replacementSource.id]),
-        bulkCreatePostings({ items: [newTargetRecord] })
+        bulkDeletePostings([replacementSource.id, ...(existingTargetRecord ? [existingTargetRecord.id] : [])]),
+        bulkCreatePostings({ items: [payload] })
       ]);
 
       success(`Successfully replaced ${replacementSource.name} with ${targetAPC.name}`);
@@ -615,34 +693,9 @@ const AnnualPostings: React.FC = () => {
   const handleSingleDelete = useCallback(async (record: PostingResponse) => {
     try {
       setLoading(true);
-      const allAPC = await getAllAPCRecords(false, true);
-      const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
-
-      const normFileNo = record.file_no.toString().padStart(4, '0');
-      const apcRecord = apcMap.get(normFileNo);
-
-      if (apcRecord && record.assignments && record.assignments.length > 0) {
-        let payload: any = { ...apcRecord };
-        const { id, created_at, updated_at, created_by, updated_by, ...rest } = payload;
-        payload = { ...rest };
-
-        let hasChanges = false;
-        record.assignments.forEach((assignment: any) => {
-          const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
-          const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
-          if (fieldName) {
-            payload[fieldName] = codeOrName;
-            hasChanges = true;
-          }
-        });
-
-        if (hasChanges) {
-          await updateAPC(apcRecord.id, payload);
-        }
-      }
 
       await bulkDeletePostings([record.id]);
-      alert("Posting deleted and staff returned successfully.");
+      alert("Posting deleted successfully.");
       setSelectedIds(prev => {
         const next = new Set(prev);
         next.delete(record.id);
@@ -661,103 +714,145 @@ const AnnualPostings: React.FC = () => {
   const handleBulkDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
     const totalCount = selectedIds.size;
-    if (!window.confirm(`Are you sure you want to delete ${totalCount} posting(s)? This will return the staff to the pool.`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${totalCount} posting(s)?`)) return;
 
     try {
       setLoading(true);
-      setDeletionProgress({ current: 0, total: totalCount });
 
-      // 1. Fetch all APC records to perform updates (Force fresh fetch to avoid stale cache)
-      const allAPC = await getAllAPCRecords(false, true);
-      const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
-
-      // 2. Process each selected posting to update APC
-      const postingsToDelete = postings.filter(p => selectedIds.has(p.id));
-      const CHUNK_SIZE = 50;
-
-      for (let i = 0; i < postingsToDelete.length; i += CHUNK_SIZE) {
-        const chunk = postingsToDelete.slice(i, i + CHUNK_SIZE);
-        const updates = [];
-
-        for (const posting of chunk) {
-          const normFileNo = posting.file_no.toString().padStart(4, '0');
-          const apcRecord = apcMap.get(normFileNo);
-
-          if (apcRecord && posting.assignments && posting.assignments.length > 0) {
-            let payload: any = { ...apcRecord };
-            const { id, created_at, updated_at, created_by, updated_by, ...rest } = payload;
-            payload = { ...rest };
-
-            let hasChanges = false;
-            if (posting.assignments && Array.isArray(posting.assignments)) {
-              posting.assignments.forEach((assignment: any) => {
-                const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
-                const fieldName = assignmentFieldMap[codeOrName];
-                if (fieldName) {
-                  payload[fieldName] = codeOrName;
-                  hasChanges = true;
-                } else {
-                  const upperKey = codeOrName?.toString().toUpperCase();
-                  const fieldNameUpper = assignmentFieldMap[upperKey];
-                  if (fieldNameUpper) {
-                    payload[fieldNameUpper] = upperKey || codeOrName;
-                    hasChanges = true;
-                  }
-                }
-              });
-            }
-
-            if (hasChanges) {
-              updates.push(updateAPC(apcRecord.id, payload));
-            }
-          }
-        }
-
-        if (updates.length > 0) {
-          await Promise.allSettled(updates);
-        }
-
-        const processedCount = Math.min(i + CHUNK_SIZE, totalCount);
-        setDeletionProgress({ current: processedCount, total: totalCount });
-      }
-
-      // 3. Delete Postings
+      // 1. Delete Postings
       await bulkDeletePostings(Array.from(selectedIds));
 
-      alert("Selected postings deleted and staff returned successfully.");
+      alert("Selected postings deleted successfully.");
       setSelectedIds(new Set());
-      setDeletionProgress(null);
       fetchInitialData();
     } catch (error: any) {
       console.error("Bulk delete failed", error);
       alert(`Failed to delete postings: ${error.message}`);
-      setDeletionProgress(null);
     } finally {
       setLoading(false);
     }
   }, [fetchInitialData, postings, selectedIds]);
 
-  const handleExport = useCallback(() => {
-    try {
-      setLoading(true);
-      const exportData = filteredPostings.map(record => ({
-        'File Number': record.file_no,
-        'Name': record.name,
-        'Station': record.station,
-        'CONRAISS': record.conraiss,
-        'Year': record.year,
-        'Count': record.count,
-        'Assignments': record.assignments?.map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', '),
-        'Mandates': record.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', '),
-        'Venue': record.assignment_venue?.map((v: any) => typeof v === 'string' ? v : v.name || v.code).join(', '),
-        'Posted For': record.posted_for,
-        'To Be Posted': record.to_be_posted
-      }));
+  const handleArchive = async () => {
+    if (!window.confirm("Are you sure you want to ARCHIVE current postings to the Final Posting table? This will append the data.")) return;
 
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Posting List");
-      XLSX.writeFile(wb, `Posting_List_${new Date().toISOString().split('T')[0]}.xlsx`);
+    try {
+      setIsArchiving(true);
+      setLoading(true);
+
+      // Keep a copy of postings to update APC
+      const postingsToArchive = [...postings];
+      setArchiveProgress({ current: 0, total: postingsToArchive.length });
+
+      // 1. Archive to final table (This might take a while if many records)
+      await archivePostings();
+
+      // 2. Clear APC fields for archived staff
+      if (postingsToArchive.length > 0) {
+        const allAPC = await getAllAPCRecords(false, true);
+        const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
+        const CHUNK_SIZE = 50;
+
+        for (let i = 0; i < postingsToArchive.length; i += CHUNK_SIZE) {
+          const chunk = postingsToArchive.slice(i, i + CHUNK_SIZE);
+          const updates = [];
+
+          for (const posting of chunk) {
+            const normFileNo = posting.file_no.toString().padStart(4, '0');
+            const apcRecord = apcMap.get(normFileNo);
+
+            if (apcRecord && posting.assignments && posting.assignments.length > 0) {
+              let payload: any = { ...apcRecord };
+              const { id, created_at, updated_at, created_by, updated_by, ...rest } = payload;
+              payload = { ...rest };
+
+              let hasChanges = false;
+              posting.assignments.forEach((assignment: any) => {
+                const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
+                const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
+                if (fieldName) {
+                  payload[fieldName] = ''; // Clear the assignment field
+                  hasChanges = true;
+                }
+              });
+
+              if (hasChanges) {
+                updates.push(updateAPC(apcRecord.id, payload));
+              }
+            }
+          }
+
+          if (updates.length > 0) {
+            await Promise.allSettled(updates);
+          }
+
+          setArchiveProgress(prev => ({
+            current: Math.min(i + CHUNK_SIZE, postingsToArchive.length),
+            total: postingsToArchive.length
+          }));
+        }
+      }
+
+      success("Successfully archived all postings and updated APC records.");
+      setArchiveProgress(null);
+      fetchInitialData();
+    } catch (err: any) {
+      console.error("Archive failed", err);
+      error(err.message || "Failed to archive postings.");
+      setArchiveProgress(null);
+    } finally {
+      setIsArchiving(false);
+      setLoading(false);
+    }
+  };
+
+  const handleExport = useCallback(() => {
+    if (filteredPostings.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    setLoading(true);
+    try {
+      const headers = [
+        'File Number', 'Name', 'Station', 'CONRAISS', 'Year', 'Count',
+        'Assignments', 'Mandates', 'Venue', 'State', 'Posted For', 'To Be Posted', 'Description'
+      ];
+
+      const escapeCsv = (val: any) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const rows = filteredPostings.map(record => [
+        record.file_no,
+        record.name,
+        record.station,
+        record.conraiss,
+        record.year,
+        record.count,
+        record.assignments?.map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(' | '),
+        record.mandates?.map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(' | '),
+        record.assignment_venue?.map((v: any) => typeof v === 'string' ? v : v.name || v.code).join(' | '),
+        (record.state && record.state.length > 0 ? record.state.join(' | ') : '') || (record.assignment_venue?.[0]?.includes('|') ? record.assignment_venue[0].split('|').pop().trim() : ''),
+        record.posted_for,
+        record.to_be_posted,
+        record.description || ''
+      ].map(escapeCsv).join(','));
+
+      const csvContent = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Posting_List_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       alert("Export successful!");
     } catch (error) {
@@ -784,62 +879,121 @@ const AnnualPostings: React.FC = () => {
   const handleCsvUpload = useCallback(async (data: CSVPostingData[]) => {
     setLoading(true);
     try {
-      // Build validation map from existing postings
-      // Map: FileNo -> Set of Mandates
-      const existingMap = new Map<string, Set<string>>();
-      postings.forEach(p => {
-        if (!existingMap.has(p.file_no)) existingMap.set(p.file_no, new Set());
-        p.mandates?.forEach(m => {
-          const mName = typeof m === 'string' ? m : m.mandate || m.code;
-          if (mName) existingMap.get(p.file_no)?.add(mName);
-        });
-      });
+      // 1. Fetch dependencies
+      const [allAPC, allPostings] = await Promise.all([
+        getAllAPCRecords(false, true),
+        getAllPostingRecords(true)
+      ]);
 
-      let skippedCount = 0;
-      const payload: PostingCreate[] = [];
+      const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
+      const postingMap = new Map(allPostings.map(p => [p.file_no.toString().padStart(4, '0'), p]));
+
+      const apcUpdates = new Map<string, any>();
+      const postingPayloads = new Map<string, PostingCreate>();
 
       data.forEach(row => {
-        const targetMandate = row.mandate;
-        // Check for duplication
-        if (targetMandate && existingMap.get(row.staffNo)?.has(targetMandate)) {
-          skippedCount++;
+        const normFileNo = row.staffNo.toString().padStart(4, '0');
+        const apcRecord = apcMap.get(normFileNo);
+
+        if (!apcRecord) {
+          console.warn(`Staff ${normFileNo} not found in APC records. Skipping.`);
           return;
         }
 
-        payload.push({
-          file_no: row.staffNo,
-          name: row.name || '',
-          station: row.station,
-          conraiss: row.conraiss,
+        // Get existing posting data or start fresh
+        const existingPosting = postingPayloads.get(normFileNo) || postingMap.get(normFileNo);
+
+        let assignments = existingPosting?.assignments ? [...existingPosting.assignments] : [];
+        let mandates = existingPosting?.mandates ? [...existingPosting.mandates] : [];
+        let venues = existingPosting?.assignment_venue ? [...existingPosting.assignment_venue] : [];
+
+        // Add new data from row
+        if (row.assignments && Array.isArray(row.assignments)) {
+          const rowMandates = row.mandate ? row.mandate.split(/[;|]/).map(m => m.trim()) : [];
+          const rowVenues = row.venue ? row.venue.split(/[;|]/).map(v => v.trim()) : [];
+
+          row.assignments.forEach((code, idx) => {
+            assignments.push(code);
+            mandates.push(rowMandates[idx] || row.mandate || code);
+            venues.push(rowVenues[idx] || row.venue || '');
+          });
+        } else if (row.mandate) {
+          // Fallback if assignments array is missing but mandate is present
+          // We try to infer code from mandate or use mandate as code
+          const code = row.mandateCode || row.mandate;
+          assignments.push(code);
+          mandates.push(row.mandate);
+          venues.push(row.venue || '');
+        }
+
+        // Deduplicate
+        const dedup = deduplicatePostings(assignments, mandates, venues);
+
+        // Update APC record (clear fields for these assignments)
+        let apcFields = apcUpdates.get(apcRecord.id) || { ...apcRecord };
+        const { id, created_at, updated_at, created_by, updated_by, ...cleanApc } = apcFields;
+        apcFields = { ...cleanApc };
+
+        dedup.assignments.forEach(code => {
+          const fieldName = assignmentFieldMap[code] || assignmentFieldMap[code.toString().toUpperCase()];
+          if (fieldName) {
+            apcFields[fieldName] = ''; // Clear from pool
+          }
+        });
+        apcUpdates.set(apcRecord.id, apcFields);
+
+        // Prepare posting record
+        const totalAllotted = apcRecord.count || getAssignmentLimit(apcRecord.conraiss);
+        postingPayloads.set(normFileNo, {
+          file_no: normFileNo,
+          name: row.name || apcRecord.name || '',
+          station: row.station || apcRecord.station || '',
+          conraiss: row.conraiss || apcRecord.conraiss || '',
           year: new Date().getFullYear().toString(),
-          count: row.count || 0,
-          posted_for: row.assignments?.length || 0,
-          to_be_posted: (row.count || 0) - (row.assignments?.length || 0),
-          assignments: row.assignments || [],
-          mandates: row.mandate ? [row.mandate] : [],
-          assignment_venue: row.venue ? [row.venue] : []
+          count: totalAllotted,
+          posted_for: dedup.assignments.length,
+          to_be_posted: totalAllotted - dedup.assignments.length,
+          assignments: dedup.assignments,
+          mandates: dedup.mandates,
+          assignment_venue: dedup.venues,
+          description: row.description || existingPosting?.description || '',
+          state: row.state ? [row.state] : (existingPosting?.state || (dedup.venues?.[0]?.includes('|') ? [dedup.venues[0].split('|').pop().trim()] : []))
         });
       });
 
-      if (payload.length === 0 && skippedCount > 0) {
-        error(`All ${skippedCount} records were skipped because they already exist.`);
-        setLoading(false);
-        return;
+      // 2. Execute Updates
+      const apcPromises = Array.from(apcUpdates.entries()).map(([id, fields]) => updateAPC(id, fields));
+      const postingPayload = Array.from(postingPayloads.values());
+
+      if (postingPayload.length > 0) {
+        // To prevent duplicate ROWS for the same staff, we delete the old records before bulk creating new ones
+        const idsToDelete = Array.from(postingPayloads.keys())
+          .map(s => postingMap.get(s)?.id)
+          .filter(id => id);
+
+        if (idsToDelete.length > 0) {
+          await bulkDeletePostings(idsToDelete as string[]);
+        }
+
+        await Promise.all([
+          ...apcPromises,
+          bulkCreatePostings({ items: postingPayload })
+        ]);
+
+        success(`Successfully imported ${postingPayload.length} records.`);
+        setIsCsvModalOpen(false);
+        fetchInitialData();
+      } else {
+        error("No valid records to import.");
       }
 
-      // Send to bulk create endpoint
-      await bulkCreatePostings({ items: payload });
-
-      alert(`Successfully imported ${payload.length} records.${skippedCount > 0 ? ` ${skippedCount} duplicates skipped.` : ''}`);
-      setIsCsvModalOpen(false);
-      fetchInitialData(); // Refresh table
     } catch (err: any) {
       console.error("Bulk upload failed", err);
-      alert(`Upload failed: ${err.message}`);
+      error(`Upload failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [fetchInitialData]);
+  }, [fetchInitialData, success, error]);
 
   // Helper to extract unique "posted_for" values for filter
   const postedForOptions = Array.from(new Set(postings.map(p => p.posted_for).filter(val => val !== undefined && val !== null))) as (string | number)[];
@@ -881,19 +1035,20 @@ const AnnualPostings: React.FC = () => {
               </button>
             )}
             <button
-              onClick={() => fetchInitialData()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-teal-600 dark:text-teal-400 font-bold text-xs shadow-sm hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all"
-              title="Refresh Data"
-            >
-              <span className={`material-symbols-outlined text-lg ${loading && !deletionProgress ? 'animate-spin' : ''}`}>refresh</span>
-              Refresh
-            </button>
-            <button
               onClick={handleExport}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
             >
               <span className="material-symbols-outlined text-lg">download</span>
               Export List
+            </button>
+            <button
+              onClick={handleArchive}
+              disabled={isArchiving || loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50"
+              title="Archive to Final Posting"
+            >
+              <span className={`material-symbols-outlined text-lg ${isArchiving ? 'animate-spin' : ''}`}>archive</span>
+              {isArchiving ? 'Archiving...' : 'Commit to Final'}
             </button>
             <button
               onClick={downloadCsvTemplate}
@@ -908,14 +1063,6 @@ const AnnualPostings: React.FC = () => {
                 <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-tight">Syncing Pool</span>
               </div>
             )}
-            <button
-              onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
-              title="Force Refresh Data"
-            >
-              <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
-              Force Refresh
-            </button>
             <button
               onClick={() => setIsCsvModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all"
@@ -995,20 +1142,7 @@ const AnnualPostings: React.FC = () => {
               />
             </div>
 
-            {/* Assignments Left Filter */}
-            <div className="relative">
-              <select
-                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
-                value={filterAssignmentsLeft}
-                onChange={(e) => setFilterAssignmentsLeft(e.target.value)}
-              >
-                <option value="">All Assignments Left</option>
-                {assignmentsLeftOptions.sort((a, b) => Number(a) - Number(b)).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
-                <span className="material-symbols-outlined text-lg">expand_more</span>
-              </div>
-            </div>
+
 
 
             {/* Mandates Filter */}
@@ -1119,16 +1253,17 @@ const AnnualPostings: React.FC = () => {
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Station</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Conraiss</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assignments</th>
+                    <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Mandates</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Venue</th>
-                    <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Assign. Left</th>
+                    <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">State</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                   {loading ? (
-                    <tr><td colSpan={10} className="p-8 text-center text-slate-500 italic">Loading records...</td></tr>
+                    <tr><td colSpan={12} className="p-8 text-center text-slate-500 italic">Loading records...</td></tr>
                   ) : paginatedPostings.length === 0 ? (
-                    <tr><td colSpan={10} className="p-8 text-center text-slate-500 italic">No records found matching your filters.</td></tr>
+                    <tr><td colSpan={12} className="p-8 text-center text-slate-500 italic">No records found matching your filters.</td></tr>
                   ) : (
                     paginatedPostings.map((record) => (
                       <CollapsibleRow
@@ -1146,16 +1281,19 @@ const AnnualPostings: React.FC = () => {
                           // Fetch eligible pool
                           const pool = await getAllAPCRecords(true, false);
 
-                          // Pre-calculate posted counts from current postings
+                          // Pre-calculate posted counts from current postings with padding
                           const postedCountMap = new Map<string, number>();
                           postings.forEach(p => {
                             const count = (p.assignments || []).length;
-                            postedCountMap.set(p.file_no, (postedCountMap.get(p.file_no) || 0) + count);
+                            const normFileNo = p.file_no.toString().padStart(4, '0');
+                            postedCountMap.set(normFileNo, (postedCountMap.get(normFileNo) || 0) + count);
                           });
 
                           const eligible = pool.filter(staff => {
-                            if (staff.file_no === record.file_no) return false;
-                            const totalPosted = (postedCountMap.get(staff.file_no) || 0);
+                            const normStaffNo = staff.file_no.toString().padStart(4, '0');
+                            const normRecordNo = record.file_no.toString().padStart(4, '0');
+                            if (normStaffNo === normRecordNo) return false;
+                            const totalPosted = (postedCountMap.get(normStaffNo) || 0);
                             const totalAllotted = (staff.count || 0);
                             return totalPosted < totalAllotted;
                           });

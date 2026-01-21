@@ -3,7 +3,7 @@ import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from '../../services/markingVenue';
-import { bulkCreatePostings, getAllPostingRecords } from '../../services/posting';
+import { bulkCreatePostings, bulkDeletePostings, getAllPostingRecords } from '../../services/posting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
@@ -182,14 +182,13 @@ const RandomizedPost: React.FC = () => {
     const [previewSearchFileNo, setPreviewSearchFileNo] = useState('');
     const [previewSearchStation, setPreviewSearchStation] = useState('');
     const [previewSearchState, setPreviewSearchState] = useState('');
-    const [previewSearchZone, setPreviewSearchZone] = useState('');
 
     const [previewPage, setPreviewPage] = useState(1);
     const [previewLimit, setPreviewLimit] = useState(10);
 
     useEffect(() => {
         setPreviewPage(1);
-    }, [previewSearchName, previewSearchFileNo, previewSearchStation, previewSearchState, previewSearchZone, previewLimit]);
+    }, [previewSearchName, previewSearchFileNo, previewSearchStation, previewSearchState, previewLimit]);
 
     const filteredGeneratedPostings = useMemo(() => {
         return generatedPostings.filter(p => {
@@ -197,11 +196,10 @@ const RandomizedPost: React.FC = () => {
             const matchFileNo = p.file_no.toLowerCase().includes(previewSearchFileNo.toLowerCase());
             const matchStation = (p.station || '').toLowerCase().includes(previewSearchStation.toLowerCase());
             const matchState = ((p as any).state_name || '').toLowerCase().includes(previewSearchState.toLowerCase());
-            const matchZone = ((p as any).zone || '').toLowerCase().includes(previewSearchZone.toLowerCase());
 
-            return matchName && matchFileNo && matchStation && matchState && matchZone;
+            return matchName && matchFileNo && matchStation && matchState;
         });
-    }, [generatedPostings, previewSearchName, previewSearchFileNo, previewSearchStation, previewSearchState, previewSearchZone]);
+    }, [generatedPostings, previewSearchName, previewSearchFileNo, previewSearchStation, previewSearchState]);
 
     const paginatedGeneratedPostings = useMemo(() => {
         const start = (previewPage - 1) * previewLimit;
@@ -532,7 +530,8 @@ const RandomizedPost: React.FC = () => {
             const postedCountMap = new Map<string, number>();
             existingPostings.forEach(p => {
                 const count = (p.assignments || []).length;
-                postedCountMap.set(p.file_no, (postedCountMap.get(p.file_no) || 0) + count);
+                const normalizedFileNo = p.file_no.toString().padStart(4, '0');
+                postedCountMap.set(normalizedFileNo, (postedCountMap.get(normalizedFileNo) || 0) + count);
 
                 // Helper for robust comparison
                 const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
@@ -555,7 +554,7 @@ const RandomizedPost: React.FC = () => {
                 }
 
                 if (matchesAssignment || matchesMandate) {
-                    alreadyAssignedStaffIds.add(String(p.file_no).padStart(4, '0'));
+                    alreadyAssignedStaffIds.add(normalizedFileNo);
                 }
             });
 
@@ -571,13 +570,14 @@ const RandomizedPost: React.FC = () => {
             let skippedDueToDuplicate = 0;
             const eligibleStaff = allAPC.filter(staff => {
                 if (!staff.active) return false;
-                if (alreadyAssignedStaffIds.has(staff.file_no)) {
+                const normalizedStaffNo = staff.file_no.toString().padStart(4, '0');
+                if (alreadyAssignedStaffIds.has(normalizedStaffNo)) {
                     skippedDueToDuplicate++;
                     return false;
                 }
 
                 // Capacity Check
-                const totalPosted = postedCountMap.get(staff.file_no) || 0;
+                const totalPosted = postedCountMap.get(normalizedStaffNo) || 0;
                 const totalAllotted = staff.count || 0;
                 if (totalPosted >= totalAllotted) return false; // Exhausted
 
@@ -1006,39 +1006,58 @@ const RandomizedPost: React.FC = () => {
                                 }
                             });
 
+                            // Create Map for fast lookup of existing postings (outside loops ideally, but here for now)
+                            const postingMap = new Map<string, PostingResponse>(existingPostings.map(p => [p.file_no.toString().padStart(4, '0'), p]));
+
                             if (priorityMatches.length > 0) {
                                 const staff = shuffle(priorityMatches)[0];
+                                const normalizedStaffNo = staff.file_no.toString().padStart(4, '0');
                                 usedStaffIds.add(staff.id);
 
+                                const existingRecord = postingMap.get(normalizedStaffNo) as PostingResponse | undefined;
                                 const currentCount = staff.count || 0;
-                                const totalPostedSoFar = postedCountMap.get(staff.file_no) || 0;
+                                const totalPostedSoFar = postedCountMap.get(normalizedStaffNo) || 0;
+
+                                const newAssignmentCode = assignmentCode;
+                                const newMandate = targetMandate;
+                                const newVenue = ((v) => {
+                                    const codePrefix = v.code ? `(${v.code})` : '';
+                                    const hasCode = v.code && v.name.includes(codePrefix);
+                                    const baseName = (v.code && !hasCode) ? `${codePrefix} ${v.name}` : v.name;
+                                    const stateName = (v.state_name || v.state || '').trim();
+                                    if (stateName && !baseName.toLowerCase().includes(stateName.toLowerCase())) {
+                                        return `${baseName} | ${stateName}`;
+                                    }
+                                    return baseName;
+                                })(vq.venue);
+                                const newState = vq.venue.state_name || '';
+
+                                // Merge with existing data
+                                const mergedAssignments = existingRecord?.assignments ? [...existingRecord.assignments] : [];
+                                const mergedMandates = existingRecord?.mandates ? [...existingRecord.mandates] : [];
+                                const mergedVenues = existingRecord?.assignment_venue ? [...existingRecord.assignment_venue] : [];
+                                const mergedStates = existingRecord?.state ? [...existingRecord.state] : (existingRecord?.assignment_venue?.map(_ => '') || []);
+
+                                mergedAssignments.push(newAssignmentCode);
+                                mergedMandates.push(newMandate);
+                                mergedVenues.push(newVenue);
+                                mergedStates.push(newState);
 
                                 newPostings.push({
-                                    file_no: staff.file_no,
+                                    file_no: normalizedStaffNo,
                                     name: staff.name,
                                     station: staff.station,
                                     conraiss: staff.conraiss,
                                     year: new Date().getFullYear().toString(),
                                     count: numberOfNights, // Use explicit number of nights (default 0)
-                                    posted_for: 1,
+                                    posted_for: mergedAssignments.length,
                                     to_be_posted: Math.max(0, (staff.count || 0) - (totalPostedSoFar + 1)),
-                                    assignments: [assignmentCode],
-                                    mandates: [targetMandate],
-                                    assignment_venue: [((v) => {
-                                        const codePrefix = v.code ? `(${v.code})` : '';
-                                        const hasCode = v.code && v.name.includes(codePrefix);
-                                        const baseName = (v.code && !hasCode) ? `${codePrefix} ${v.name}` : v.name;
-                                        const stateName = (v.state_name || v.state || '').trim();
-                                        if (stateName && !baseName.toLowerCase().includes(stateName.toLowerCase())) {
-                                            return `${baseName} | ${stateName}`;
-                                        }
-                                        return baseName;
-                                    })(vq.venue)],
-                                    state: vq.venue.state_name || null,
-                                    state_name: vq.venue.state_name, // Keep for backward compat if needed, or remove if fully migrated
-                                    zone: vq.venue.zone,
+                                    assignments: mergedAssignments,
+                                    mandates: mergedMandates,
+                                    assignment_venue: mergedVenues,
+                                    state: mergedStates, // Send merged states
                                     description: description || null // Include description
-                                } as any);
+                                });
 
                                 // Track picks by geographic category for stats
                                 const staffHome = staffHomeStateMap.get(staff.id);
@@ -1116,6 +1135,8 @@ const RandomizedPost: React.FC = () => {
         setLoading(true);
         try {
             // 1. Identify APC Field
+            // Removed: APC fields are now only cleared during Archiving to Final Postings.
+            /*
             const assignmentRecord = assignments.find(a => a.id === selectedAssignment);
             const assignmentCode = assignmentRecord?.code || '';
             const assignmentName = assignmentRecord?.name || '';
@@ -1143,8 +1164,21 @@ const RandomizedPost: React.FC = () => {
                     await Promise.allSettled(updates);
                 }
             }
+            */
 
             // 3. Create Postings
+            // To prevent duplicate ROWS for the same staff, we delete the old records before bulk creating new ones
+            const idsToDelete = generatedPostings
+                .map(p => {
+                    const normFileNo = p.file_no.toString().padStart(4, '0');
+                    return existingPostings.find(ep => ep.file_no.toString().padStart(4, '0') === normFileNo)?.id;
+                })
+                .filter(id => id);
+
+            if (idsToDelete.length > 0) {
+                await bulkDeletePostings(idsToDelete as string[]);
+            }
+
             await bulkCreatePostings({ items: generatedPostings });
             success(`Successfully posted ${generatedPostings.length} staff!`);
             setGeneratedPostings([]);
@@ -1217,13 +1251,6 @@ const RandomizedPost: React.FC = () => {
                         onChange={(e) => setPreviewSearchState(e.target.value)}
                         className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
                     />
-                    <input
-                        type="text"
-                        placeholder="Filter by Zone..."
-                        value={previewSearchZone}
-                        onChange={(e) => setPreviewSearchZone(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                    />
                     <select
                         value={previewLimit}
                         onChange={(e) => setPreviewLimit(Number(e.target.value))}
@@ -1247,7 +1274,6 @@ const RandomizedPost: React.FC = () => {
                                     <th className="p-3">Station</th>
                                     <th className="p-3">Venue</th>
                                     <th className="p-3">State</th>
-                                    <th className="p-3">Zone</th>
                                     <th className="p-3">Nights</th>
                                     <th className="p-3">Description</th>
                                 </tr>
@@ -1261,11 +1287,6 @@ const RandomizedPost: React.FC = () => {
                                         <td className="p-3 text-sm">{p.station}</td>
                                         <td className="p-3 font-bold text-purple-600 dark:text-purple-400 text-sm">{p.assignment_venue?.[0]}</td>
                                         <td className="p-3 text-sm">{p.state || (p as any).state_name || '-'}</td>
-                                        <td className="p-3">
-                                            <span className={`px-2 py-1 rounded-md text-xs font-bold ${(p as any).zone ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                                                {(p as any).zone || 'N/A'}
-                                            </span>
-                                        </td>
                                         <td className="p-3 font-bold text-slate-600 dark:text-slate-400">{p.count || 0}</td>
                                         <td className="p-3 text-sm italic text-slate-500 max-w-[150px] truncate">{(p as any).description || '-'}</td>
                                     </tr>

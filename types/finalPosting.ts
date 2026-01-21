@@ -1,4 +1,4 @@
-export interface PostingResponse {
+export interface FinalPostingResponse {
     id: string;
     file_no: string;
     name: string;
@@ -20,14 +20,14 @@ export interface PostingResponse {
     updated_by?: string | null;
 }
 
-export interface PostingListResponse {
-    items: PostingResponse[];
+export interface FinalPostingListResponse {
+    items: FinalPostingResponse[];
     total: number;
     skip: number;
     limit: number;
 }
 
-export interface PostingCreate {
+export interface FinalPostingCreate {
     file_no: string;
     name: string;
     station?: string | null;
@@ -44,7 +44,7 @@ export interface PostingCreate {
     description?: string | null;
 }
 
-export interface PostingUpdate {
+export interface FinalPostingUpdate {
     file_no?: string | null;
     name?: string | null;
     station?: string | null;
@@ -61,11 +61,11 @@ export interface PostingUpdate {
     description?: string | null;
 }
 
-export interface BulkPostingCreateRequest {
-    items: PostingCreate[];
+export interface BulkFinalPostingCreateRequest {
+    items: FinalPostingCreate[];
 }
 
-export interface BulkUploadResponse {
+export interface FinalPostingBulkUploadResponse {
     created_count: number;
     skipped_count: number;
     error_count: number;

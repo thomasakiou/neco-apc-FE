@@ -3,7 +3,7 @@ import { getAllStaff } from './staff';
 import { getMandatesByAssignment } from './assignment';
 import { getAllAPC, createAPC, updateAPC, deleteAPC } from './apc';
 import { Assignment } from '../types/assignment';
-import { getAllPostingRecords, bulkCreatePostings, createPosting, updatePosting } from './posting';
+import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings, createPosting, updatePosting } from './posting';
 import { PostingCreate, PostingUpdate, BulkPostingCreateRequest } from '../types/posting';
 
 // Map assignment codes and common names to APC field names
@@ -87,7 +87,7 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const staffPostedSpecifics = new Map<string, Set<string>>(); // staff_no -> specifics
 
     apcResponse.items.forEach((record: any) => {
-        const normalizedFileNo = record.file_no.padStart(4, '0');
+        const normalizedFileNo = record.file_no.toString().padStart(4, '0');
         apcMap.set(normalizedFileNo, record);
 
         if (fieldName) {
@@ -103,13 +103,16 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     });
 
     allPostings.forEach(p => {
+        const normalizedFileNo = p.file_no.toString().padStart(4, '0');
         const assignmentsArr = Array.isArray(p.assignments) ? p.assignments : [];
-        staffPostingsCount.set(p.file_no, (staffPostingsCount.get(p.file_no) || 0) + assignmentsArr.length);
+        staffPostingsCount.set(normalizedFileNo, (staffPostingsCount.get(normalizedFileNo) || 0) + assignmentsArr.length);
 
         if (assignmentsArr.length > 0) {
-            const specificSet = staffPostedSpecifics.get(p.file_no) || new Set();
-            assignmentsArr.forEach(code => specificSet.add(code));
-            staffPostedSpecifics.set(p.file_no, specificSet);
+            const specificSet = staffPostedSpecifics.get(normalizedFileNo) || new Set();
+            assignmentsArr.forEach(code => {
+                if (code) specificSet.add(code.toString().trim().toUpperCase());
+            });
+            staffPostedSpecifics.set(normalizedFileNo, specificSet);
         }
     });
 
@@ -118,11 +121,12 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const usedApcIds = new Set<string>();
 
     allStaff!.forEach((staff: any) => {
-        const normalizedStaffFileNo = staff.fileno.padStart(4, '0');
+        const normalizedStaffFileNo = staff.fileno.toString().padStart(4, '0');
         const postedSpecifics = staffPostedSpecifics.get(normalizedStaffFileNo);
 
-        // Hide if already posted for THIS assignment type
-        if (postedSpecifics && postedSpecifics.has(assignment.code)) return;
+        // Hide if already posted for THIS assignment type (Case-Insensitive)
+        const normalize = (s: string) => s.toString().trim().toUpperCase();
+        if (postedSpecifics && postedSpecifics.has(normalize(assignment.code))) return;
 
         const existingApcRecord = apcMap.get(normalizedStaffFileNo);
         const totalPosted = staffPostingsCount.get(normalizedStaffFileNo) || 0;
@@ -212,8 +216,8 @@ export const bulkSaveAssignments = async (
         getAllAPC(0, 100000, '', true),
         getMandatesByAssignment(assignment)
     ]);
-    const postingMap = new Map<string, any>(allPostings.map(p => [p.file_no, p]));
-    const apcMap = new Map<string, any>(allAPCResp.items.map(a => [a.file_no.padStart(4, '0'), a]));
+    const postingMap = new Map<string, any>(allPostings.map(p => [p.file_no.toString().padStart(4, '0'), p]));
+    const apcMap = new Map<string, any>(allAPCResp.items.map(a => [a.file_no.toString().padStart(4, '0'), a]));
     const mandateLookup = new Map<string, any>(mandates.map(m => [m.id, m]));
     const modifiedStaffNos = new Set<string>();
     const fieldName = assignmentFieldMap[assignment.code];
@@ -240,29 +244,64 @@ export const bulkSaveAssignments = async (
         const venue = station?.name || '';
 
         if (change.action === 'add' || change.action === 'move') {
+            const existingAssignments = postingRecord?.assignments || [];
+            if (change.action === 'add' && existingAssignments.some((a: any) => {
+                const code = typeof a === 'string' ? a : a.code || a.name;
+                return code?.toString().trim().toUpperCase() === assignment.code.toString().trim().toUpperCase();
+            })) {
+                throw new Error(`${change.staff.staff_name} is already posted for ${assignment.name}.`);
+            }
+
             if (change.action === 'add' && apcLimit - totalPosted <= 0) {
                 throw new Error(`Limit reached for ${change.staff.staff_name}. (Allowed: ${apcLimit}, Used: ${totalPosted})`);
             }
 
             // APC Sync (Immediate but could be batched later if needed)
+            // Removed: APC fields are now only cleared during Archiving to Final Postings.
+            /*
             if (change.action === 'add' && apcRecord && fieldName) {
                 const { id, created_at, updated_at, created_by, updated_by, ...clean } = apcRecord;
                 await updateAPC(id, { ...clean, [fieldName]: '' });
             }
+            */
 
-            // Posting Prep
+            // Ensure all arrays exist and are synchronized
             const newAssignments = postingRecord?.assignments ? [...postingRecord.assignments] : [];
-            const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : [];
-            const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : [];
+            const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : newAssignments.map(_ => '');
+            const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : newAssignments.map(_ => '');
+            const newStates = postingRecord?.state ? [...postingRecord.state] : newAssignments.map(_ => '');
 
-            const existingIdx = newAssignments.indexOf(assignment.code);
+            // Pad if out of sync
+            while (newMandates.length < newAssignments.length) newMandates.push('');
+            while (newVenues.length < newAssignments.length) newVenues.push('');
+            while (newStates.length < newAssignments.length) newStates.push('');
+
+            const normalize = (s: string) => s.toString().trim().toUpperCase();
+            const targetCode = normalize(assignment.code);
+            const existingIdx = newAssignments.findIndex(a => {
+                const code = typeof a === 'string' ? a : a.code || a.name;
+                return code && normalize(code) === targetCode;
+            });
+
             if (existingIdx !== -1) {
-                newAssignments.splice(existingIdx, 1); newMandates.splice(existingIdx, 1); newVenues.splice(existingIdx, 1);
+                newAssignments.splice(existingIdx, 1);
+                newMandates.splice(existingIdx, 1);
+                newVenues.splice(existingIdx, 1);
+                newStates.splice(existingIdx, 1);
+            }
+
+            // Determine specific venue for this assignment
+            const matchedMandate = mandateLookup.get(change.targetMandateId || '');
+            const finalVenue = matchedMandate?.station || venue;
+            let finalState = station?.state || '';
+            if (matchedMandate?.station?.includes('|')) {
+                finalState = matchedMandate.station.split('|').pop()?.trim() || finalState;
             }
 
             newAssignments.push(assignment.code);
             newMandates.push(mandateName.substring(0, 50));
-            newVenues.push(venue);
+            newVenues.push(finalVenue);
+            newStates.push(finalState);
 
             postingMap.set(normalizedStaffNo, {
                 ...(postingRecord || {}),
@@ -271,31 +310,55 @@ export const bulkSaveAssignments = async (
                 station: change.staff.current_station,
                 conraiss: change.staff.conr,
                 year: new Date().getFullYear().toString(),
-                count: allottedCount, // Persist numberOfNights if provided
+                count: allottedCount,
                 posted_for: newAssignments.length,
-                to_be_posted: apcLimit - newAssignments.length, // Calculate from APC limit
+                to_be_posted: apcLimit - newAssignments.length,
                 assignments: newAssignments,
                 mandates: newMandates,
                 assignment_venue: newVenues,
-                state: station?.state || null,
-                description: description || null
+                state: newStates,
+                description: description || (postingRecord?.description) || null
             });
             modifiedStaffNos.add(normalizedStaffNo);
 
         } else if (change.action === 'remove') {
+            // Removed: APC fields are now only restored during Deletion from Final Postings.
+            /*
             if (apcRecord && fieldName) {
                 const { id, created_at, updated_at, created_by, updated_by, ...clean } = apcRecord;
                 await updateAPC(id, { ...clean, [fieldName]: 'Returned' });
             }
+            */
 
             if (postingRecord) {
-                const idx = postingRecord.assignments?.indexOf(assignment.code);
-                if (idx !== -1 && idx !== undefined) {
-                    postingRecord.assignments.splice(idx, 1);
-                    postingRecord.mandates.splice(idx, 1);
-                    postingRecord.assignment_venue.splice(idx, 1);
-                    postingRecord.posted_for = postingRecord.assignments.length;
-                    postingRecord.to_be_posted = allottedCount - postingRecord.posted_for;
+                const assignments = postingRecord.assignments ? [...postingRecord.assignments] : [];
+                const mandates = postingRecord.mandates ? [...postingRecord.mandates] : [];
+                const venues = postingRecord.assignment_venue ? [...postingRecord.assignment_venue] : [];
+                const states = postingRecord.state ? [...postingRecord.state] : [];
+
+                const normalize = (s: string) => s.toString().trim().toUpperCase();
+                const targetCode = normalize(assignment.code);
+
+                const idx = assignments.findIndex(a => {
+                    const code = typeof a === 'string' ? a : a.code || a.name;
+                    return code && normalize(code) === targetCode;
+                });
+
+                if (idx !== -1) {
+                    assignments.splice(idx, 1);
+                    mandates.splice(idx, 1);
+                    venues.splice(idx, 1);
+                    if (states.length > idx) states.splice(idx, 1);
+
+                    postingMap.set(normalizedStaffNo, {
+                        ...postingRecord,
+                        assignments,
+                        mandates,
+                        assignment_venue: venues,
+                        state: states,
+                        posted_for: assignments.length,
+                        to_be_posted: allottedCount - assignments.length
+                    });
                     modifiedStaffNos.add(normalizedStaffNo);
                 }
             }
@@ -304,6 +367,15 @@ export const bulkSaveAssignments = async (
 
     // Final Batch Update (Parallel for speed)
     if (modifiedStaffNos.size > 0) {
+        // To prevent duplicate ROWS for the same staff, we delete the old records before bulk creating new ones
+        const idsToDelete = Array.from(modifiedStaffNos)
+            .map(s => postingMap.get(s)?.id)
+            .filter(id => id);
+
+        if (idsToDelete.length > 0) {
+            await bulkDeletePostings(idsToDelete as string[]);
+        }
+
         const batch = Array.from(modifiedStaffNos).map(s => {
             const rec = postingMap.get(s);
             const { id, created_at, updated_at, created_by, updated_by, ...clean } = rec;
@@ -328,33 +400,62 @@ export const parseAssignmentCSV = async (file: File): Promise<CSVPostingData[]> 
             const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
             if (lines.length < 2) return resolve([]);
 
-            const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+            const splitCsvLine = (line: string) => {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim());
+                return result.map(val => val.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+            };
 
-            // Detect indices
-            const idxStaffNo = headers.findIndex(h => h.includes('staff') || h.includes('file') || h.includes('no'));
-            const idxMandate = headers.findIndex(h => h.includes('mandate') || h.includes('code'));
-            const idxName = headers.findIndex(h => h.includes('name'));
-            const idxStation = headers.findIndex(h => h.includes('station') || h.includes('venue'));
+            const headers = splitCsvLine(lines[0].toLowerCase());
+
+            // Detect indices - be more specific to avoid collisions
+            const idxStaffNo = headers.findIndex(h => h === 'fileno' || h === 'staffno' || h.includes('file') || (h.includes('staff') && h.includes('no')));
+            const idxName = headers.findIndex(h => h === 'name' || h.includes('staff name') || h.includes('full name'));
+            const idxStation = headers.findIndex(h => h === 'station' || h === 'current station');
+            const idxVenue = headers.findIndex(h => h === 'venue' || h === 'venues' || h === 'assignment venue');
+            const idxAssignments = headers.findIndex(h => h === 'assignments' || h === 'assignment');
+            const idxMandate = headers.findIndex(h => h === 'mandate' || h === 'mandates');
+            const idxMandateCode = headers.findIndex(h => h === 'mandatecode' || h === 'code');
+            const idxConraiss = headers.findIndex(h => h === 'conraiss' || h === 'rank');
+            const idxCount = headers.findIndex(h => h === 'count' || h.includes('night'));
+            const idxDescription = headers.findIndex(h => h === 'description');
+            const idxState = headers.findIndex(h => h === 'state');
 
             if (idxStaffNo === -1) return resolve([]);
 
             const result = lines.slice(1).map(line => {
-                const cols = line.split(',').map(c => c.trim());
+                if (!line.trim()) return null;
+                const cols = splitCsvLine(line);
                 if (!cols[idxStaffNo]) return null;
 
-                const assignmentsVal = idxStation !== -1 ? cols[idxStation] : undefined;
-                const assignments = assignmentsVal ? assignmentsVal.split(';').map(a => a.trim()) : undefined;
+                const assignmentsRaw = idxAssignments !== -1 ? cols[idxAssignments] : undefined;
+                const assignmentsArr = assignmentsRaw ? assignmentsRaw.split(/[;|]/).map(a => a.trim()).filter(Boolean) : undefined;
 
                 return {
                     staffNo: cols[idxStaffNo].padStart(4, '0'),
-                    mandateCode: idxMandate !== -1 ? cols[idxMandate] : undefined,
+                    mandateCode: idxMandateCode !== -1 ? cols[idxMandateCode] : (idxMandate !== -1 ? cols[idxMandate] : undefined),
                     name: idxName !== -1 ? cols[idxName] : undefined,
                     station: idxStation !== -1 ? cols[idxStation] : undefined,
-                    conraiss: headers.findIndex(h => h.includes('conraiss')) !== -1 ? cols[headers.findIndex(h => h.includes('conraiss'))] : undefined,
-                    count: headers.findIndex(h => h.includes('count')) !== -1 ? parseInt(cols[headers.findIndex(h => h.includes('count'))]) || 0 : undefined,
-                    assignments: assignments,
+                    conraiss: idxConraiss !== -1 ? cols[idxConraiss] : undefined,
+                    count: idxCount !== -1 ? parseInt(cols[idxCount]) || 0 : undefined,
+                    assignments: assignmentsArr,
                     mandate: idxMandate !== -1 ? cols[idxMandate] : undefined,
-                    venue: idxStation !== -1 ? cols[idxStation] : undefined
+                    venue: idxVenue !== -1 ? cols[idxVenue] : undefined,
+                    description: idxDescription !== -1 ? cols[idxDescription] : undefined,
+                    state: idxState !== -1 ? cols[idxState] : undefined
                 };
             }).filter(Boolean) as CSVPostingData[];
 
@@ -377,4 +478,6 @@ export interface CSVPostingData {
     assignments?: string[];
     mandate?: string;
     venue?: string;
+    description?: string;
+    state?: string;
 }

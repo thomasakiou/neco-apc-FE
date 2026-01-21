@@ -2,6 +2,7 @@ import { Assignment, AssignmentCreate, AssignmentUpdate, AssignmentListResponse,
 
 import { API_BASE_URL as BASE_URL } from '../src/config';
 import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
+import { getAllMandates } from './mandate';
 
 const API_URL = `${BASE_URL}/assignments`;
 
@@ -41,14 +42,12 @@ export const getMandatesByAssignment = async (assignmentObj: any): Promise<any[]
     if (!assignmentObj.mandates || assignmentObj.mandates.length === 0) {
         return [];
     }
-    const response = await fetch(`/api/mandates?limit=10000`, {
-        headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Failed to fetch mandates');
-    const data = await response.json();
+
+    // Use the centralized getAllMandates service instead of hardcoded fetch
+    const allMandates = await getAllMandates();
 
     // Filter mandates that are in the assignment's mandates array
-    return data.items.filter((mandate: any) =>
+    return allMandates.filter((mandate: any) =>
         assignmentObj.mandates.includes(mandate.code)
     );
 };

@@ -277,7 +277,7 @@ const GeneratePage: React.FC = () => {
                 const vName = typeof v === 'string' ? v : v?.name || v?.code || '';
 
                 // Extract State and Posting from Venue
-                let state = p.state || '';
+                let state = (p.state && p.state[i]) || '';
                 // CRITICAL FIX: Preserve the original full string for 'venue' property so PDF parser can handle it
                 // 'posting' variable holds the CLEAN name for display in the table, but 'venue' logic below was overwriting it with partial data
                 // We need to differentiate: 
@@ -1254,6 +1254,10 @@ const GeneratePage: React.FC = () => {
                                                         <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 px-2 py-1 rounded">
                                                             {field.accessor(record) || '-'}
                                                         </span>
+                                                    ) : field.id === 'venue' ? (
+                                                        <div className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-normal w-full min-w-[200px]">
+                                                            {field.accessor(record) || '-'}
+                                                        </div>
                                                     ) : (
                                                         <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{field.accessor(record) || '-'}</span>
                                                     )}

@@ -583,16 +583,31 @@ const HODPostings: React.FC = () => {
                             const pickedHOD = shuffle(compatibleHODs)[0] as HODApcRecord;
                             usedHODIds.add(pickedHOD.id);
 
+                            // Create Map for fast lookup
+                            const postingMap = new Map<string, any>(existingPostings.map(p => [p.file_no, p]));
+                            const existingRecord = postingMap.get(pickedHOD.file_no);
+
                             const currentCount = pickedHOD.count || 0;
-                            // Calculate posted count (mocking simpler version here as we don't have existing postings map in this scope easily, 
-                            // but simpler logic: to_be_posted = currentCount - 1 because we are adding 1)
-                            const newToBePosted = Math.max(0, currentCount - 1); // Assuming 1 new posting
+                            const totalPostedSoFar = existingRecord?.assignments?.length || 0;
+                            const newToBePosted = Math.max(0, currentCount - (totalPostedSoFar + 1));
 
                             const baseVenueName = `${vNeed.venue.code ? `(${vNeed.venue.code}) ` : ''}${vNeed.venue.name}`;
                             const venueState = (vNeed.venue.state_name || vNeed.venue.state || '').trim();
                             const finalVenue = (venueState && !baseVenueName.toLowerCase().includes(venueState.toLowerCase()))
                                 ? `${baseVenueName} | ${venueState}`
                                 : baseVenueName;
+                            const newState = vNeed.venue.state_name || '';
+
+                            // Merge with existing
+                            const mergedAssignments = existingRecord?.assignments ? [...existingRecord.assignments] : [];
+                            const mergedMandates = existingRecord?.mandates ? [...existingRecord.mandates] : [];
+                            const mergedVenues = existingRecord?.assignment_venue ? [...existingRecord.assignment_venue] : [];
+                            const mergedStates = existingRecord?.state ? [...existingRecord.state] : (existingRecord?.assignment_venue?.map((_: any) => '') || []);
+
+                            mergedAssignments.push(assignmentCode);
+                            mergedMandates.push(targetMandate);
+                            mergedVenues.push(finalVenue);
+                            mergedStates.push(newState);
 
                             newPostings.push({
                                 file_no: pickedHOD.file_no,
@@ -601,13 +616,13 @@ const HODPostings: React.FC = () => {
                                 conraiss: pickedHOD.conraiss || '',
                                 year: new Date().getFullYear().toString(),
                                 count: numberOfNights,
-                                posted_for: 1,
+                                posted_for: mergedAssignments.length,
                                 tree_node_id: null,
                                 to_be_posted: newToBePosted,
-                                assignments: [assignmentCode],
-                                mandates: [targetMandate],
-                                assignment_venue: [finalVenue],
-                                state: vNeed.venue.state_name,
+                                assignments: mergedAssignments,
+                                mandates: mergedMandates,
+                                assignment_venue: mergedVenues,
+                                state: mergedStates,
                                 zone: vNeed.venue.zone,
                                 description: description || null
                             } as any);
