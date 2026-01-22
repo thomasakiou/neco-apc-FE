@@ -105,6 +105,7 @@ const GeneratePage: React.FC = () => {
     const [reportTitle2, setReportTitle2] = useState('');
     const [reportTitle3, setReportTitle3] = useState('');
     const [reportTemplate, setReportTemplate] = useState('SSCE');
+    const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('landscape');
 
     // Dynamic Fields
     const [orderedFieldIds, setOrderedFieldIds] = useState<string[]>(
@@ -405,7 +406,7 @@ const GeneratePage: React.FC = () => {
     const handlePDFExport = async () => {
         try {
             setExportType('pdf');
-            const doc = new jsPDF('l', 'mm', 'a4');
+            const doc = new jsPDF(pdfOrientation === 'portrait' ? 'p' : 'l', 'mm', 'a4');
             const width = doc.internal.pageSize.getWidth();
             const height = doc.internal.pageSize.getHeight();
 
@@ -465,38 +466,36 @@ const GeneratePage: React.FC = () => {
             const drawPageContent = (data: any) => {
                 const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
                 const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+                const isPortrait = pdfOrientation === 'portrait';
 
                 // --- Watermark ---
                 doc.saveGraphicsState();
                 doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-                const wmWidth = 200;
+                const wmWidth = isPortrait ? 150 : 200;
                 const aspectRatio = logoImg.width / logoImg.height;
                 const wmH = wmWidth / aspectRatio;
                 doc.addImage(logoImg, 'PNG', (width - wmWidth) / 2, (height - wmH) / 2, wmWidth, wmH);
                 doc.restoreGraphicsState();
 
                 // --- Header ---
-                doc.addImage(logoImg, 'PNG', 15, 8, 20, 20 / aspectRatio);
+                const logoSize = isPortrait ? 15 : 20;
+                doc.addImage(logoImg, 'PNG', 15, 8, logoSize, logoSize / aspectRatio);
 
                 // Header Color Check inside function
-                if (reportTemplate !== 'SSCE') {
-                    doc.setTextColor(config.headerColor[0], config.headerColor[1], config.headerColor[2]);
-                } else {
-                    doc.setTextColor(0);
-                }
+                doc.setTextColor(4, 120, 87); // Green color for NECO header
 
-                doc.setFontSize(18);
+                doc.setFontSize(isPortrait ? 17 : 18);
                 doc.setFont("helvetica", "bold");
                 doc.text(config.headerTitle, width / 2, 18, { align: 'center' });
 
                 doc.setTextColor(0);
-                doc.setFontSize(14);
+                doc.setFontSize(isPortrait ? 13 : 14);
                 if (reportTitle1?.trim()) doc.text(reportTitle1.toUpperCase(), width / 2, 28, { align: 'center' });
 
-                doc.setFontSize(12);
+                doc.setFontSize(isPortrait ? 12 : 12);
                 if (reportTitle2?.trim()) doc.text(reportTitle2.toUpperCase(), width / 2, 34, { align: 'center' });
 
-                doc.setFontSize(11); // Slightly smaller for T3 if needed
+                doc.setFontSize(isPortrait ? 11 : 11);
                 if (reportTitle3?.trim()) doc.text(reportTitle3.toUpperCase(), width / 2, 44, { align: 'center' });
 
                 // --- Signature ---
@@ -504,25 +503,25 @@ const GeneratePage: React.FC = () => {
 
                 // Add actual signature image if available
                 if (signatureImg) {
-                    const sigWidth = 35;
+                    const sigWidth = isPortrait ? 33 : 35;
                     const sigAspectRatio = signatureImg.width / signatureImg.height;
                     const sigH = sigWidth / sigAspectRatio;
                     // Position it above the name with better spacing (8 units gap)
                     doc.addImage(signatureImg, 'PNG', 15, signatureY - sigH - 8, sigWidth, sigH);
                 }
 
-                doc.setFontSize(11);
+                doc.setFontSize(isPortrait ? 10 : 9);
                 doc.setFont("helvetica", "bold");
                 doc.setTextColor(0);
                 doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
-                doc.setFontSize(10);
+                doc.setFontSize(isPortrait ? 9 : 8);
                 doc.text("REG/CE", 15, signatureY + 5);
 
                 // --- Footer ---
                 doc.setFontSize(8);
                 doc.setTextColor(100);
                 doc.setFont("helvetica", "normal");
-                doc.text(`Generated ${new Date().toLocaleDateString()} By NECO APCIC Manager`, 15, pageHeight - 10);
+                doc.text(`Generated ${new Date().toLocaleDateString('en-GB')} By NECO APCIC Manager`, 15, pageHeight - 10);
                 doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
             };
 
@@ -545,7 +544,7 @@ const GeneratePage: React.FC = () => {
                 });
 
                 const sortedStates = Object.keys(groupedByState).sort();
-                let currentY = 60; // Initial Start Y for first table (Increased for spacing)
+                let currentY = 50; // Reduced from 60 to match other pages
 
                 const accreditationColumns = activeFields.map(f => f.label);
                 if (!accreditationColumns.includes("S/N")) accreditationColumns.unshift("S/N");
@@ -593,7 +592,7 @@ const GeneratePage: React.FC = () => {
                     // Generate dynamic column styles
                     const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
                     activeFields.forEach((f, i) => {
-                        colStyles[i + 1] = { cellWidth: f.pdfWidth || 'auto' };
+                        colStyles[i + 1] = { cellWidth: f.id === 'name' && pdfOrientation === 'portrait' ? 60 : f.pdfWidth || 'auto' };
                         if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
                             colStyles[i + 1].halign = 'center';
                         }
@@ -606,9 +605,9 @@ const GeneratePage: React.FC = () => {
                         startY: currentY + 5,
                         margin: { top: 45, bottom: 45 },
                         theme: 'grid',
-                        styles: { fontSize: 11, cellPadding: 2, minCellHeight: 8 },
+                        styles: { fontSize: pdfOrientation === 'portrait' ? 12 : 11, cellPadding: 2, minCellHeight: 8 },
                         bodyStyles: { fontStyle: 'bold' },
-                        headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
+                        headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold', fontSize: pdfOrientation === 'portrait' ? 13 : 12 },
                         columnStyles: colStyles,
                         rowPageBreak: 'avoid',
                         didDrawPage: (data) => {
@@ -726,11 +725,11 @@ const GeneratePage: React.FC = () => {
                     const venueData = groupedData[venueKey];
                     const { code, name, state } = venueData.details;
 
-                    // Sort Staff by Mandate Priority
+                    // Sort Staff by CONRAISS (highest first)
                     const sortedStaff = venueData.staff.sort((a, b) => {
-                        const prioA = getMandatePriority(a.mandate);
-                        const prioB = getMandatePriority(b.mandate);
-                        return prioA - prioB;
+                        const conraissA = parseInt(a.conraiss?.replace(/\D/g, '') || '0', 10);
+                        const conraissB = parseInt(b.conraiss?.replace(/\D/g, '') || '0', 10);
+                        return conraissB - conraissA; // Descending order (highest first)
                     }).map((post, index) => activeFields.map(f => {
                         if (f.id === 'count') return index + 1; // Recalculate S/N per table
                         return f.accessor(post);
@@ -763,9 +762,7 @@ const GeneratePage: React.FC = () => {
                     // Dynamic Column Sizing
                     const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
                     activeFields.forEach((f, i) => {
-                        // Adjust index if S/N is not in activeFields but we want to map styles. 
-                        // But here activeFields drives columns.
-                        colStyles[i] = { cellWidth: f.pdfWidth || 'auto' };
+                        colStyles[i] = { cellWidth: f.id === 'name' && pdfOrientation === 'portrait' ? 60 : f.pdfWidth || 'auto' };
                         if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
                             colStyles[i].halign = 'center';
                         }
@@ -781,11 +778,11 @@ const GeneratePage: React.FC = () => {
                             fillColor: [0, 128, 0], // Green
                             textColor: [255, 255, 255],
                             fontStyle: 'bold',
-                            fontSize: 10,
+                            fontSize: pdfOrientation === 'portrait' ? 11 : 10,
                             valign: 'middle'
                         },
                         bodyStyles: {
-                            fontSize: 10.5,
+                            fontSize: pdfOrientation === 'portrait' ? 11.5 : 10.5,
                             cellPadding: 3,
                             fontStyle: 'bold',
                             valign: 'top',
@@ -812,19 +809,10 @@ const GeneratePage: React.FC = () => {
                 const sortDir = sortOrder === 'asc' ? 1 : -1;
 
                 const sortedRows = [...filteredFlatRows].sort((a, b) => {
-                    const valA = (a as any)[sortField]?.toString().trim() || '';
-                    const valB = (b as any)[sortField]?.toString().trim() || '';
-
-                    // Specific behavior for NCEE/SSCE default: if sorting by state, also sub-sort by venue
-                    if (!sortBy && sortField === 'state') {
-                        const stateComp = valA.localeCompare(valB, undefined, { sensitivity: 'base', numeric: true });
-                        if (stateComp !== 0) return stateComp * sortDir;
-                        const venueA = a.venue || '';
-                        const venueB = b.venue || '';
-                        return venueA.localeCompare(venueB) * sortDir;
-                    }
-
-                    return valA.localeCompare(valB, undefined, { sensitivity: 'base', numeric: true }) * sortDir;
+                    // Sort by CONRAISS only (highest first)
+                    const conraissA = parseInt(a.conraiss?.replace(/\D/g, '') || '0', 10);
+                    const conraissB = parseInt(b.conraiss?.replace(/\D/g, '') || '0', 10);
+                    return conraissB - conraissA; // Descending order (highest first)
                 });
 
                 const tableRows = sortedRows.map((post, index) => {
@@ -836,7 +824,7 @@ const GeneratePage: React.FC = () => {
 
                 const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
                 activeFields.forEach((f, i) => {
-                    colStyles[i + 1] = { cellWidth: f.pdfWidth || 'auto' };
+                    colStyles[i + 1] = { cellWidth: f.id === 'name' && pdfOrientation === 'portrait' ? 60 : f.pdfWidth || 'auto' };
                     if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
                         colStyles[i + 1].halign = 'center';
                     }
@@ -845,12 +833,12 @@ const GeneratePage: React.FC = () => {
                 autoTable(doc, {
                     head: [tableColumn],
                     body: tableRows,
-                    startY: 55,
+                    startY: 50,
                     margin: { top: 45, bottom: 45 },
                     theme: 'grid',
-                    styles: { fontSize: 11, cellPadding: 2, minCellHeight: 8 },
+                    styles: { fontSize: pdfOrientation === 'portrait' ? 12 : 11, cellPadding: 2, minCellHeight: 8 },
                     bodyStyles: { fontStyle: 'bold' },
-                    headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold' },
+                    headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold', fontSize: pdfOrientation === 'portrait' ? 13 : 12 },
                     columnStyles: colStyles,
                     alternateRowStyles: { fillColor: [240, 253, 244] },
                     rowPageBreak: 'avoid',
@@ -1087,6 +1075,45 @@ const GeneratePage: React.FC = () => {
                                 )}
                             </label>
                         ))}
+                    </div>
+                </div>
+
+                {/* PDF Orientation Selection */}
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">PDF Orientation</label>
+                    <div className="flex gap-4">
+                        <label className={`flex-1 cursor-pointer relative px-4 py-3 rounded-lg border-2 transition-all duration-200 flex items-center justify-center gap-2 ${pdfOrientation === 'landscape' ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-blue-200'}`}>
+                            <input
+                                type="radio"
+                                name="pdfOrientation"
+                                className="hidden"
+                                checked={pdfOrientation === 'landscape'}
+                                onChange={() => setPdfOrientation('landscape')}
+                            />
+                            <span className="material-symbols-outlined text-xl">stay_current_landscape</span>
+                            <span className="font-bold text-sm">LANDSCAPE</span>
+                            {pdfOrientation === 'landscape' && (
+                                <span className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow-sm">
+                                    <span className="material-symbols-outlined text-[14px] font-bold block">check</span>
+                                </span>
+                            )}
+                        </label>
+                        <label className={`flex-1 cursor-pointer relative px-4 py-3 rounded-lg border-2 transition-all duration-200 flex items-center justify-center gap-2 ${pdfOrientation === 'portrait' ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-blue-200'}`}>
+                            <input
+                                type="radio"
+                                name="pdfOrientation"
+                                className="hidden"
+                                checked={pdfOrientation === 'portrait'}
+                                onChange={() => setPdfOrientation('portrait')}
+                            />
+                            <span className="material-symbols-outlined text-xl">stay_current_portrait</span>
+                            <span className="font-bold text-sm">PORTRAIT</span>
+                            {pdfOrientation === 'portrait' && (
+                                <span className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5 shadow-sm">
+                                    <span className="material-symbols-outlined text-[14px] font-bold block">check</span>
+                                </span>
+                            )}
+                        </label>
                     </div>
                 </div>
 
