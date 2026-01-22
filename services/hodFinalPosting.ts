@@ -68,7 +68,7 @@ export const bulkDeleteHODFinalPostings = async (ids: string[]): Promise<void> =
             'Content-Type': 'application/json',
             ...getAuthHeaders(),
         },
-        body: JSON.stringify(ids),
+        body: JSON.stringify({ ids }),
     });
     if (!response.ok) throw new Error('Failed to bulk delete HOD final postings');
 };
