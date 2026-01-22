@@ -26,10 +26,37 @@ const FlaggedStaffPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(25);
+    const [ignoredStaff, setIgnoredStaff] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         fetchData();
+        loadIgnoredStaff();
     }, []);
+
+    const loadIgnoredStaff = () => {
+        const ignored = localStorage.getItem('ignoredFlaggedStaff');
+        if (ignored) {
+            setIgnoredStaff(new Set(JSON.parse(ignored)));
+        }
+    };
+
+    const saveIgnoredStaff = (ignoredSet: Set<string>) => {
+        localStorage.setItem('ignoredFlaggedStaff', JSON.stringify([...ignoredSet]));
+    };
+
+    const handleIgnoreStaff = (staffId: string) => {
+        const newIgnored = new Set(ignoredStaff);
+        newIgnored.add(staffId);
+        setIgnoredStaff(newIgnored);
+        saveIgnoredStaff(newIgnored);
+    };
+
+    const handleUnignoreStaff = (staffId: string) => {
+        const newIgnored = new Set(ignoredStaff);
+        newIgnored.delete(staffId);
+        setIgnoredStaff(newIgnored);
+        saveIgnoredStaff(newIgnored);
+    };
 
     const handleExportCSV = () => {
         try {
@@ -168,6 +195,7 @@ const FlaggedStaffPage: React.FC = () => {
             const expectedBaseCount = getExpectedCount(conraiss);
 
             if (expectedBaseCount === 0) return; // Skip those not in the defined ranges
+            if (ignoredStaff.has(apc.id)) return; // Skip ignored staff
 
             const apcCount = apc.count || 0;
 
@@ -195,7 +223,7 @@ const FlaggedStaffPage: React.FC = () => {
         });
 
         return results;
-    }, [apcRecords]);
+    }, [apcRecords, ignoredStaff]);
 
     const filteredData = useMemo(() => {
         if (!searchQuery) return flaggedStaffList;
@@ -250,6 +278,25 @@ const FlaggedStaffPage: React.FC = () => {
                             <span className="text-2xl font-black text-rose-600 dark:text-rose-400">{filteredData.length}</span>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Flagged Personnel</span>
                         </div>
+                        {ignoredStaff.size > 0 && (
+                            <>
+                                <div className="h-10 w-px bg-slate-100 dark:bg-gray-800 hidden md:block"></div>
+                                <div className="flex flex-col">
+                                    <span className="text-2xl font-black text-slate-500 dark:text-slate-400">{ignoredStaff.size}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ignored</span>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setIgnoredStaff(new Set());
+                                        saveIgnoredStaff(new Set());
+                                    }}
+                                    className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-colors"
+                                    title="Clear all ignored staff"
+                                >
+                                    Clear Ignored
+                                </button>
+                            </>
+                        )}
                         <div className="h-10 w-px bg-slate-100 dark:bg-gray-800 hidden md:block"></div>
                         <div className="flex items-center gap-2">
                             <label className="text-sm font-medium text-slate-600">Rows:</label>
@@ -298,6 +345,7 @@ const FlaggedStaffPage: React.FC = () => {
                                     <th className="px-6 py-4 text-center">Expected</th>
                                     <th className="px-6 py-4 text-center">APC Count</th>
                                     <th className="px-6 py-4">Flagging Reasons</th>
+                                    <th className="px-6 py-4 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
@@ -337,6 +385,16 @@ const FlaggedStaffPage: React.FC = () => {
                                                         </div>
                                                     ))}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button
+                                                    onClick={() => handleIgnoreStaff(staff.id)}
+                                                    className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-colors"
+                                                    title="Ignore this flagged staff"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">visibility_off</span>
+                                                    Ignore
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
