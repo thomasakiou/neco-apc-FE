@@ -1094,6 +1094,13 @@ const GeneratePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Report Title 1</label>
+                        <input
+                            type="text"
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={reportTitle1}
+                            onChange={(e) => setReportTitle1(e.target.value)}
+                            placeholder="e.g. 2026 TRIAL TESTING: POSTING OF FACILITATORS"
+                        />
                         <select
                             className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
                             value={reportTitle1}
@@ -1101,11 +1108,23 @@ const GeneratePage: React.FC = () => {
                         >
                             <option value="">Select a Title or Leave Blank</option>
                             {[
-                                "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)",
-                                "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE EXTERNAL)",
-                                "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)",
-                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE)",
-                                "2026 ACCREDITATION EXERCISE"
+                                "2026 TRIAL TESTING: POSTING OF FACILITATORS",
+                                "2026 TRIAL TESTING: POSTING OF INVIGILATORS",
+                                "2026 TRIAL TESTING: POSTING OF ACCOMPANYING OFFICERS",
+                                "2026 TRIAL TESTING: POSTING OF SURVEILLANCE OFFICERS",
+                                // "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)",
+                                // "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH A",
+                                // "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH B",
+                                // "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH A ",
+                                // "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH B ",
+                                // "2026 SSCE EXTERNAL: POSTING OF HODs",
+                                // "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH A ",
+                                // "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH B ",
+                                // "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)",
+                                // "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF ACCOMPANYING OFFICERS",
+                                // "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF COUNTING_PACKAGING OFFICERS",
+                                // "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF DAILY DISTRIBUTORS",
+                                // "2026 ACCREDITATION EXERCISE"
                             ].map(val => (
                                 <option key={val} value={val}>{val}</option>
                             ))}

@@ -13,6 +13,7 @@ import { getAllGiftedCenters } from '../../services/giftedCenter';
 import { getAllBECECustodians, getAllSSCECustodians, getAllSSCEExtCustodians } from '../../services/custodianSpecific';
 import { getAllMarkingVenues, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from '../../services/markingVenue';
 import { getAllTTCenters } from '../../services/ttCenter';
+import { getAllPrintingPoints } from '../../services/printingPoint';
 import CsvUploadModal from '../../components/CsvUploadModal';
 import SearchableSelect from '../../components/SearchableSelect';
 import HelpModal from '../../components/HelpModal';
@@ -223,6 +224,7 @@ const PersonalizedPost: React.FC = () => {
             else if (type === 'tt_center') data = await getAllTTCenters(true);
             else if (type === 'ssce_ext_marking_venue') data = await getAllSSCEExtMarkingVenues(true);
             else if (type === 'bece_marking_venue') data = await getAllBECEMarkingVenues(true);
+            else if (type === 'printing_point') data = await getAllPrintingPoints(true);
             else data = await getAllMarkingVenues(true);
 
             setStationOptions(data.map(s => {

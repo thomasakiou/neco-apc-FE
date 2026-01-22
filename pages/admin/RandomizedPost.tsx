@@ -17,6 +17,7 @@ import { getAllGiftedCenters } from '../../services/giftedCenter';
 import { getAllBECECustodians, getAllSSCECustodians, getAllSSCEExtCustodians } from '../../services/custodianSpecific';
 import { getAllStates } from '../../services/state';
 import { getAllTTCenters } from '../../services/ttCenter';
+import { getAllPrintingPoints } from '../../services/printingPoint';
 import { getAllStations } from '../../services/station';
 import { Station } from '../../types/station';
 import { State } from '../../types/state';
@@ -137,6 +138,7 @@ const RandomizedPost: React.FC = () => {
     const [selectedVenues, setSelectedVenues] = useState<string[]>([]); // Array of selected venue IDs
     const [isAllVenues, setIsAllVenues] = useState(false);
     const [showVenueDropdown, setShowVenueDropdown] = useState(false);
+    const [venueSearchText, setVenueSearchText] = useState('');
     const venueDropdownRef = useRef<HTMLDivElement>(null);
 
     // Click-outside handler for venue dropdown
@@ -164,8 +166,8 @@ const RandomizedPost: React.FC = () => {
     const [conraissConfig, setConraissConfig] = useState<{ [key: number]: number }>({
         6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
     });
-    // Distribution Percentages (0-100)
-    const [distRatios, setDistRatios] = useState({ state: 60, zone: 20, hq: 20 });
+    // Distribution Quotas (Absolute Numbers)
+    const [distCounts, setDistCounts] = useState({ state: 0, zone: 0, hq: 0 });
     const [numberOfNights, setNumberOfNights] = useState<number>(0);
     const [description, setDescription] = useState<string>(''); // Added Description State
 
@@ -396,7 +398,8 @@ const RandomizedPost: React.FC = () => {
                                             type === 'tt_center' ? getAllTTCenters(true) :
                                                 type === 'ssce_ext_marking_venue' ? getAllSSCEExtMarkingVenues(true) :
                                                     type === 'bece_marking_venue' ? getAllBECEMarkingVenues(true) :
-                                                        getAllMarkingVenues(true)
+                                                        type === 'printing_point' ? getAllPrintingPoints(true) :
+                                                            getAllMarkingVenues(true)
                 ]);
 
                 const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
@@ -675,6 +678,16 @@ const RandomizedPost: React.FC = () => {
                 staffHomeStateMap.set(staff.id, getStaffHomeState(staff));
             });
 
+            // Helper to check if staff is HQ-based (can be posted anywhere)
+            // Only staff with station starting with "HQ-" are treated as HQ (e.g., HQ-ADMIN, HQ-OPERATIONS)
+            // ABUJA staff are treated as FCT and follow normal geolocal priority
+            const isHQStaff = (staff: APCRecord): boolean => {
+                const station = (staff.station || '').toUpperCase().trim();
+                return station.startsWith('HQ-') || station === 'HQ';
+            };
+
+            const apcMap = new Map(allAPC.map(s => [s.file_no.toString().padStart(4, '0'), s]));
+
             // Shuffle pools
             const shuffle = <T,>(array: T[]): T[] => {
                 const arr = [...array];
@@ -715,6 +728,12 @@ const RandomizedPost: React.FC = () => {
                 let venueExistingTotal = 0;
                 const venueExistingLevels: { [key: number]: number } = {};
 
+
+
+                let existingStateCount = 0;
+                let existingZoneCount = 0;
+                let existingHqCount = 0;
+
                 existingPostings.forEach(p => {
                     // Check both code and name since postings might be saved with either
                     const matchesAssignment = Array.isArray(p.assignments) &&
@@ -728,6 +747,28 @@ const RandomizedPost: React.FC = () => {
                             const lvl = parseInt(p.conraiss);
                             if (!isNaN(lvl)) venueExistingLevels[lvl] = (venueExistingLevels[lvl] || 0) + 1;
                         }
+
+                        // Determine existing staff categorization
+                        const staff = apcMap.get(p.file_no.toString().padStart(4, '0')) as APCRecord | undefined;
+                        if (staff) {
+                            const isHQ = isHQStaff(staff);
+                            const staffHome = getStaffHomeState(staff);
+                            const venueState = venue.state_name;
+                            const venueZone = venue.zone;
+
+                            const isSameState = venueState && staffHome.stateName &&
+                                normalizeStr(venueState) === normalizeStr(staffHome.stateName);
+                            const isSameZone = !isSameState && venueZone && staffHome.zone &&
+                                normalizeStr(venueZone) === normalizeStr(staffHome.zone);
+
+                            if (!isHQ && isSameState) existingStateCount++;
+                            else if (!isHQ && isSameZone) existingZoneCount++;
+                            else existingHqCount++;
+                        } else {
+                            // If staff not found in APC (deleted?), count as HQ/Other to be safe or ignore?
+                            // Defaulting to HQ/Other avoids over-filling State/Zone slots blindly
+                            existingHqCount++;
+                        }
                     }
                 });
 
@@ -737,11 +778,6 @@ const RandomizedPost: React.FC = () => {
                 let count = 0;
                 if (useCandidateLogic) {
                     // NCEE Candidate-Based Logic
-                    // User Request (Step 104):
-                    // 0 Candidates -> 0 Staff
-                    // <= X Candidates -> 1 Staff (Standard)
-                    // > X Candidates -> 2 Staff (Large)
-
                     const rawCount = venue.candidates;
                     if (rawCount !== undefined && rawCount !== null) {
                         count = Number(rawCount);
@@ -751,23 +787,45 @@ const RandomizedPost: React.FC = () => {
                     if (count <= 0) {
                         effectiveTarget = 0;
                     } else if (count <= candidateThreshold) {
-                        // Note: User requested 1 staff for candidates <= threshold
                         effectiveTarget = 1;
                     } else {
-                        // Count > Threshold -> 2 Staff
                         effectiveTarget = 2;
                     }
                 }
 
                 const remainingNeeded = Math.max(0, effectiveTarget - venueExistingTotal);
 
-                // Calculate layer quotas (for stats tracking only - strict priority overrides these)
-                const stateQuotaStr = (effectiveTarget * (distRatios.state / 100)).toFixed(2);
-                const zoneQuotaStr = (effectiveTarget * (distRatios.zone / 100)).toFixed(2);
 
-                const stateQuota = Math.round(parseFloat(stateQuotaStr));
-                const zoneQuota = Math.round(parseFloat(zoneQuotaStr));
-                const hqQuota = Math.max(0, effectiveTarget - stateQuota - zoneQuota);
+
+                // Calculate layer quotas using ABSOLUTE COUNTS
+                // Default Rule: If all inputs are 0, use 1 HQ, 1 Zone, Rest State
+                const useDefault = distCounts.state === 0 && distCounts.zone === 0 && distCounts.hq === 0;
+
+                let stateQuota = 0;
+                let zoneQuota = 0;
+                let hqQuota = 0;
+
+                if (useDefault) {
+                    if (effectiveTarget >= 1) hqQuota = 1;
+                    if (effectiveTarget >= 2) stateQuota = 1; // Prioritize State for 2nd slot
+                    if (effectiveTarget >= 3) zoneQuota = 1;  // Zone takes 3rd slot
+
+                    // Remainder goes to State
+                    // Total assigned so far: hqQuota + stateQuota + zoneQuota
+                    const allocated = hqQuota + stateQuota + zoneQuota;
+                    if (effectiveTarget > allocated) {
+                        stateQuota += (effectiveTarget - allocated);
+                    }
+                } else {
+                    stateQuota = distCounts.state;
+                    zoneQuota = distCounts.zone;
+                    hqQuota = distCounts.hq;
+
+                    // If manually specified quotas exceed target, they inherently increase the effective target logic needs to handle that?
+                    // Currently 'effectiveTarget' drives the loop length if remainingNeeded > 0.
+                    // But if quotas sum > effectiveTarget, we should probably respect quotas?
+                    // For now, let strict priority fill up to what's asked.
+                }
 
                 return {
                     venue,
@@ -778,9 +836,9 @@ const RandomizedPost: React.FC = () => {
                     stateQuota,
                     zoneQuota,
                     hqQuota,
-                    statePicks: 0,
-                    zonePicks: 0,
-                    hqPicks: 0
+                    statePicks: existingStateCount,
+                    zonePicks: existingZoneCount,
+                    hqPicks: existingHqCount
                 };
             }).filter(vq => vq.remainingNeeded > 0);
 
@@ -800,36 +858,27 @@ const RandomizedPost: React.FC = () => {
             const usedStaffIds = new Set<string>();
             const newPostings: PostingCreate[] = [];
 
-            // Helper to check if staff is HQ-based (can be posted anywhere)
-            // Only staff with station starting with "HQ-" are treated as HQ (e.g., HQ-ADMIN, HQ-OPERATIONS)
-            // ABUJA staff are treated as FCT and follow normal geolocal priority
-            const isHQStaff = (staff: APCRecord): boolean => {
-                const station = (staff.station || '').toUpperCase().trim();
-                return station.startsWith('HQ-') || station === 'HQ';
-            };
+            // isHQStaff helper removed (defined earlier)
 
             /**
-             * POSTING PRIORITY SYSTEM WITH STATE/ZONE/HQ QUOTAS:
+             * POSTING PRIORITY SYSTEM WITH QUOTA-FIRST ARCHITECTURE:
              * 
-             * The system respects the configured State/Zone/HQ percentage quotas while
-             * applying strict geolocal priority for non-HQ staff.
+             * 1. STAGE 0 (HQ QUOTA): Fill HQ quota with strictly HQ-based staff
+             *    - Only staff marked as HQ (station starts with "HQ-")
+             *    - Limited by hqQuota count
              * 
-             * STAGE 0 (STATE QUOTA): Fill state quota with same-state staff
-             *   - Staff whose station (capital) maps to the venue's state
-             *   - e.g., Staff with station "Minna" → posted to Niger state venues first
-             *   - Limited by stateQuota percentage
+             * 2. STAGE 1 (STATE QUOTA): Fill state quota with same-state staff
+             *    - Non-HQ staff whose station maps to the venue's state
+             *    - Limited by stateQuota count
              * 
-             * STAGE 1 (ZONE QUOTA): Fill zone quota with same-zone staff
-             *   - Staff from the same zone but different state (only if their home state has no vacancy)
-             *   - Limited by zoneQuota percentage
+             * 3. STAGE 2 (ZONE QUOTA): Fill zone quota with same-zone staff
+             *    - Non-HQ staff from the same zone (but different state)
+             *    - Only if they have no vacancies in their home state
+             *    - Limited by zoneQuota count
              * 
-             * STAGE 2 (HQ QUOTA): Fill HQ quota with HQ staff or remaining staff
-             *   - HQ staff can be posted randomly to any venue
-             *   - Non-HQ staff only if their home state AND zone have no vacancies
-             *   - Limited by hqQuota percentage
-             * 
-             * STAGE 3 (OVERFLOW): Fill any remaining quota
-             *   - Use any available staff following priority rules
+             * 4. STAGE 3 (OVERFLOW): Fill any remaining slots
+             *    - Respects strict geolocal priority (Same State > Same Zone > Anywhere)
+             *    - HQ can also be used here if any remains
              */
             for (let stage = 0; stage <= 3; stage++) {
                 let madeProgressInStage = true;
@@ -842,9 +891,9 @@ const RandomizedPost: React.FC = () => {
                         if (vq.remainingNeeded <= 0) continue;
 
                         // Check quota limits per stage
-                        if (stage === 0 && vq.statePicks >= vq.stateQuota) continue;
-                        if (stage === 1 && vq.zonePicks >= vq.zoneQuota) continue;
-                        if (stage === 2 && vq.hqPicks >= vq.hqQuota) continue;
+                        if (stage === 0 && vq.hqPicks >= vq.hqQuota) continue;
+                        if (stage === 1 && vq.statePicks >= vq.stateQuota) continue;
+                        if (stage === 2 && vq.zonePicks >= vq.zoneQuota) continue;
 
                         const availableLevels = shuffle([...allPossibleLevels]);
                         const levelOrder = availableLevels.sort((a, b) => {
@@ -938,12 +987,15 @@ const RandomizedPost: React.FC = () => {
 
                                 // STAGE-BASED PRIORITY ENFORCEMENT
                                 if (stage === 0) {
-                                    // STATE QUOTA: Only accept non-HQ staff whose home state matches the venue state
-                                    return !staffIsHQ && isSameState;
+                                    // HQ QUOTA: Only accept HQ-based staff
+                                    return staffIsHQ;
                                 } else if (stage === 1) {
-                                    // ZONE QUOTA: Only accept non-HQ staff from the same zone (but different state)
-                                    // CRITICAL: Check if this staff has vacancies in their home state first
+                                    // STATE QUOTA: Only accept non-HQ staff from the same state
+                                    return !staffIsHQ && isSameState;
+                                } else if (stage === 2) {
+                                    // ZONE QUOTA: Only accept non-HQ staff from the same zone
                                     if (staffIsHQ) return false;
+                                    // Check for home state vacancies first
                                     if (staffStateName) {
                                         const hasHomeStateVacancy = venueQuotas.some(otherVq =>
                                             otherVq.remainingNeeded > 0 &&
@@ -953,39 +1005,13 @@ const RandomizedPost: React.FC = () => {
                                         if (hasHomeStateVacancy) return false;
                                     }
                                     return isSameZone;
-                                } else if (stage === 2) {
-                                    // HQ QUOTA: Accept HQ staff (can go anywhere) OR non-HQ staff with no home vacancies
-                                    if (staffIsHQ) return true; // HQ staff can be posted to ANY venue
-
-                                    // Non-HQ staff: only if their home state AND zone have no vacancies
-                                    if (staffStateName) {
-                                        const hasHomeStateVacancy = venueQuotas.some(otherVq =>
-                                            otherVq.remainingNeeded > 0 &&
-                                            otherVq.venue.state_name &&
-                                            normalizeStr(otherVq.venue.state_name) === normalizeStr(staffStateName)
-                                        );
-                                        if (hasHomeStateVacancy) return false;
-                                    }
-                                    if (staffZone) {
-                                        const hasZoneVacancy = venueQuotas.some(otherVq =>
-                                            otherVq.remainingNeeded > 0 &&
-                                            otherVq.venue.zone &&
-                                            normalizeStr(otherVq.venue.zone) === normalizeStr(staffZone)
-                                        );
-                                        if (hasZoneVacancy) return false;
-                                    }
-                                    return !isSameState && !isSameZone;
                                 } else {
-                                    // OVERFLOW: Fill remaining quota with any available staff
-                                    // Still respect strict priority for non-HQ staff
+                                    // OVERFLOW: General geolocal priority (Same State > Same Zone > Anywhere)
                                     if (staffIsHQ) return true;
-
-                                    // Fix: Allow staff to fill overflow slots in their own state/zone
-                                    // (Prevents them from being blocked due to 'home vacancy' check which sees THIS overflow slot)
                                     if (isSameState) return true;
                                     if (isSameZone) return true;
 
-                                    // Non-HQ: check if they should be posted elsewhere first
+                                    // Non-HQ: check if they should be posted to their own state/zone first
                                     if (staffStateName) {
                                         const hasHomeStateVacancy = venueQuotas.some(otherVq =>
                                             otherVq.remainingNeeded > 0 &&
@@ -1061,12 +1087,14 @@ const RandomizedPost: React.FC = () => {
 
                                 // Track picks by geographic category for stats
                                 const staffHome = staffHomeStateMap.get(staff.id);
+                                const staffIsHQ = isHQStaff(staff);
                                 const isSameState = vq.venue.state_name && staffHome?.stateName &&
                                     normalizeStr(staffHome.stateName) === normalizeStr(vq.venue.state_name);
                                 const isSameZone = !isSameState && vq.venue.zone && staffHome?.zone &&
                                     normalizeStr(staffHome.zone) === normalizeStr(vq.venue.zone);
 
-                                if (isSameState) vq.statePicks++;
+                                if (staffIsHQ) vq.hqPicks++;
+                                else if (isSameState) vq.statePicks++;
                                 else if (isSameZone) vq.zonePicks++;
                                 else vq.hqPicks++;
 
@@ -1437,123 +1465,157 @@ const RandomizedPost: React.FC = () => {
                                         {/* Dropdown Panel */}
                                         {showVenueDropdown && !isAllVenues && (
                                             <div className="absolute z-50 top-full left-0 mt-1 w-[400px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
-                                                {/* Quick Actions */}
-                                                <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 flex gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setSelectedVenues(venues.map(v => v.id))}
-                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-                                                    >
-                                                        Select All
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setSelectedVenues([])}
-                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                                    >
-                                                        Clear All
-                                                    </button>
-                                                </div>
-
-                                                {/* Grouped Venues */}
                                                 {(() => {
-                                                    const grouped = venues.reduce((acc, venue) => {
-                                                        const state = venue.state_name || 'Others';
-                                                        if (!acc[state]) acc[state] = [];
-                                                        acc[state].push(venue);
-                                                        return acc;
-                                                    }, {} as { [key: string]: typeof venues });
+                                                    const filteredVenues = venues.filter(v =>
+                                                        v.name.toLowerCase().includes(venueSearchText.toLowerCase()) ||
+                                                        (v.code && v.code.toLowerCase().includes(venueSearchText.toLowerCase())) ||
+                                                        (v.display_name && v.display_name.toLowerCase().includes(venueSearchText.toLowerCase()))
+                                                    );
 
-                                                    const sortedStates = Object.keys(grouped).sort((a, b) => {
-                                                        if (a === 'Others') return 1;
-                                                        if (b === 'Others') return -1;
-                                                        return a.localeCompare(b);
-                                                    });
-
-                                                    return sortedStates.map(state => {
-                                                        const stateVenues = grouped[state].sort((a, b) => a.name.localeCompare(b.name));
-                                                        const allStateSelected = stateVenues.every(v => selectedVenues.includes(v.id));
-                                                        const someStateSelected = stateVenues.some(v => selectedVenues.includes(v.id));
-
-                                                        return (
-                                                            <div key={state}>
-                                                                {/* State Header with Select All for State */}
-                                                                <div
-                                                                    className="sticky top-[45px] px-3 py-2 bg-slate-100 dark:bg-[#0f161d] border-b border-slate-200 dark:border-gray-700 flex items-center gap-2 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800"
-                                                                    onClick={() => {
-                                                                        if (allStateSelected) {
-                                                                            setSelectedVenues(prev => prev.filter(id => !stateVenues.some(v => v.id === id)));
-                                                                        } else {
-                                                                            setSelectedVenues(prev => [...new Set([...prev, ...stateVenues.map(v => v.id)])]);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={allStateSelected}
-                                                                        ref={input => {
-                                                                            if (input) input.indeterminate = someStateSelected && !allStateSelected;
-                                                                        }}
-                                                                        onChange={() => { }}
-                                                                        className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
-                                                                    />
-                                                                    <span className="text-xs font-bold uppercase text-slate-700 dark:text-slate-300">{state}</span>
-                                                                    <span className="text-[10px] text-slate-500">({stateVenues.length})</span>
+                                                    return (
+                                                        <>
+                                                            {/* Quick Actions */}
+                                                            <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 flex flex-col gap-2 z-20">
+                                                                <div className="flex gap-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setSelectedVenues(filteredVenues.map(v => v.id))}
+                                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                                                                    >
+                                                                        Select All {filteredVenues.length !== venues.length && `(${filteredVenues.length})`}
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setSelectedVenues([])}
+                                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                                    >
+                                                                        Clear All
+                                                                    </button>
                                                                 </div>
+                                                                <div className="relative">
+                                                                    <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Search venue name or code..."
+                                                                        value={venueSearchText}
+                                                                        onChange={(e) => setVenueSearchText(e.target.value)}
+                                                                        className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                                        autoFocus
+                                                                    />
+                                                                    {venueSearchText && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setVenueSearchText('')}
+                                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                                        >
+                                                                            <span className="material-symbols-outlined text-sm">close</span>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
 
-                                                                {/* Venue Items */}
-                                                                {stateVenues.map(v => {
-                                                                    const isSelected = selectedVenues.includes(v.id);
-                                                                    // Use display_name if available, otherwise extract from compound name
-                                                                    const getDisplayName = () => {
-                                                                        if (v.display_name) return v.display_name;
-                                                                        // For compound format: (CODE) | NAME | STATE, extract the NAME part
-                                                                        const parts = v.name.split(' | ');
-                                                                        if (parts.length >= 2) return parts[1]; // Return NAME part
-                                                                        return v.name; // Fallback to full name
-                                                                    };
-                                                                    const displayName = getDisplayName();
-                                                                    const codePart = v.code ? `(${v.code}) ` : '';
+                                                            {/* Grouped Venues */}
+                                                            {(() => {
+                                                                const grouped = filteredVenues.reduce((acc, venue) => {
+                                                                    const state = venue.state_name || 'Others';
+                                                                    if (!acc[state]) acc[state] = [];
+                                                                    acc[state].push(venue);
+                                                                    return acc;
+                                                                }, {} as { [key: string]: typeof venues });
+
+                                                                const sortedStates = Object.keys(grouped).sort((a, b) => {
+                                                                    if (a === 'Others') return 1;
+                                                                    if (b === 'Others') return -1;
+                                                                    return a.localeCompare(b);
+                                                                });
+
+                                                                return sortedStates.map(state => {
+                                                                    const stateVenues = grouped[state].sort((a, b) => a.name.localeCompare(b.name));
+                                                                    const allStateSelected = stateVenues.every(v => selectedVenues.includes(v.id));
+                                                                    const someStateSelected = stateVenues.some(v => selectedVenues.includes(v.id));
 
                                                                     return (
-                                                                        <div
-                                                                            key={v.id}
-                                                                            onClick={() => {
-                                                                                if (isSelected) {
-                                                                                    setSelectedVenues(prev => prev.filter(id => id !== v.id));
-                                                                                } else {
-                                                                                    setSelectedVenues(prev => [...prev, v.id]);
-                                                                                }
-                                                                            }}
-                                                                            className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                                                                        >
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={isSelected}
-                                                                                onChange={() => { }}
-                                                                                className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
-                                                                            />
-                                                                            <span className={`text-sm ${isSelected ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                                                                                {codePart}{displayName}
-                                                                            </span>
+                                                                        <div key={state}>
+                                                                            {/* State Header with Select All for State */}
+                                                                            <div
+                                                                                className="sticky top-[45px] px-3 py-2 bg-slate-100 dark:bg-[#0f161d] border-b border-slate-200 dark:border-gray-700 flex items-center gap-2 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800"
+                                                                                onClick={() => {
+                                                                                    if (allStateSelected) {
+                                                                                        setSelectedVenues(prev => prev.filter(id => !stateVenues.some(v => v.id === id)));
+                                                                                    } else {
+                                                                                        setSelectedVenues(prev => [...new Set([...prev, ...stateVenues.map(v => v.id)])]);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={allStateSelected}
+                                                                                    ref={input => {
+                                                                                        if (input) input.indeterminate = someStateSelected && !allStateSelected;
+                                                                                    }}
+                                                                                    onChange={() => { }}
+                                                                                    className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                                />
+                                                                                <span className="text-xs font-bold uppercase text-slate-700 dark:text-slate-300">{state}</span>
+                                                                                <span className="text-[10px] text-slate-500">({stateVenues.length})</span>
+                                                                            </div>
+
+                                                                            {/* Venue Items */}
+                                                                            {stateVenues.map(v => {
+                                                                                const isSelected = selectedVenues.includes(v.id);
+                                                                                // Use display_name if available, otherwise extract from compound name
+                                                                                const getDisplayName = () => {
+                                                                                    if (v.display_name) return v.display_name;
+                                                                                    // For compound format: (CODE) | NAME | STATE, extract the NAME part
+                                                                                    const parts = v.name.split(' | ');
+                                                                                    if (parts.length >= 2) return parts[1]; // Return NAME part
+                                                                                    return v.name; // Fallback to full name
+                                                                                };
+                                                                                const displayName = getDisplayName();
+                                                                                const codePart = v.code ? `(${v.code}) ` : '';
+
+                                                                                return (
+                                                                                    <div
+                                                                                        key={v.id}
+                                                                                        onClick={() => {
+                                                                                            if (isSelected) {
+                                                                                                setSelectedVenues(prev => prev.filter(id => id !== v.id));
+                                                                                            } else {
+                                                                                                setSelectedVenues(prev => [...prev, v.id]);
+                                                                                            }
+                                                                                        }}
+                                                                                        className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                                                    >
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={isSelected}
+                                                                                            onChange={() => { }}
+                                                                                            className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                                        />
+                                                                                        <span className={`text-sm ${isSelected ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                                            {codePart}{displayName}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     );
-                                                                })}
-                                                            </div>
-                                                        );
-                                                    });
-                                                })()}
+                                                                });
+                                                            })()}
 
-                                                {/* Done Button */}
-                                                <div className="sticky bottom-0 bg-white dark:bg-[#1a2533] p-2 border-t border-slate-100 dark:border-gray-700">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowVenueDropdown(false)}
-                                                        className="w-full text-sm font-bold px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                                                    >
-                                                        Done ({selectedVenues.length} selected)
-                                                    </button>
-                                                </div>
+                                                            {/* Done Button */}
+                                                            <div className="sticky bottom-0 bg-white dark:bg-[#1a2533] p-2 border-t border-slate-100 dark:border-gray-700">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowVenueDropdown(false)}
+                                                                    className="w-full text-sm font-bold px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                                                >
+                                                                    Done ({selectedVenues.length} selected)
+                                                                </button>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
                                     </div>
@@ -1684,37 +1746,51 @@ const RandomizedPost: React.FC = () => {
                                     />
                                 </div>
 
-                                <div className="h-10 w-[1px] bg-slate-200 dark:bg-gray-800 mx-2" />
+                            </div>
+                        </div>
 
-                                <div className="flex items-center gap-3">
-                                    {[
-                                        { label: 'State', key: 'state' },
-                                        { label: 'Zone', key: 'zone' },
-                                        { label: 'HQ', key: 'hq' }
-                                    ].map(({ label, key }) => (
-                                        <div key={key} className="flex flex-col items-center">
-                                            <label className="text-[10px] uppercase font-bold text-slate-400">{label}%</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                className="w-16 h-9 px-1 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d]"
-                                                value={distRatios[key as keyof typeof distRatios]}
-                                                onChange={e => {
-                                                    const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                                    setDistRatios(prev => ({ ...prev, [key]: val }));
-                                                }}
-                                            />
-                                        </div>
-                                    ))}
-                                    <div className="flex flex-col items-center pl-2 border-l border-slate-200 dark:border-gray-800">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400">Total</label>
-                                        <span className={`text-sm font-bold ${distRatios.state + distRatios.zone + distRatios.hq === 100 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                            {distRatios.state + distRatios.zone + distRatios.hq}%
-                                        </span>
-                                    </div>
+                        {/* 3. Distribution Counts (Absolute) */}
+                        <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800">
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center">3</span>
+                                Distribution Quotas (Absolute)
+                            </h3>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">State (Count)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                        value={distCounts.state}
+                                        onChange={e => setDistCounts(prev => ({ ...prev, state: parseInt(e.target.value) || 0 }))}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Zone (Count)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                        value={distCounts.zone}
+                                        onChange={e => setDistCounts(prev => ({ ...prev, zone: parseInt(e.target.value) || 0 }))}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">HQ/Other (Count)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="w-full h-11 px-3 rounded-xl border bg-slate-50 dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                        value={distCounts.hq}
+                                        onChange={e => setDistCounts(prev => ({ ...prev, hq: parseInt(e.target.value) || 0 }))}
+                                    />
                                 </div>
                             </div>
+                            <p className="text-xs text-slate-400 mt-2">
+                                Specify exact number of staff per category for each venue.
+                                Leave all 0 to default to (1 HQ, 1 Zone, {targetQuota > 2 ? targetQuota - 2 : 0} State).
+                            </p>
                         </div>
 
                         <div className="grid grid-cols-5 md:grid-cols-10 gap-x-4 gap-y-4">

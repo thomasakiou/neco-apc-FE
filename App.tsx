@@ -35,6 +35,8 @@ import HODApcList from './pages/admin/HODApcList';
 import HODPostings from './pages/admin/HODPostings';
 import HODPostingsTable from './pages/admin/HODPostingsTable';
 import TTCenters from './pages/admin/TTCenters';
+import PrintingPoints from './pages/admin/PrintingPoints';
+import FinalHodPostings from './pages/admin/FinalHodPostings';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import Statistics from './pages/admin/Statistics';
@@ -85,6 +87,7 @@ const App: React.FC = () => {
               <Route path="ncee-centers" element={<ProtectedRoute moduleName="metadata"><NCEECenters /></ProtectedRoute>} />
               <Route path="gifted-centers" element={<ProtectedRoute moduleName="metadata"><GiftedCenters /></ProtectedRoute>} />
               <Route path="tt-centers" element={<ProtectedRoute moduleName="metadata"><TTCenters /></ProtectedRoute>} />
+              <Route path="printing-points" element={<ProtectedRoute moduleName="metadata"><PrintingPoints /></ProtectedRoute>} />
               <Route path="bece-custodians" element={<ProtectedRoute moduleName="metadata"><BECECustodians /></ProtectedRoute>} />
               <Route path="ssce-custodians" element={<ProtectedRoute moduleName="metadata"><SSCECustodians /></ProtectedRoute>} />
               <Route path="ssce-ext-custodians" element={<ProtectedRoute moduleName="metadata"><SSCEExtCustodians /></ProtectedRoute>} />
@@ -105,6 +108,7 @@ const App: React.FC = () => {
               <Route path="assignments/random" element={<ProtectedRoute moduleName="posting"><RandomizedPost /></ProtectedRoute>} />
               <Route path="assignments/hod" element={<ProtectedRoute moduleName="posting"><HODPostings /></ProtectedRoute>} />
               <Route path="assignments/hod/table" element={<ProtectedRoute moduleName="posting"><HODPostingsTable /></ProtectedRoute>} />
+              <Route path="assignments/hod/final" element={<ProtectedRoute moduleName="posting"><FinalHodPostings /></ProtectedRoute>} />
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
               <Route path="statistics" element={<ProtectedRoute moduleName="reports"><Statistics /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />

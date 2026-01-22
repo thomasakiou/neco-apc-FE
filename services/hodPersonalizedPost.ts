@@ -2,7 +2,7 @@ import { AssignmentBoardData, MandateColumn, StaffMandateAssignment } from '../t
 import { getMandatesByAssignment } from './assignment';
 import { getAllHODApcRecords, updateHODApc, assignmentFieldMap } from './hodApc';
 import { Assignment } from '../types/assignment';
-import { getAllHODPostings, bulkCreateHODPostings } from './hodPosting';
+import { getAllHODPostings, bulkCreateHODPostings, bulkDeleteHODPostings } from './hodPosting';
 import { HODPostingCreate as PostingCreate } from '../types/hodPosting';
 
 export const getHODAssignmentBoardData = async (assignment: Assignment): Promise<AssignmentBoardData> => {
@@ -116,8 +116,8 @@ export const bulkSaveHODAssignments = async (
         getAllHODApcRecords(true),
         getMandatesByAssignment(assignment)
     ]);
-    const postingMap = new Map<string, any>(allPostings.map(p => [p.file_no, p]));
-    const hodApcMap = new Map<string, any>(allHODApc.map(a => [a.file_no.padStart(4, '0'), a]));
+    const postingMap = new Map<string, any>(allPostings.map(p => [String(p.file_no).padStart(4, '0'), p]));
+    const hodApcMap = new Map<string, any>(allHODApc.map(a => [String(a.file_no).padStart(4, '0'), a]));
     const mandateLookup = new Map<string, any>(mandates.map(m => [m.id, m]));
     const modifiedStaffNos = new Set<string>();
     const fieldName = assignmentFieldMap[assignment.code];
@@ -143,6 +143,14 @@ export const bulkSaveHODAssignments = async (
         const venue = station?.name || '';
 
         if (change.action === 'add' || change.action === 'move') {
+            const existingAssignments = postingRecord?.assignments || [];
+            const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
+            const targetCode = normalize(assignment.code);
+
+            if (change.action === 'add' && existingAssignments.some((a: any) => normalize(a) === targetCode)) {
+                throw new Error(`${change.staff.staff_name} is already posted for ${assignment.name}.`);
+            }
+
             if (change.action === 'add' && apcLimit - totalPosted <= 0) {
                 throw new Error(`Limit reached for ${change.staff.staff_name}. (Allowed: ${apcLimit}, Used: ${totalPosted})`);
             }
@@ -173,6 +181,8 @@ export const bulkSaveHODAssignments = async (
             newVenues.push(venue);
             newStates.push(station?.state || '');
 
+            const postedFor = newAssignments.length;
+
             postingMap.set(normalizedStaffNo, {
                 ...(postingRecord || {}),
                 file_no: normalizedStaffNo,
@@ -181,6 +191,11 @@ export const bulkSaveHODAssignments = async (
                 conraiss: change.staff.conr,
                 year: new Date().getFullYear().toString(),
                 state: newStates.join(' | '),
+                assignments: newAssignments,
+                mandates: newMandates,
+                assignment_venue: newVenues,
+                posted_for: postedFor,
+                to_be_posted: Math.max(0, apcLimit - postedFor),
                 numb_of__nites: allottedCount,
                 description: description || null
             });
@@ -218,6 +233,15 @@ export const bulkSaveHODAssignments = async (
     }
 
     if (modifiedStaffNos.size > 0) {
+        // Delete old records to prevent duplicate rows in DB
+        const idsToDelete = Array.from(modifiedStaffNos)
+            .map(s => postingMap.get(s)?.id)
+            .filter(id => id);
+
+        if (idsToDelete.length > 0) {
+            await bulkDeleteHODPostings(idsToDelete as string[]);
+        }
+
         const batch = Array.from(modifiedStaffNos).map(s => {
             const rec = postingMap.get(s);
             const { id, created_at, updated_at, created_by, updated_by, ...clean } = rec;

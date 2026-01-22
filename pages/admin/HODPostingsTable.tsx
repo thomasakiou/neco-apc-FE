@@ -4,12 +4,14 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { getAllHODPostings, bulkDeleteHODPostings } from '../../services/hodPosting';
+import { archiveHODFinalPostings } from '../../services/hodFinalPosting';
 import { getAllAssignments } from '../../services/assignment';
 import { PostingResponse } from '../../types/posting';
 import { Assignment } from '../../types/assignment';
 import { useNotification } from '../../context/NotificationContext';
 import { getAllAPCRecords, updateAPC } from '../../services/apc'; // Assuming standard APC service can be used or we need HOD specific
 import { HODApcRecord } from '../../types/hodApc';
+import { HODPostingCreate } from '../../types/hodPosting';
 import { updateHODApc, getAllHODApc } from '../../services/hodApc'; // Use HOD specific APC update
 import { updateHODPosting, bulkCreateHODPostings, deleteHODPosting } from '../../services/hodPosting';
 import { PostingCreate } from '../../types/posting';
@@ -89,7 +91,7 @@ const assignmentFieldMap: Record<string, string> = {
 };
 
 const HODPostingsTable: React.FC = () => {
-    const { success, error } = useNotification();
+    const { success, error, warning } = useNotification();
 
     // Data States
     const [postings, setPostings] = useState<PostingResponse[]>([]);
@@ -163,6 +165,8 @@ const HODPostingsTable: React.FC = () => {
         }
     }, [error]);
 
+
+
     const handleExecuteSwap = useCallback(async (target: PostingResponse) => {
         if (!swapSource) return;
         try {
@@ -218,19 +222,20 @@ const HODPostingsTable: React.FC = () => {
                 .reduce((sum, p) => sum + (p.assignments?.length || 0), 0);
 
             // Prepare New Posting
-            const newTargetRecord: PostingCreate = {
+            const newTargetRecord: HODPostingCreate = {
                 file_no: targetAPC.file_no,
                 name: targetAPC.name,
                 station: targetAPC.station,
                 conraiss: targetAPC.conraiss,
                 year: replacementSource.year,
-                count: replacementSource.count, // Note: HOD posting interface might differ slightly? No, looks same `PostingResponse`.
+                count: replacementSource.count,
                 posted_for: replacementSource.assignments.length,
                 to_be_posted: (targetAPC.count || 0) - (targetCurrentPosted + replacementSource.assignments.length),
                 assignments: replacementSource.assignments,
                 mandates: replacementSource.mandates,
                 assignment_venue: replacementSource.assignment_venue,
-                description: replacementSource.description
+                description: replacementSource.description,
+                state: (targetAPC as any).state || null
             };
 
             // Update Source APC (Return to Pool)
@@ -417,6 +422,26 @@ const HODPostingsTable: React.FC = () => {
         } catch (err: any) {
             console.error("Delete failed", err);
             error(`Failed to delete: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCommitToFinal = async () => {
+        if (postings.length === 0) {
+            warning('No postings to commit.');
+            return;
+        }
+        if (!window.confirm('Are you sure you want to commit these postings to the Final HOD Postings? This will archive the current draft postings.')) return;
+
+        try {
+            setLoading(true);
+            await archiveHODFinalPostings();
+            success('Successfully committed postings to Final!');
+            await fetchData(true); // Refresh to see if list is cleared or updated
+        } catch (err: any) {
+            console.error("Commit failed", err);
+            error(`Failed to commit to final: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -1161,6 +1186,18 @@ const HODPostingsTable: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-lg">table_view</span>
                         Excel
+                    </button>
+
+                    <div className="h-6 w-px bg-slate-300 dark:bg-gray-700 mx-1"></div>
+
+                    <button
+                        onClick={handleCommitToFinal}
+                        disabled={loading || postings.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Commit these draft postings to the Final Postings record"
+                    >
+                        <span className="material-symbols-outlined text-lg">verified</span>
+                        Commit
                     </button>
                 </div>
             </div>

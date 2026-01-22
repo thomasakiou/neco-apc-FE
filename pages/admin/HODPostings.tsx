@@ -4,7 +4,7 @@ import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues } from '../../services/markingVenue';
 import { getAllStates } from '../../services/state';
-import { bulkCreateHODPostings, getAllHODPostings } from '../../services/hodPosting';
+import { bulkCreateHODPostings, getAllHODPostings, bulkDeleteHODPostings } from '../../services/hodPosting';
 import { HODApcRecord } from '../../types/hodApc';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
@@ -17,6 +17,7 @@ import { getAllNCEECenters } from '../../services/nceeCenter';
 import { getAllGiftedCenters } from '../../services/giftedCenter';
 import { getAllBECECustodians, getAllSSCECustodians } from '../../services/custodianSpecific';
 import { getAllTTCenters } from '../../services/ttCenter';
+import { getAllPrintingPoints } from '../../services/printingPoint';
 import { State } from '../../types/state';
 import { getAllStations } from '../../services/station';
 import { Station } from '../../types/station';
@@ -168,7 +169,8 @@ const HODPostings: React.FC = () => {
                                 type === 'ncee_center' ? getAllNCEECenters(true) :
                                     type === 'gifted_center' ? getAllGiftedCenters(true) :
                                         type === 'tt_center' ? getAllTTCenters(true) :
-                                            getAllMarkingVenues(true)
+                                            type === 'printing_point' ? getAllPrintingPoints(true) :
+                                                getAllMarkingVenues(true)
                 ]);
                 const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
 
@@ -486,8 +488,11 @@ const HODPostings: React.FC = () => {
             });
             // 2. Filter Eligible HODs
             let skippedDueToDuplicate = 0;
+            const apcField = hodApcFieldMap[assignmentCode] || hodApcFieldMap[assignmentName];
+
             const eligibleHODs = allHODs.filter(hod => {
-                if (alreadyAssignedStaffIds.has(hod.file_no)) {
+                const normalizedFileNo = String(hod.file_no).padStart(4, '0');
+                if (alreadyAssignedStaffIds.has(normalizedFileNo)) {
                     skippedDueToDuplicate++;
                     return false;
                 }
@@ -495,9 +500,11 @@ const HODPostings: React.FC = () => {
                 const totalPosted = (hod.posted_for || 0); // Assuming hod.posted_for tracks count
                 if (totalPosted >= (hod.count || 0)) return false;
 
-                // --- NEW: Assignment-specific filtering (if HODs have specific assignment flags)
-                // For HODs, we might assume they are generally available or check specific flags if present
-                // e.g. if (assignmentCode === 'SSCE' && !hod.is_ssce) return false;
+                // --- NEW: Assignment-specific filtering
+                if (apcField) {
+                    const val = hod[apcField as keyof HODApcRecord];
+                    if (!val || val.toString().trim() === '') return false;
+                }
 
                 return true;
             });
@@ -656,6 +663,15 @@ const HODPostings: React.FC = () => {
         if (postingsToSave.length === 0) return;
         setLoading(true);
         try {
+            // Delete old records to prevent duplicate rows in DB
+            const idsToDelete = postingsToSave
+                .map(p => existingPostings.find(ep => String(ep.file_no).padStart(4, '0') === String(p.file_no).padStart(4, '0'))?.id)
+                .filter(id => id);
+
+            if (idsToDelete.length > 0) {
+                await bulkDeleteHODPostings(idsToDelete as string[]);
+            }
+
             await bulkCreateHODPostings({ items: postingsToSave });
             success(`Successfully posted ${postingsToSave.length} HODs!`);
             setGeneratedPostings([]);

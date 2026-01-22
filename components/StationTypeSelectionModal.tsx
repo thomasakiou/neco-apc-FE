@@ -23,6 +23,7 @@ const StationTypeSelectionModal: React.FC<StationTypeSelectionModalProps> = ({ i
         { id: 'marking_venue', label: 'SSCE INT Marking Venue', icon: 'edit_note' },
         { id: 'ssce_ext_marking_venue', label: 'SSCE EXT Marking Venue', icon: 'edit_location' },
         { id: 'bece_marking_venue', label: 'BECE Marking Venue', icon: 'edit_location' },
+        { id: 'printing_point', label: 'Printing Point', icon: 'print' },
     ];
 
     const handleConfirm = () => {

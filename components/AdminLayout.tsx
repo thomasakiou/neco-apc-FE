@@ -88,6 +88,7 @@ const AdminLayout: React.FC = () => {
               <NavItem to="/admin/ncee-centers" icon="school" label="NCEE Centers" active={isActive('/admin/ncee-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/gifted-centers" icon="auto_awesome" label="Gifted Centers" active={isActive('/admin/gifted-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/tt-centers" icon="science" label="TT Centers" active={isActive('/admin/tt-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
+              <NavItem to="/admin/printing-points" icon="print" label="Printing Points" active={isActive('/admin/printing-points')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/bece-custodians" icon="security" label="BECE Custodians" active={isActive('/admin/bece-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/ssce-custodians" icon="verified_user" label="SSCE INT Custodians" active={isActive('/admin/ssce-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
               <NavItem to="/admin/ssce-ext-custodians" icon="verified_user" label="SSCE EXT Custodians" active={isActive('/admin/ssce-ext-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} />
@@ -110,11 +111,13 @@ const AdminLayout: React.FC = () => {
             <CollapsibleNavSection title="HOD's Management" icon="supervisor_account" isLocked={isModuleLocked('hod') && !isSuperAdmin} active={
               isActive('/admin/apc/hod') ||
               isActive('/admin/assignments/hod') ||
+              isActive('/admin/assignments/hod/final') ||
               isActive('/admin/assignments/hod/table')
             }>
               <NavItem to="/admin/apc/hod" icon="assignment_ind" label="HOD's APC" active={isActive('/admin/apc/hod')} isLocked={isModuleLocked('hod') && !isSuperAdmin} />
               <NavItem to="/admin/assignments/hod" icon="shuffle" label="HOD Posting" active={location.pathname === '/admin/assignments/hod'} isLocked={isModuleLocked('hod') && !isSuperAdmin} />
               <NavItem to="/admin/assignments/hod/table" icon="table_view" label="Posting Reports" active={isActive('/admin/assignments/hod/table')} isLocked={isModuleLocked('hod') && !isSuperAdmin} />
+              <NavItem to="/admin/assignments/hod/final" icon="verified" label="Final HOD Post Table" active={isActive('/admin/assignments/hod/final')} isLocked={isModuleLocked('hod') && !isSuperAdmin} />
             </CollapsibleNavSection>
 
 
