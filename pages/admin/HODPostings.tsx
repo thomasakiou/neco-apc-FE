@@ -73,6 +73,7 @@ const HODPostings: React.FC = () => {
     const [targetQuota, setTargetQuota] = useState<number>(0);
     const [numberOfNights, setNumberOfNights] = useState<number>(0);
     const [description, setDescription] = useState<string>('');
+    const [venueSearchText, setVenueSearchText] = useState('');
 
     // Preview
     const [generatedPostings, setGeneratedPostings] = useState<PostingCreate[]>([]);
@@ -210,6 +211,7 @@ const HODPostings: React.FC = () => {
             }));
             setSelectedVenues([]);
             setIsAllVenues(false);
+            setVenueSearchText('');
             success(`Loaded ${options.length} stations.`);
         } catch (err) {
             console.error('Failed to load stations', err);
@@ -847,100 +849,134 @@ const HODPostings: React.FC = () => {
                                             {/* Dropdown Panel */}
                                             {showVenueDropdown && !isAllVenues && (
                                                 <div className="absolute z-50 top-full left-0 mt-1 w-[400px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
-                                                    {/* Quick Actions */}
-                                                    <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 flex gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSelectedVenues(venues.map(v => v.id))}
-                                                            className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-                                                        >
-                                                            Select All
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSelectedVenues([])}
-                                                            className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                                        >
-                                                            Clear All
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Grouped Venues */}
                                                     {(() => {
-                                                        const grouped = venues.reduce((acc, venue) => {
-                                                            const state = venue.state_name || 'Others';
-                                                            if (!acc[state]) acc[state] = [];
-                                                            acc[state].push(venue);
-                                                            return acc;
-                                                        }, {} as { [key: string]: typeof venues });
+                                                        const filteredVenues = venues.filter(v =>
+                                                            v.name.toLowerCase().includes(venueSearchText.toLowerCase()) ||
+                                                            (v.code && v.code.toLowerCase().includes(venueSearchText.toLowerCase())) ||
+                                                            (v.display_name && v.display_name.toLowerCase().includes(venueSearchText.toLowerCase()))
+                                                        );
 
-                                                        const sortedStates = Object.keys(grouped).sort((a, b) => {
-                                                            if (a === 'Others') return 1;
-                                                            if (b === 'Others') return -1;
-                                                            return a.localeCompare(b);
-                                                        });
-
-                                                        return sortedStates.map(state => {
-                                                            const stateVenues = grouped[state].sort((a, b) => a.name.localeCompare(b.name));
-                                                            const allStateSelected = stateVenues.every(v => selectedVenues.includes(v.id));
-                                                            const someStateSelected = stateVenues.some(v => selectedVenues.includes(v.id));
-
-                                                            return (
-                                                                <div key={state}>
-                                                                    {/* State Header */}
-                                                                    <div
-                                                                        className="sticky top-[45px] px-3 py-2 bg-slate-100 dark:bg-[#0f161d] border-b border-slate-200 dark:border-gray-700 flex items-center gap-2 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800"
-                                                                        onClick={() => {
-                                                                            if (allStateSelected) {
-                                                                                setSelectedVenues(prev => prev.filter(id => !stateVenues.some(v => v.id === id)));
-                                                                            } else {
-                                                                                setSelectedVenues(prev => [...new Set([...prev, ...stateVenues.map(v => v.id)])]);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={allStateSelected}
-                                                                            ref={input => {
-                                                                                if (input) input.indeterminate = someStateSelected && !allStateSelected;
-                                                                            }}
-                                                                            onChange={() => { }}
-                                                                            className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
-                                                                        />
-                                                                        <span className="text-xs font-bold uppercase text-slate-700 dark:text-slate-300">{state}</span>
-                                                                        <span className="text-[10px] text-slate-500">({stateVenues.length})</span>
+                                                        return (
+                                                            <>
+                                                                {/* Quick Actions */}
+                                                                <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 flex flex-col gap-2 z-20">
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setSelectedVenues(filteredVenues.map(v => v.id))}
+                                                                            className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                                                                        >
+                                                                            Select All {filteredVenues.length !== venues.length && `(${filteredVenues.length})`}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setSelectedVenues([])}
+                                                                            className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                                        >
+                                                                            Clear All
+                                                                        </button>
                                                                     </div>
-
-                                                                    {/* Venue Items */}
-                                                                    {stateVenues.map(v => {
-                                                                        const isSelected = selectedVenues.includes(v.id);
-                                                                        return (
-                                                                            <div
-                                                                                key={v.id}
-                                                                                onClick={() => {
-                                                                                    if (isSelected) {
-                                                                                        setSelectedVenues(prev => prev.filter(id => id !== v.id));
-                                                                                    } else {
-                                                                                        setSelectedVenues(prev => [...prev, v.id]);
-                                                                                    }
-                                                                                }}
-                                                                                className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                                    <div className="relative">
+                                                                        <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Search venue name or code..."
+                                                                            value={venueSearchText}
+                                                                            onChange={(e) => setVenueSearchText(e.target.value)}
+                                                                            className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                                            autoFocus
+                                                                        />
+                                                                        {venueSearchText && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setVenueSearchText('')}
+                                                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
                                                                             >
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={isSelected}
-                                                                                    onChange={() => { }}
-                                                                                    className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
-                                                                                />
-                                                                                <span className={`text-sm ${isSelected ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                                                                                    {v.name}
-                                                                                </span>
+                                                                                <span className="material-symbols-outlined text-sm">close</span>
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Grouped Venues */}
+                                                                {(() => {
+                                                                    const grouped = filteredVenues.reduce((acc, venue) => {
+                                                                        const state = venue.state_name || 'Others';
+                                                                        if (!acc[state]) acc[state] = [];
+                                                                        acc[state].push(venue);
+                                                                        return acc;
+                                                                    }, {} as { [key: string]: typeof venues });
+
+                                                                    const sortedStates = Object.keys(grouped).sort((a, b) => {
+                                                                        if (a === 'Others') return 1;
+                                                                        if (b === 'Others') return -1;
+                                                                        return a.localeCompare(b);
+                                                                    });
+
+                                                                    return sortedStates.map(state => {
+                                                                        const stateVenues = grouped[state].sort((a, b) => a.name.localeCompare(b.name));
+                                                                        const allStateSelected = stateVenues.every(v => selectedVenues.includes(v.id));
+                                                                        const someStateSelected = stateVenues.some(v => selectedVenues.includes(v.id));
+
+                                                                        return (
+                                                                            <div key={state}>
+                                                                                {/* State Header */}
+                                                                                <div
+                                                                                    className="sticky top-[45px] px-3 py-2 bg-slate-100 dark:bg-[#0f161d] border-b border-slate-200 dark:border-gray-700 flex items-center gap-2 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800"
+                                                                                    onClick={() => {
+                                                                                        if (allStateSelected) {
+                                                                                            setSelectedVenues(prev => prev.filter(id => !stateVenues.some(v => v.id === id)));
+                                                                                        } else {
+                                                                                            setSelectedVenues(prev => [...new Set([...prev, ...stateVenues.map(v => v.id)])]);
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={allStateSelected}
+                                                                                        ref={input => {
+                                                                                            if (input) input.indeterminate = someStateSelected && !allStateSelected;
+                                                                                        }}
+                                                                                        onChange={() => { }}
+                                                                                        className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                                    />
+                                                                                    <span className="text-xs font-bold uppercase text-slate-700 dark:text-slate-300">{state}</span>
+                                                                                    <span className="text-[10px] text-slate-500">({stateVenues.length})</span>
+                                                                                </div>
+
+                                                                                {/* Venue Items */}
+                                                                                {stateVenues.map(v => {
+                                                                                    const isSelected = selectedVenues.includes(v.id);
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={v.id}
+                                                                                            onClick={() => {
+                                                                                                if (isSelected) {
+                                                                                                    setSelectedVenues(prev => prev.filter(id => id !== v.id));
+                                                                                                } else {
+                                                                                                    setSelectedVenues(prev => [...prev, v.id]);
+                                                                                                }
+                                                                                            }}
+                                                                                            className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                                                        >
+                                                                                            <input
+                                                                                                type="checkbox"
+                                                                                                checked={isSelected}
+                                                                                                onChange={() => { }}
+                                                                                                className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                                            />
+                                                                                            <span className={`text-sm ${isSelected ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                                                {v.name}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
                                                                             </div>
                                                                         );
-                                                                    })}
-                                                                </div>
-                                                            );
-                                                        });
+                                                                    });
+                                                                })()}
+                                                            </>
+                                                        );
                                                     })()}
 
                                                     {/* Done Button */}
