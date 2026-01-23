@@ -94,17 +94,17 @@ const stateToZoneFallback: { [key: string]: string } = {
 
 // // ❌ WRONG - don't use the display name
 // '2082': { targetState: 'Adamawa', targetVenueType: 'SSCE Custodian' }
+// ###################### ACTUAL CODE #################################################### //
+// interface PreAllocation {
+//     targetState?: string;
+//     targetVenueName?: string;
+//     targetVenueType?: string;
+// }
 
-interface PreAllocation {
-    targetState?: string;
-    targetVenueName?: string;
-    targetVenueType?: string;
-}
-
-const preAllocatedStaff: { [file_no: string]: PreAllocation } = {
-    '2082': { targetState: 'Adamawa' },
-    // Add more mappings as needed
-};
+// const preAllocatedStaff: { [file_no: string]: PreAllocation } = {
+//     '2082': { targetState: 'Adamawa' },
+//     // Add more mappings as needed
+// };
 // ############################################################################################ //
 
 
@@ -916,56 +916,56 @@ const RandomizedPost: React.FC = () => {
                             const priorityMatches = pool.filter(staff => {
                                 if (usedStaffIds.has(staff.id)) return false;
                                 // ################################################################################################## //
-                                // BACKDOOR: Check if this staff has a pre-allocated target
-                                const preAlloc = preAllocatedStaff[staff.file_no];
-                                if (preAlloc) {
-                                    // Check all matching criteria
-                                    const venueStateName = vq.venue.state_name || '';
-                                    const venueName = vq.venue.name || '';
-                                    const venueType = vq.venue.type || '';
+                                // // BACKDOOR: Check if this staff has a pre-allocated target
+                                // const preAlloc = preAllocatedStaff[staff.file_no];
+                                // if (preAlloc) {
+                                //     // Check all matching criteria
+                                //     const venueStateName = vq.venue.state_name || '';
+                                //     const venueName = vq.venue.name || '';
+                                //     const venueType = vq.venue.type || '';
 
-                                    // Build match conditions
-                                    let stateMatch = true;
-                                    let nameMatch = true;
-                                    let typeMatch = true;
+                                //     // Build match conditions
+                                //     let stateMatch = true;
+                                //     let nameMatch = true;
+                                //     let typeMatch = true;
 
-                                    if (preAlloc.targetState) {
-                                        stateMatch = normalizeStr(venueStateName) === normalizeStr(preAlloc.targetState);
-                                    }
-                                    if (preAlloc.targetVenueName) {
-                                        nameMatch = normalizeStr(venueName).includes(normalizeStr(preAlloc.targetVenueName));
-                                    }
-                                    if (preAlloc.targetVenueType) {
-                                        typeMatch = venueType === preAlloc.targetVenueType;
-                                    }
+                                //     if (preAlloc.targetState) {
+                                //         stateMatch = normalizeStr(venueStateName) === normalizeStr(preAlloc.targetState);
+                                //     }
+                                //     if (preAlloc.targetVenueName) {
+                                //         nameMatch = normalizeStr(venueName).includes(normalizeStr(preAlloc.targetVenueName));
+                                //     }
+                                //     if (preAlloc.targetVenueType) {
+                                //         typeMatch = venueType === preAlloc.targetVenueType;
+                                //     }
 
-                                    const isTargetVenue = stateMatch && nameMatch && typeMatch;
+                                //     const isTargetVenue = stateMatch && nameMatch && typeMatch;
 
-                                    // If this is their target venue, prioritize them (return true immediately)
-                                    if (isTargetVenue) return true;
+                                //     // If this is their target venue, prioritize them (return true immediately)
+                                //     if (isTargetVenue) return true;
 
-                                    // Check if any matching target venue still has remaining quota
-                                    const targetHasQuota = venueQuotas.some(otherVq => {
-                                        if (otherVq.remainingNeeded <= 0) return false;
+                                //     // Check if any matching target venue still has remaining quota
+                                //     const targetHasQuota = venueQuotas.some(otherVq => {
+                                //         if (otherVq.remainingNeeded <= 0) return false;
 
-                                        let otherStateMatch = true;
-                                        let otherNameMatch = true;
-                                        let otherTypeMatch = true;
+                                //         let otherStateMatch = true;
+                                //         let otherNameMatch = true;
+                                //         let otherTypeMatch = true;
 
-                                        if (preAlloc.targetState) {
-                                            otherStateMatch = normalizeStr(otherVq.venue.state_name || '') === normalizeStr(preAlloc.targetState);
-                                        }
-                                        if (preAlloc.targetVenueName) {
-                                            otherNameMatch = normalizeStr(otherVq.venue.name || '').includes(normalizeStr(preAlloc.targetVenueName));
-                                        }
-                                        if (preAlloc.targetVenueType) {
-                                            otherTypeMatch = (otherVq.venue.type || '') === preAlloc.targetVenueType;
-                                        }
+                                //         if (preAlloc.targetState) {
+                                //             otherStateMatch = normalizeStr(otherVq.venue.state_name || '') === normalizeStr(preAlloc.targetState);
+                                //         }
+                                //         if (preAlloc.targetVenueName) {
+                                //             otherNameMatch = normalizeStr(otherVq.venue.name || '').includes(normalizeStr(preAlloc.targetVenueName));
+                                //         }
+                                //         if (preAlloc.targetVenueType) {
+                                //             otherTypeMatch = (otherVq.venue.type || '') === preAlloc.targetVenueType;
+                                //         }
 
-                                        return otherStateMatch && otherNameMatch && otherTypeMatch;
-                                    });
-                                    if (targetHasQuota) return false; // Wait for their target venue
-                                }
+                                //         return otherStateMatch && otherNameMatch && otherTypeMatch;
+                                //     });
+                                //     if (targetHasQuota) return false; // Wait for their target venue
+                                // }
                                 // ################################################################################################## //
 
                                 const staffIsHQ = isHQStaff(staff);

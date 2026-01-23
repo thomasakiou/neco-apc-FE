@@ -1139,19 +1139,19 @@ const GeneratePage: React.FC = () => {
                                 "2026 TRIAL TESTING: POSTING OF INVIGILATORS",
                                 "2026 TRIAL TESTING: POSTING OF ACCOMPANYING OFFICERS",
                                 "2026 TRIAL TESTING: POSTING OF SURVEILLANCE OFFICERS",
-                                // "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)",
-                                // "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH A",
-                                // "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH B",
-                                // "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH A ",
-                                // "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH B ",
-                                // "2026 SSCE EXTERNAL: POSTING OF HODs",
-                                // "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH A ",
-                                // "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH B ",
-                                // "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)",
-                                // "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF ACCOMPANYING OFFICERS",
-                                // "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF COUNTING_PACKAGING OFFICERS",
-                                // "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF DAILY DISTRIBUTORS",
-                                // "2026 ACCREDITATION EXERCISE"
+                                "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)",
+                                "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH A",
+                                "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH B",
+                                "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH A ",
+                                "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH B ",
+                                "2026 SSCE EXTERNAL: POSTING OF HODs",
+                                "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH A ",
+                                "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH B ",
+                                "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)",
+                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF ACCOMPANYING OFFICERS",
+                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF COUNTING_PACKAGING OFFICERS",
+                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF DAILY DISTRIBUTORS",
+                                "2026 ACCREDITATION EXERCISE"
                             ].map(val => (
                                 <option key={val} value={val}>{val}</option>
                             ))}
