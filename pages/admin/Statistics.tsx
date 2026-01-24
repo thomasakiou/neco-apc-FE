@@ -84,11 +84,23 @@ const Statistics: React.FC = () => {
     }, []);
 
     // Unique Options for Filters
-    const uniqueStates = useMemo(() => Array.from(new Set(allStaff.map(s => s.state).filter(Boolean))).sort(), [allStaff]);
-    const uniqueStations = useMemo(() => Array.from(new Set(allStaff.map(s => s.station).filter(Boolean))).sort(), [allStaff]);
+    const uniqueStates = useMemo(() => {
+        const states = Array.from(new Set(allStaff.map(s => s.state).filter(Boolean))).sort();
+        return states.map(s => ({ id: s as string, name: s as string }));
+    }, [allStaff]);
+
+    const uniqueStations = useMemo(() => {
+        const stations = Array.from(new Set(allStaff.map(s => s.station).filter(Boolean))).sort();
+        return stations.map(s => ({ id: s as string, name: s as string }));
+    }, [allStaff]);
+
     const uniqueConraiss = useMemo(() => Array.from(new Set(allStaff.map(s => s.conr).filter(Boolean))).sort((a, b) => Number(b) - Number(a)), [allStaff]); // Descending
     const uniqueZones = useMemo(() => Array.from(new Set(Object.values(STATE_TO_ZONE))).sort(), []);
-    const uniquePromotionDates = useMemo(() => Array.from(new Set(allStaff.map(s => s.dopa?.split('T')[0]?.split(' ')[0]).filter(Boolean))).sort(), [allStaff]);
+
+    const uniquePromotionDates = useMemo(() => {
+        const dates = Array.from(new Set(allStaff.map(s => s.dopa?.split('T')[0]?.split(' ')[0]).filter(Boolean))).sort();
+        return dates.map(d => ({ id: d as string, name: d as string }));
+    }, [allStaff]);
 
     // Derived Statistics based on filters
     const filteredData = useMemo(() => {
@@ -326,25 +338,21 @@ const Statistics: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Station</label>
-                        <select
-                            className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2632] focus:ring-2 focus:ring-primary/50 outline-none transition-shadow"
+                        <SearchableSelect
+                            options={[{ id: '', name: 'All Stations' }, ...uniqueStations]}
                             value={selectedStation}
-                            onChange={(e) => setSelectedStation(e.target.value)}
-                        >
-                            <option value="">All Stations</option>
-                            {uniqueStations.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                            onChange={setSelectedStation}
+                            placeholder="Select Station"
+                        />
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">State of Origin</label>
-                        <select
-                            className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2632] focus:ring-2 focus:ring-primary/50 outline-none transition-shadow"
+                        <SearchableSelect
+                            options={[{ id: '', name: 'All States' }, ...uniqueStates]}
                             value={selectedState}
-                            onChange={(e) => setSelectedState(e.target.value)}
-                        >
-                            <option value="">All States</option>
-                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                            onChange={setSelectedState}
+                            placeholder="Select State"
+                        />
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sex</label>
@@ -382,14 +390,12 @@ const Statistics: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">DOPA (Appt. Date)</label>
-                        <select
-                            className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2632] focus:ring-2 focus:ring-primary/50 outline-none transition-shadow"
+                        <SearchableSelect
+                            options={[{ id: '', name: 'All Dates' }, ...uniquePromotionDates]}
                             value={selectedPromotionDate}
-                            onChange={(e) => setSelectedPromotionDate(e.target.value)}
-                        >
-                            <option value="">All Dates</option>
-                            {uniquePromotionDates.map(d => <option key={d} value={d}>{d}</option>)}
-                        </select>
+                            onChange={setSelectedPromotionDate}
+                            placeholder="Select Date"
+                        />
                     </div>
                 </div>
             </div>

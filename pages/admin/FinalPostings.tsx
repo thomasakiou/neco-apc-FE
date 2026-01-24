@@ -598,6 +598,26 @@ const FinalPostings: React.FC = () => {
         return Array.from(yearSet).sort();
     }, [postings]);
 
+    const uniqueStates = useMemo(() => {
+        const stateSet = new Set<string>();
+        postings.forEach(p => {
+            if (p.state && p.state.length > 0) {
+                p.state.forEach(s => stateSet.add(s));
+            } else if (p.assignment_venue && p.assignment_venue.length > 0) {
+                // Try to extract state from venue if possible (fallback)
+                p.assignment_venue.forEach(v => {
+                    const vStr = typeof v === 'string' ? v : v.name;
+                    if (vStr && vStr.includes('|')) {
+                        stateSet.add(vStr.split('|').pop()?.trim() || '');
+                    }
+                });
+            }
+        });
+        // Remove empty strings
+        if (stateSet.has('')) stateSet.delete('');
+        return Array.from(stateSet).sort();
+    }, [postings]);
+
     const matchesFilter = useCallback((p: FinalPostingResponse) => {
         if (debouncedFileNo && !String(p.file_no || '').toLowerCase().includes(debouncedFileNo.toLowerCase())) return false;
         if (debouncedName && !String(p.name || '').toLowerCase().includes(debouncedName.toLowerCase())) return false;
@@ -865,7 +885,12 @@ const FinalPostings: React.FC = () => {
                             onChange={setFilterYear}
                             placeholder="Filter Year"
                         />
-                        {/* Add more filters as needed */}
+                        <SearchableSelect
+                            options={[{ id: '', name: 'All States' }, ...uniqueStates.map(s => ({ id: s, name: s }))]}
+                            value={filterState}
+                            onChange={setFilterState}
+                            placeholder="Filter State"
+                        />
                     </div>
                 </div>
 

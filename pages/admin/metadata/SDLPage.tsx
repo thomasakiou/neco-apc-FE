@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -34,6 +34,26 @@ const SDLPage: React.FC = () => {
 
     // New state for collapsible rows
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    // Station search state
+    const [stationSearchText, setStationSearchText] = useState('');
+    const [showStationDropdown, setShowStationDropdown] = useState(false);
+    const stationDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Rank search state
+    const [rankSearchText, setRankSearchText] = useState('');
+    const [showRankDropdown, setShowRankDropdown] = useState(false);
+    const rankDropdownRef = useRef<HTMLDivElement>(null);
+
+    // State search state
+    const [stateSearchText, setStateSearchText] = useState('');
+    const [showStateDropdown, setShowStateDropdown] = useState(false);
+    const stateDropdownRef = useRef<HTMLDivElement>(null);
+
+    // DOPA search state
+    const [dopaSearchText, setDopaSearchText] = useState('');
+    const [showDopaDropdown, setShowDopaDropdown] = useState(false);
+    const dopaDropdownRef = useRef<HTMLDivElement>(null);
 
     const uniqueStations = Array.from(new Set(allStaff.map(s => s.station).filter(Boolean))) as string[];
     const uniqueRanks = Array.from(new Set(allStaff.map(s => s.rank).filter(Boolean))) as string[];
@@ -321,6 +341,74 @@ const SDLPage: React.FC = () => {
     useEffect(() => {
         fetchAllStaff();
     }, []);
+
+    // Click outside handler for station dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (stationDropdownRef.current && !stationDropdownRef.current.contains(event.target as Node)) {
+                setShowStationDropdown(false);
+            }
+        };
+
+        if (showStationDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showStationDropdown]);
+
+    // Click outside handler for rank dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (rankDropdownRef.current && !rankDropdownRef.current.contains(event.target as Node)) {
+                setShowRankDropdown(false);
+            }
+        };
+
+        if (showRankDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showRankDropdown]);
+
+    // Click outside handler for state dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (stateDropdownRef.current && !stateDropdownRef.current.contains(event.target as Node)) {
+                setShowStateDropdown(false);
+            }
+        };
+
+        if (showStateDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showStateDropdown]);
+
+    // Click outside handler for DOPA dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dopaDropdownRef.current && !dopaDropdownRef.current.contains(event.target as Node)) {
+                setShowDopaDropdown(false);
+            }
+        };
+
+        if (showDopaDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showDopaDropdown]);
 
     const handleDelete = async (id: string) => {
         setAlertModal({
@@ -861,30 +949,240 @@ const SDLPage: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                        <FilterSelect
-                            label="Department"
-                            value={selectedStation}
-                            options={uniqueStations}
-                            onChange={setSelectedStation}
-                        />
-                        <FilterSelect
-                            label="Rank"
-                            value={selectedRank}
-                            options={uniqueRanks}
-                            onChange={setSelectedRank}
-                        />
+                        {/* Searchable Station Dropdown */}
+                        <div ref={stationDropdownRef} className="relative min-w-[200px]">
+                            <button
+                                type="button"
+                                onClick={() => setShowStationDropdown(!showStationDropdown)}
+                                className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
+                            >
+                                <span className="truncate">
+                                    {selectedStation === 'All' ? 'Department: All' : selectedStation}
+                                </span>
+                                <span className="material-symbols-outlined text-slate-400 text-lg">
+                                    {showStationDropdown ? 'expand_less' : 'arrow_drop_down'}
+                                </span>
+                            </button>
+
+                            {showStationDropdown && (
+                                <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                    {/* Search Input */}
+                                    <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                            <input
+                                                type="text"
+                                                placeholder="Search department..."
+                                                value={stationSearchText}
+                                                onChange={(e) => setStationSearchText(e.target.value)}
+                                                className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                autoFocus
+                                            />
+                                            {stationSearchText && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStationSearchText('')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* All Option */}
+                                    <div
+                                        onClick={() => {
+                                            setSelectedStation('All');
+                                            setShowStationDropdown(false);
+                                            setStationSearchText('');
+                                        }}
+                                        className={`px-3 py-2 cursor-pointer transition-colors ${selectedStation === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                    >
+                                        Department: All
+                                    </div>
+
+                                    {/* Filtered Options */}
+                                    {uniqueStations
+                                        .filter(station => station.toLowerCase().includes(stationSearchText.toLowerCase()))
+                                        .map(station => (
+                                            <div
+                                                key={station}
+                                                onClick={() => {
+                                                    setSelectedStation(station);
+                                                    setShowStationDropdown(false);
+                                                    setStationSearchText('');
+                                                }}
+                                                className={`px-3 py-2 cursor-pointer transition-colors ${selectedStation === station ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                            >
+                                                {station}
+                                            </div>
+                                        ))}
+
+                                    {uniqueStations.filter(station => station.toLowerCase().includes(stationSearchText.toLowerCase())).length === 0 && (
+                                        <div className="px-3 py-4 text-center text-slate-400 text-sm">
+                                            No departments found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        {/* Searchable Rank Dropdown */}
+                        <div ref={rankDropdownRef} className="relative min-w-[200px]">
+                            <button
+                                type="button"
+                                onClick={() => setShowRankDropdown(!showRankDropdown)}
+                                className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
+                            >
+                                <span className="truncate">
+                                    {selectedRank === 'All' ? 'Rank: All' : selectedRank}
+                                </span>
+                                <span className="material-symbols-outlined text-slate-400 text-lg">
+                                    {showRankDropdown ? 'expand_less' : 'arrow_drop_down'}
+                                </span>
+                            </button>
+
+                            {showRankDropdown && (
+                                <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                    <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                            <input
+                                                type="text"
+                                                placeholder="Search rank..."
+                                                value={rankSearchText}
+                                                onChange={(e) => setRankSearchText(e.target.value)}
+                                                className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                autoFocus
+                                            />
+                                            {rankSearchText && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRankSearchText('')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        onClick={() => {
+                                            setSelectedRank('All');
+                                            setShowRankDropdown(false);
+                                            setRankSearchText('');
+                                        }}
+                                        className={`px-3 py-2 cursor-pointer transition-colors ${selectedRank === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                    >
+                                        Rank: All
+                                    </div>
+
+                                    {uniqueRanks
+                                        .filter(rank => rank.toLowerCase().includes(rankSearchText.toLowerCase()))
+                                        .map(rank => (
+                                            <div
+                                                key={rank}
+                                                onClick={() => {
+                                                    setSelectedRank(rank);
+                                                    setShowRankDropdown(false);
+                                                    setRankSearchText('');
+                                                }}
+                                                className={`px-3 py-2 cursor-pointer transition-colors ${selectedRank === rank ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                            >
+                                                {rank}
+                                            </div>
+                                        ))}
+
+                                    {uniqueRanks.filter(rank => rank.toLowerCase().includes(rankSearchText.toLowerCase())).length === 0 && (
+                                        <div className="px-3 py-4 text-center text-slate-400 text-sm">
+                                            No ranks found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <FilterSelect
                             label="CONR"
                             value={selectedConr}
                             options={uniqueConrs}
                             onChange={setSelectedConr}
                         />
-                        <FilterSelect
-                            label="State"
-                            value={selectedState}
-                            options={uniqueStates}
-                            onChange={setSelectedState}
-                        />
+                        {/* Searchable State Dropdown */}
+                        <div ref={stateDropdownRef} className="relative min-w-[200px]">
+                            <button
+                                type="button"
+                                onClick={() => setShowStateDropdown(!showStateDropdown)}
+                                className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
+                            >
+                                <span className="truncate">
+                                    {selectedState === 'All' ? 'State: All' : selectedState}
+                                </span>
+                                <span className="material-symbols-outlined text-slate-400 text-lg">
+                                    {showStateDropdown ? 'expand_less' : 'arrow_drop_down'}
+                                </span>
+                            </button>
+
+                            {showStateDropdown && (
+                                <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                    <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                            <input
+                                                type="text"
+                                                placeholder="Search state..."
+                                                value={stateSearchText}
+                                                onChange={(e) => setStateSearchText(e.target.value)}
+                                                className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                autoFocus
+                                            />
+                                            {stateSearchText && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStateSearchText('')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        onClick={() => {
+                                            setSelectedState('All');
+                                            setShowStateDropdown(false);
+                                            setStateSearchText('');
+                                        }}
+                                        className={`px-3 py-2 cursor-pointer transition-colors ${selectedState === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                    >
+                                        State: All
+                                    </div>
+
+                                    {uniqueStates
+                                        .filter(state => state.toLowerCase().includes(stateSearchText.toLowerCase()))
+                                        .map(state => (
+                                            <div
+                                                key={state}
+                                                onClick={() => {
+                                                    setSelectedState(state);
+                                                    setShowStateDropdown(false);
+                                                    setStateSearchText('');
+                                                }}
+                                                className={`px-3 py-2 cursor-pointer transition-colors ${selectedState === state ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                            >
+                                                {state}
+                                            </div>
+                                        ))}
+
+                                    {uniqueStates.filter(state => state.toLowerCase().includes(stateSearchText.toLowerCase())).length === 0 && (
+                                        <div className="px-3 py-4 text-center text-slate-400 text-sm">
+                                            No states found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <FilterSelect
                             label="HOD"
                             value={selectedHOD}
@@ -921,12 +1219,81 @@ const SDLPage: React.FC = () => {
                             options={['Yes', 'No']}
                             onChange={setSelectedOthers}
                         />
-                        <FilterSelect
-                            label="DOPA (Appt. Date)"
-                            value={selectedPromotionDate}
-                            options={uniquePromotionDates}
-                            onChange={setSelectedPromotionDate}
-                        />
+                        {/* Searchable DOPA Dropdown */}
+                        <div ref={dopaDropdownRef} className="relative min-w-[200px]">
+                            <button
+                                type="button"
+                                onClick={() => setShowDopaDropdown(!showDopaDropdown)}
+                                className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
+                            >
+                                <span className="truncate">
+                                    {selectedPromotionDate === 'All' ? 'DOPA (Appt. Date): All' : selectedPromotionDate}
+                                </span>
+                                <span className="material-symbols-outlined text-slate-400 text-lg">
+                                    {showDopaDropdown ? 'expand_less' : 'arrow_drop_down'}
+                                </span>
+                            </button>
+
+                            {showDopaDropdown && (
+                                <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                    <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                            <input
+                                                type="text"
+                                                placeholder="Search date..."
+                                                value={dopaSearchText}
+                                                onChange={(e) => setDopaSearchText(e.target.value)}
+                                                className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                autoFocus
+                                            />
+                                            {dopaSearchText && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDopaSearchText('')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        onClick={() => {
+                                            setSelectedPromotionDate('All');
+                                            setShowDopaDropdown(false);
+                                            setDopaSearchText('');
+                                        }}
+                                        className={`px-3 py-2 cursor-pointer transition-colors ${selectedPromotionDate === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                    >
+                                        DOPA (Appt. Date): All
+                                    </div>
+
+                                    {uniquePromotionDates
+                                        .filter(date => date.toLowerCase().includes(dopaSearchText.toLowerCase()))
+                                        .map(date => (
+                                            <div
+                                                key={date}
+                                                onClick={() => {
+                                                    setSelectedPromotionDate(date);
+                                                    setShowDopaDropdown(false);
+                                                    setDopaSearchText('');
+                                                }}
+                                                className={`px-3 py-2 cursor-pointer transition-colors ${selectedPromotionDate === date ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                            >
+                                                {date}
+                                            </div>
+                                        ))}
+
+                                    {uniquePromotionDates.filter(date => date.toLowerCase().includes(dopaSearchText.toLowerCase())).length === 0 && (
+                                        <div className="px-3 py-4 text-center text-slate-400 text-sm">
+                                            No dates found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         {/* Button moved to header */}
                     </div>
                 </div>
@@ -1056,6 +1423,7 @@ const SDLPage: React.FC = () => {
                 </div>
             </div>
         </div>
+
     );
 };
 

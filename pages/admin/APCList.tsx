@@ -14,6 +14,7 @@ import { helpContent } from '../../data/helpContent';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import SearchableSelect from '../../components/SearchableSelect';
 
 const APCList: React.FC = () => {
     const [allRecords, setAllRecords] = useState<APCRecord[]>([]);
@@ -143,7 +144,8 @@ const APCList: React.FC = () => {
     }, [allRecords]);
 
     const stationOptions = useMemo(() => {
-        return Array.from(new Set(allRecords.map(r => r.station).filter(Boolean))).sort() as string[];
+        const stations = Array.from(new Set(allRecords.map(r => r.station).filter(Boolean))).sort() as string[];
+        return stations.map(s => ({ id: s, name: s }));
     }, [allRecords]);
 
     const fetchAllRecords = useCallback(async () => {
@@ -797,16 +799,12 @@ const APCList: React.FC = () => {
 
                             {/* Station Filter */}
                             <div className="relative w-full md:w-64">
-                                <select
+                                <SearchableSelect
+                                    options={[{ id: '', name: 'All Stations' }, ...stationOptions]}
                                     value={filterStation}
-                                    onChange={(e) => setFilterStation(e.target.value)}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                                >
-                                    <option value="">All Stations</option>
-                                    {stationOptions.map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                </select>
+                                    onChange={setFilterStation}
+                                    placeholder="Filter Station"
+                                />
                             </div>
 
                             {/* Assignment Filter */}
