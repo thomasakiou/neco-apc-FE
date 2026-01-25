@@ -187,6 +187,43 @@ const PersonalizedPost: React.FC = () => {
             const combinedStationName = selectedStations.map(s => s.name).join(' | ');
             const primaryStation = selectedStations[0]; // Use first one for metadata like state
 
+            // Determine distribution mode
+            const changes = [...pendingChanges];
+            const additionsOrMoves = changes.filter(c => c.action === 'add' || c.action === 'move');
+
+            // Logic: If multiple staff are being acted upon AND multiple stations are selected,
+            // we assume a 1-to-1 distribution (cycling through stations if needed).
+            // Exception: If only 1 staff is being acted upon, they get ALL selected stations (concatenated).
+
+            let finalChanges = changes;
+
+            if (additionsOrMoves.length > 1 && selectedStations.length > 1) {
+                // 1-to-1 Mode (Distributed)
+                // We need to map each change to a specific station from the selection list
+                finalChanges = changes.map(change => {
+                    // Only distribute for add/move actions
+                    if (change.action === 'add' || change.action === 'move') {
+                        // Find index of this change in the filtered list to determine which station to pick
+                        const idx = additionsOrMoves.findIndex(c => c.staffId === change.staffId);
+                        if (idx !== -1) {
+                            const targetStation = selectedStations[idx % selectedStations.length];
+                            return {
+                                ...change,
+                                station: {
+                                    name: targetStation.name,
+                                    state: targetStation.state
+                                }
+                            };
+                        }
+                    }
+                    return change;
+                });
+            } else {
+                // 1-to-Many Mode (Default / Legacy)
+                // If only 1 staff, or only 1 station selected, keep the global station object
+                // which concatenates everything. (Handled by passing `station` to bulkSave)
+            }
+
             await bulkSaveAssignments({
                 assignment: assignment!,
                 station: {
@@ -195,7 +232,7 @@ const PersonalizedPost: React.FC = () => {
                     type: primaryStation.type,
                     state: primaryStation.state
                 },
-                changes: pendingChanges,
+                changes: finalChanges,
                 numberOfNights: (assignment?.code === 'MAR-ACCR' || assignment?.code === 'OCT-ACCR') ? numberOfNights : undefined,
                 description: description // Pass description
             });

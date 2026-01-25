@@ -202,7 +202,7 @@ export const bulkSaveAssignments = async (
         assignment: Assignment;
         mandate?: MandateColumn;
         station?: { id: string; name: string; type: string; state?: string | null };
-        changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[];
+        changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null; station?: { name: string; state?: string } }[];
         numberOfNights?: number;
         description?: string;
     }
@@ -241,7 +241,8 @@ export const bulkSaveAssignments = async (
             mandateName = payload.mandate.title;
         }
 
-        const venue = station?.name || '';
+        // Use override station if provided, otherwise fallback to global station
+        const venue = change.station?.name || station?.name || '';
 
         if (change.action === 'add' || change.action === 'move') {
             const existingAssignments = postingRecord?.assignments || [];
@@ -292,8 +293,11 @@ export const bulkSaveAssignments = async (
 
             // Determine specific venue for this assignment
             const matchedMandate = mandateLookup.get(change.targetMandateId || '');
-            const finalVenue = matchedMandate?.station || venue;
-            let finalState = station?.state || '';
+
+            // Priority: Mandate Default > Change Override > Global Selection
+            const finalVenue = matchedMandate?.station || change.station?.name || venue;
+            let finalState = change.station?.state || station?.state || '';
+
             if (matchedMandate?.station?.includes('|')) {
                 finalState = matchedMandate.station.split('|').pop()?.trim() || finalState;
             }
