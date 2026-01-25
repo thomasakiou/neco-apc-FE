@@ -270,6 +270,7 @@ const AnnualPostings: React.FC = () => {
   const [modalSearchFileNo, setModalSearchFileNo] = useState('');
   const [modalSearchName, setModalSearchName] = useState('');
   const [modalSearchConraiss, setModalSearchConraiss] = useState('');
+  const [replacementFilterType, setReplacementFilterType] = useState<'eligible' | 'all'>('eligible');
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -683,12 +684,51 @@ const AnnualPostings: React.FC = () => {
 
   const filteredReplacementPool = useMemo(() => {
     return replacementPool.filter(staff => {
+      // 1. Text Search Filters
       const matchesFileNo = !modalSearchFileNo || staff.file_no.toLowerCase().includes(modalSearchFileNo.toLowerCase());
       const matchesName = !modalSearchName || staff.name.toLowerCase().includes(modalSearchName.toLowerCase());
       const matchesConraiss = !modalSearchConraiss || staff.conraiss?.toLowerCase().includes(modalSearchConraiss.toLowerCase());
-      return matchesFileNo && matchesName && matchesConraiss;
+
+      if (!matchesFileNo || !matchesName || !matchesConraiss) return false;
+
+      // 2. "Eligible" Filter Logic
+      if (replacementFilterType === 'eligible' && replacementSource) {
+        // Staff must have the assignment in APC AND not be posted for it
+        // Note: replacementPool already includes only staff with remaining capacity (totalPosted < totalAllotted)
+
+        // Check if staff is configured for the target assignments in APC
+        const isConfigured = replacementSource.assignments.every(code => {
+          const field = assignmentFieldMap[code] || assignmentFieldMap[code.toString().toUpperCase()];
+          if (!field) return true; // Loose check if no mapping
+          const val = staff[field as keyof APCRecord];
+          // "Returned" implies they were posted but sent back, so they are technically available/eligible again
+          // If it's empty/null, they were never assigned it.
+          return val && val.toString() !== '';
+        });
+
+        if (!isConfigured) return false;
+
+        // Check if staff is NOT already posted for these specific assignments
+        // (Even if they have capacity count > current posted, we don't want to double post the SAME assignment)
+        const normStaffNo = staff.file_no.toString().padStart(4, '0');
+        const existingPosting = postings.find(p => p.file_no.toString().padStart(4, '0') === normStaffNo);
+
+        if (existingPosting) {
+          const hasConflict = replacementSource.assignments.some(code => {
+            // Check if existing posting already has this assignment code
+            return existingPosting.assignments?.some((existingCode: any) => {
+              const c1 = typeof existingCode === 'string' ? existingCode : existingCode.code;
+              const c2 = code;
+              return c1?.toString().toUpperCase() === c2?.toString().toUpperCase();
+            });
+          });
+          if (hasConflict) return false;
+        }
+      }
+
+      return true;
     });
-  }, [replacementPool, modalSearchFileNo, modalSearchName, modalSearchConraiss]);
+  }, [replacementPool, modalSearchFileNo, modalSearchName, modalSearchConraiss, replacementFilterType, replacementSource, postings]);
 
   const handleSingleDelete = useCallback(async (record: PostingResponse) => {
     try {
@@ -1383,12 +1423,33 @@ const AnnualPostings: React.FC = () => {
                   setModalSearchFileNo('');
                   setModalSearchName('');
                   setModalSearchConraiss('');
+                  setReplacementFilterType('eligible'); // Reset on close
                 }} className="w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
                   <span className="material-symbols-outlined text-slate-400">close</span>
                 </button>
               </div>
 
-              <div className="px-6 py-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/50 dark:bg-slate-900/10">
+              <div className="px-6 py-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/50 dark:bg-slate-900/10 flex flex-col gap-4">
+                {/* Filter Toggle */}
+                <div className="flex bg-slate-200 dark:bg-slate-800/50 p-1 rounded-xl w-fit">
+                  <button
+                    onClick={() => setReplacementFilterType('eligible')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${replacementFilterType === 'eligible'
+                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >
+                    Eligible Staff
+                  </button>
+                  <button
+                    onClick={() => setReplacementFilterType('all')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${replacementFilterType === 'all'
+                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >
+                    All Staff
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">tag</span>
