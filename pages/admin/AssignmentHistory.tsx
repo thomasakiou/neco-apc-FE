@@ -112,6 +112,13 @@ const GeneratePage: React.FC = () => {
     const [orderedFieldIds, setOrderedFieldIds] = useState<string[]>(
         REPORT_FIELDS.filter(f => f.default).map(f => f.id)
     );
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+        const widths: Record<string, number> = {};
+        REPORT_FIELDS.forEach(f => {
+            widths[f.id] = typeof f.pdfWidth === 'number' ? f.pdfWidth : 30;
+        });
+        return widths;
+    });
     const [isConfigOpen, setIsConfigOpen] = useState(false);
     const [sortBy, setSortBy] = useState<string>(''); // empty means template default
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -593,7 +600,8 @@ const GeneratePage: React.FC = () => {
                     // Generate dynamic column styles
                     const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
                     activeFields.forEach((f, i) => {
-                        colStyles[i + 1] = { cellWidth: f.id === 'name' && pdfOrientation === 'portrait' ? 60 : f.pdfWidth || 'auto' };
+                        // Use dynamic width from state
+                        colStyles[i + 1] = { cellWidth: columnWidths[f.id] || 'auto' };
                         if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
                             colStyles[i + 1].halign = 'center';
                         }
@@ -763,7 +771,8 @@ const GeneratePage: React.FC = () => {
                     // Dynamic Column Sizing
                     const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
                     activeFields.forEach((f, i) => {
-                        colStyles[i] = { cellWidth: f.id === 'name' && pdfOrientation === 'portrait' ? 60 : f.pdfWidth || 'auto' };
+                        // Use dynamic width from state
+                        colStyles[i] = { cellWidth: columnWidths[f.id] || 'auto' };
                         if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
                             colStyles[i].halign = 'center';
                         }
@@ -825,7 +834,8 @@ const GeneratePage: React.FC = () => {
 
                 const colStyles: any = { 0: { halign: 'center', cellWidth: 15 } };
                 activeFields.forEach((f, i) => {
-                    colStyles[i + 1] = { cellWidth: f.id === 'name' && pdfOrientation === 'portrait' ? 60 : f.pdfWidth || 'auto' };
+                    // Use dynamic width from state
+                    colStyles[i + 1] = { cellWidth: columnWidths[f.id] || 'auto' };
                     if (f.id === 'conraiss' || f.id === 'count' || f.id === 'year') {
                         colStyles[i + 1].halign = 'center';
                     }
@@ -1016,6 +1026,20 @@ const GeneratePage: React.FC = () => {
                                                 >
                                                     <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                                                 </button>
+                                            </div>
+
+                                            {/* Width Input */}
+                                            <div className="border-l border-indigo-200 dark:border-indigo-900/50 pl-2 ml-1 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase">W:</span>
+                                                <input
+                                                    type="number"
+                                                    value={columnWidths[field.id] || 0}
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value) || 0;
+                                                        setColumnWidths(prev => ({ ...prev, [field.id]: val }));
+                                                    }}
+                                                    className="w-10 h-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-[10px] text-center font-bold outline-none focus:border-indigo-500"
+                                                />
                                             </div>
                                         </div>
                                     ))}
