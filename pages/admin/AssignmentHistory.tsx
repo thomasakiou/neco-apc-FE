@@ -78,7 +78,7 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'year', label: 'YEAR', accessor: r => r.year, default: false, pdfWidth: 20 },
     { id: 'location', label: 'LOCATION', accessor: r => r.location, default: false, pdfWidth: 40 },
     { id: 'state', label: 'STATE', accessor: r => r.state, default: true, pdfWidth: 30 },
-    { id: 'posting', label: 'POSTING', accessor: r => r.posting, default: false, pdfWidth: 30 },
+    { id: 'posted To', label: 'POSTED TO', accessor: r => r.posting, default: false, pdfWidth: 30 },
     { id: 'description', label: 'DESCRIPTION', accessor: r => r.description || '-', default: true, pdfWidth: 40 }
 ];
 
