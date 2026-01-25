@@ -14,6 +14,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
+import SearchableSelect from '../../components/SearchableSelect';
 
 interface FlatPostingRow {
     uniqueId: string; // composite of id + index
@@ -1128,34 +1129,32 @@ const GeneratePage: React.FC = () => {
                             onChange={(e) => setReportTitle1(e.target.value)}
                             placeholder="e.g. 2026 TRIAL TESTING: POSTING OF FACILITATORS"
                         />
-                        <select
-                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
-                            value={reportTitle1}
-                            onChange={(e) => setReportTitle1(e.target.value)}
-                        >
-                            <option value="">Select a Title or Leave Blank</option>
-                            {[
-                                "2026 TRIAL TESTING: POSTING OF FACILITATORS",
-                                "2026 TRIAL TESTING: POSTING OF INVIGILATORS",
-                                "2026 TRIAL TESTING: POSTING OF ACCOMPANYING OFFICERS",
-                                "2026 TRIAL TESTING: POSTING OF SURVEILLANCE OFFICERS",
-                                "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)",
-                                "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH A",
-                                "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH B",
-                                "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH A ",
-                                "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH B ",
-                                "2026 SSCE EXTERNAL: POSTING OF HODs",
-                                "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH A ",
-                                "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH B ",
-                                "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)",
-                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF ACCOMPANYING OFFICERS",
-                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF COUNTING_PACKAGING OFFICERS",
-                                "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF DAILY DISTRIBUTORS",
-                                "2026 ACCREDITATION EXERCISE"
-                            ].map(val => (
-                                <option key={val} value={val}>{val}</option>
-                            ))}
-                        </select>
+                        <div className="mt-1">
+                            <SearchableSelect
+                                options={[
+                                    { id: "2026 TRIAL TESTING: POSTING OF FACILITATORS", name: "2026 TRIAL TESTING: POSTING OF FACILITATORS" },
+                                    { id: "2026 TRIAL TESTING: POSTING OF INVIGILATORS", name: "2026 TRIAL TESTING: POSTING OF INVIGILATORS" },
+                                    { id: "2026 TRIAL TESTING: POSTING OF ACCOMPANYING OFFICERS", name: "2026 TRIAL TESTING: POSTING OF ACCOMPANYING OFFICERS" },
+                                    { id: "2026 TRIAL TESTING: POSTING OF SURVEILLANCE OFFICERS", name: "2026 TRIAL TESTING: POSTING OF SURVEILLANCE OFFICERS" },
+                                    { id: "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)", name: "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE INTERNAL)" },
+                                    { id: "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH A", name: "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH A" },
+                                    { id: "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH B", name: "2026 SSCE EXTERNAL: POSTING OF ACCOMPANYING OFFICERS BATCH B" },
+                                    { id: "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH A ", name: "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH A " },
+                                    { id: "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH B ", name: "2026 SSCE EXTERNAL: POSTING OF COUNTING_PACKAGING OFFICERS BATCH B " },
+                                    { id: "2026 SSCE EXTERNAL: POSTING OF HODs", name: "2026 SSCE EXTERNAL: POSTING OF HODs" },
+                                    { id: "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH A ", name: "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH A " },
+                                    { id: "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH B ", name: "2026 SSCE EXTERNAL: POSTING OF DAILY DISTRIBUTORS BATCH B " },
+                                    { id: "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)", name: "2026 NATIONAL COMMON ENTRANCE EXAMINATION (NCEE)" },
+                                    { id: "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF ACCOMPANYING OFFICERS", name: "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF ACCOMPANYING OFFICERS" },
+                                    { id: "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF COUNTING_PACKAGING OFFICERS", name: "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF COUNTING_PACKAGING OFFICERS" },
+                                    { id: "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF DAILY DISTRIBUTORS", name: "2026 BASIC EDUCATION CERTIFICATE EXAMINATION (BECE): POSTING OF DAILY DISTRIBUTORS" },
+                                    { id: "2026 ACCREDITATION EXERCISE", name: "2026 ACCREDITATION EXERCISE" }
+                                ]}
+                                value={reportTitle1}
+                                onChange={setReportTitle1}
+                                placeholder="Select a Quick Title"
+                            />
+                        </div>
                     </div>
                     <div>
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Report Title 2</label>
