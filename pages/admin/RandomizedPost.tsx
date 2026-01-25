@@ -197,7 +197,9 @@ const RandomizedPost: React.FC = () => {
             const matchName = p.name.toLowerCase().includes(previewSearchName.toLowerCase());
             const matchFileNo = p.file_no.toLowerCase().includes(previewSearchFileNo.toLowerCase());
             const matchStation = (p.station || '').toLowerCase().includes(previewSearchStation.toLowerCase());
-            const matchState = ((p as any).state_name || '').toLowerCase().includes(previewSearchState.toLowerCase());
+
+            const stateVal = Array.isArray(p.state) ? p.state.join(' ') : ((p as any).state_name || '');
+            const matchState = stateVal.toLowerCase().includes(previewSearchState.toLowerCase());
 
             return matchName && matchFileNo && matchStation && matchState;
         });
@@ -1314,7 +1316,7 @@ const RandomizedPost: React.FC = () => {
                                         <td className="p-3 font-bold">{p.conraiss}</td>
                                         <td className="p-3 text-sm">{p.station}</td>
                                         <td className="p-3 font-bold text-purple-600 dark:text-purple-400 text-sm">{p.assignment_venue?.[0]}</td>
-                                        <td className="p-3 text-sm">{p.state || (p as any).state_name || '-'}</td>
+                                        <td className="p-3 text-sm">{Array.isArray(p.state) ? p.state.join(', ') : ((p as any).state_name || '-')}</td>
                                         <td className="p-3 font-bold text-slate-600 dark:text-slate-400">{p.count || 0}</td>
                                         <td className="p-3 text-sm italic text-slate-500 max-w-[150px] truncate">{(p as any).description || '-'}</td>
                                     </tr>
