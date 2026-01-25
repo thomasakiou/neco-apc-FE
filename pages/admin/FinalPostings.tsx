@@ -149,6 +149,19 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                 </td>
                 <td className="px-4 py-4">
                     <div className="flex flex-col gap-2.5">
+                        {record.assignment_venue?.map((venue, idx) => {
+                            const venueStr = typeof venue === 'string' ? venue : venue?.name || venue?.code || '';
+                            const code = venueStr.includes('(') && venueStr.includes(')') ? venueStr.match(/\((.*?)\)/)?.[1] : '-';
+                            return (
+                                <div key={idx} className="text-xs font-mono font-bold text-slate-500 py-0.5">
+                                    {code}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </td>
+                <td className="px-4 py-4">
+                    <div className="flex flex-col gap-2.5">
                         {record.assignments?.map((assignment, idx) => {
                             const val = typeof assignment === 'string' ? assignment : assignment.name || assignment.code;
                             const name = assignmentMap.get(val) || val;
@@ -913,6 +926,7 @@ const FinalPostings: React.FC = () => {
                                     <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Name</th>
                                     <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Station</th>
                                     <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Rank</th>
+                                    <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Code</th>
                                     <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Assignments</th>
                                     <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Mandates</th>
                                     <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Venues</th>

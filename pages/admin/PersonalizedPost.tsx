@@ -25,7 +25,7 @@ const PersonalizedPost: React.FC = () => {
     const [selectedStationIds, setSelectedStationIds] = useState<string[]>([]);
     const [showVenueDropdown, setShowVenueDropdown] = useState(false);
     const venueDropdownRef = React.useRef<HTMLDivElement>(null);
-    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null; group?: string }[]>([]);
+    const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null; group?: string; code?: string }[]>([]);
     const [boardData, setBoardData] = useState<AssignmentBoardData | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -211,7 +211,8 @@ const PersonalizedPost: React.FC = () => {
                                 ...change,
                                 station: {
                                     name: targetStation.name,
-                                    state: targetStation.state
+                                    state: targetStation.state,
+                                    code: targetStation.code
                                 }
                             };
                         }
@@ -230,7 +231,8 @@ const PersonalizedPost: React.FC = () => {
                     id: selectedStationIds.join(','),
                     name: combinedStationName,
                     type: primaryStation.type,
-                    state: primaryStation.state
+                    state: primaryStation.state,
+                    code: primaryStation.code // Use primary station's code if only one selected or 1-to-many fallback
                 },
                 changes: finalChanges,
                 numberOfNights: (assignment?.code === 'MAR-ACCR' || assignment?.code === 'OCT-ACCR') ? numberOfNights : undefined,
@@ -282,7 +284,8 @@ const PersonalizedPost: React.FC = () => {
                     name: finalName,
                     type,
                     state: stateVal,
-                    group: type === 'state' ? 'All States' : (stateVal || 'Others')
+                    group: type === 'state' ? 'All States' : (stateVal || 'Others'),
+                    code: s.code || s.sch_no // Store code for mapping
                 };
             }));
             setManualStationType(type);

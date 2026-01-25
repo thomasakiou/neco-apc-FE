@@ -360,7 +360,7 @@ const RandomizedPost: React.FC = () => {
                     id: v.id,
                     name: v.name,
                     display_name: v.name, // Initial venues usually come with clean names, or use logic if needed
-                    code: v.code, // Include code for consistent display
+                    code: v.code || (v.name.match(/\((.*?)\)/)?.[1]), // Extract code if not explicit
                     type: 'marking_venue',
                     state_name: state?.name || v.state,
                     zone: state?.zone || undefined
@@ -456,7 +456,8 @@ const RandomizedPost: React.FC = () => {
                         type: type,
                         state_name: stateName,
                         zone: stateObj?.zone || undefined,
-                        candidates: candidateCount // Store candidate count
+                        candidates: candidateCount, // Store candidate count
+                        code: code // Store formatted code derived earlier
                     };
                 });
             }
@@ -1048,15 +1049,39 @@ const RandomizedPost: React.FC = () => {
 
                                 const newAssignmentCode = assignmentCode;
                                 const newMandate = targetMandate;
+                                // Construct clean venue name: prefer display_name, extract from parts, or use raw name
                                 const newVenue = ((v) => {
-                                    const codePrefix = v.code ? `(${v.code})` : '';
-                                    const hasCode = v.code && v.name.includes(codePrefix);
-                                    const baseName = (v.code && !hasCode) ? `${codePrefix} ${v.name}` : v.name;
-                                    const stateName = (v.state_name || v.state || '').trim();
-                                    if (stateName && !baseName.toLowerCase().includes(stateName.toLowerCase())) {
-                                        return `${baseName} | ${stateName}`;
+                                    // Robust Venue String Construction for Persistence
+                                    const parts = v.name.split(' | ');
+                                    const codeMatch = v.name.match(/\((\d+)\)/);
+                                    let extractedName = v.name;
+                                    let extractedCode = v.code || (codeMatch ? codeMatch[1] : '');
+
+                                    if (parts.length >= 2) {
+                                        extractedName = parts[1];
+                                        // If code is not in parts[0], try to find it
+                                        if (!extractedCode && parts[0].trim().startsWith('(')) {
+                                            const subMatch = parts[0].match(/\((\d+)\)/);
+                                            extractedCode = subMatch ? subMatch[1] : '';
+                                        }
+                                    } else {
+                                        // If no pipe, try to clean name if it starts with (CODE)
+                                        if (codeMatch && v.name.trim().startsWith('(')) {
+                                            // Remove the code parentheses from the name
+                                            extractedName = v.name.replace(/\(\d+\)\s*/, '');
+                                        }
                                     }
-                                    return baseName;
+
+                                    // Force format "Name (Code)" if code exists
+                                    if (extractedCode) {
+                                        return `${extractedName.trim()} (${extractedCode})`;
+                                    }
+                                    return extractedName.trim();
+                                })(vq.venue);
+                                const newVenueCode = vq.venue.code || ((v) => {
+                                    // Fallback: try to extract code from name if formatted like "(CODE) NAME..."
+                                    const match = v.name.match(/^\(([^)]+)\)/);
+                                    return match ? match[1] : '';
                                 })(vq.venue);
                                 const newState = vq.venue.state_name || '';
 
@@ -1064,11 +1089,13 @@ const RandomizedPost: React.FC = () => {
                                 const mergedAssignments = existingRecord?.assignments ? [...existingRecord.assignments] : [];
                                 const mergedMandates = existingRecord?.mandates ? [...existingRecord.mandates] : [];
                                 const mergedVenues = existingRecord?.assignment_venue ? [...existingRecord.assignment_venue] : [];
+                                const mergedVenueCodes = existingRecord?.venue_code ? [...existingRecord.venue_code] : (existingRecord?.assignment_venue?.map(_ => '') || []);
                                 const mergedStates = existingRecord?.state ? [...existingRecord.state] : (existingRecord?.assignment_venue?.map(_ => '') || []);
 
                                 mergedAssignments.push(newAssignmentCode);
                                 mergedMandates.push(newMandate);
                                 mergedVenues.push(newVenue);
+                                mergedVenueCodes.push(newVenueCode);
                                 mergedStates.push(newState);
 
                                 newPostings.push({
@@ -1083,6 +1110,7 @@ const RandomizedPost: React.FC = () => {
                                     assignments: mergedAssignments,
                                     mandates: mergedMandates,
                                     assignment_venue: mergedVenues,
+                                    venue_code: mergedVenueCodes,
                                     state: mergedStates, // Send merged states
                                     description: description || null // Include description
                                 });
@@ -1302,6 +1330,7 @@ const RandomizedPost: React.FC = () => {
                                     <th className="p-3">Name</th>
                                     <th className="p-3">CON</th>
                                     <th className="p-3">Station</th>
+                                    <th className="p-3">Code</th>
                                     <th className="p-3">Venue</th>
                                     <th className="p-3">State</th>
                                     <th className="p-3">Nights</th>
@@ -1315,8 +1344,9 @@ const RandomizedPost: React.FC = () => {
                                         <td className="p-3 font-medium text-slate-800 dark:text-slate-100">{p.name}</td>
                                         <td className="p-3 font-bold">{p.conraiss}</td>
                                         <td className="p-3 text-sm">{p.station}</td>
-                                        <td className="p-3 font-bold text-purple-600 dark:text-purple-400 text-sm">{p.assignment_venue?.[0]}</td>
-                                        <td className="p-3 text-sm">{Array.isArray(p.state) ? p.state.join(', ') : ((p as any).state_name || '-')}</td>
+                                        <td className="p-3 font-mono text-xs font-bold text-slate-500 dark:text-slate-400">{Array.isArray(p.venue_code) && p.venue_code.length > 0 ? p.venue_code[p.venue_code.length - 1] || '-' : (p.venue_code || '-')}</td>
+                                        <td className="p-3 font-bold text-purple-600 dark:text-purple-400 text-sm whitespace-pre-wrap">{Array.isArray(p.assignment_venue) && p.assignment_venue.length > 0 ? p.assignment_venue[p.assignment_venue.length - 1] || '-' : (p.assignment_venue || '-')}</td>
+                                        <td className="p-3 text-sm">{Array.isArray(p.state) && p.state.length > 0 ? p.state[p.state.length - 1] || '-' : ((p as any).state_name || '-')}</td>
                                         <td className="p-3 font-bold text-slate-600 dark:text-slate-400">{p.count || 0}</td>
                                         <td className="p-3 text-sm italic text-slate-500 max-w-[150px] truncate">{(p as any).description || '-'}</td>
                                     </tr>

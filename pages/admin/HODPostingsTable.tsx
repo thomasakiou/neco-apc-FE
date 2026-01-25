@@ -43,6 +43,12 @@ const REPORT_FIELDS: ReportField[] = [
         }, default: true, pdfWidth: 30
     },
     { id: 'conraiss', label: 'CONRAISS', accessor: r => r.conraiss || '-', default: true, pdfWidth: 25 },
+    {
+        id: 'code', label: 'CODE', accessor: r => (r.assignment_venue || []).map((v: any) => {
+            if (!v || typeof v !== 'string') return '-';
+            return v.match(/\((\d+)\)/)?.[1] || '-';
+        }).join(', ') || '-', default: true, pdfWidth: 25
+    },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => (r.assignments || []).map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', ') || '-', default: true, pdfWidth: 45 },
     { id: 'mandate', label: 'MANDATE', accessor: r => (r.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-', default: true, pdfWidth: 40 },
     {
@@ -1461,6 +1467,7 @@ const HODPostingsTable: React.FC = () => {
                                 <th className="px-4 py-3">Station</th>
                                 <th className="px-4 py-3">State</th>
                                 <th className="px-4 py-3">CON</th>
+                                <th className="px-4 py-3">Code</th>
                                 <th className="px-4 py-3">Assignment</th>
                                 <th className="px-4 py-3">Venue</th>
                                 <th className="px-4 py-3">Mandate</th>
@@ -1504,6 +1511,18 @@ const HODPostingsTable: React.FC = () => {
                                             <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">
                                                 {p.conraiss || '-'}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex flex-wrap gap-1">
+                                                {p.assignment_venue?.map((v: any, idx: number) => {
+                                                    const code = (typeof v === 'string' ? v.match(/\((\d+)\)/)?.[1] : v?.code) || '-';
+                                                    return (
+                                                        <span key={idx} className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono border border-slate-200 dark:border-slate-700">
+                                                            {code}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex flex-wrap gap-1">

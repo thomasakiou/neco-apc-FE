@@ -27,6 +27,7 @@ interface FlatPostingRow {
     assignment: string;
     mandate: string;
     venue: string;
+    code: string; // Added Code
     posting: string;
     state: string;
     count: number;
@@ -73,6 +74,7 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'qualification', label: 'QUALIFICATION', accessor: r => '', default: false, pdfWidth: 40 }, // Populated via APC lookup
     { id: 'mandate', label: 'MANDATE', accessor: r => r.mandate, default: true, pdfWidth: 40 },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => r.assignment, default: true, pdfWidth: 40 },
+    { id: 'code', label: 'CODE', accessor: r => r.code, default: true, pdfWidth: 20 }, // New Code Column
     { id: 'venue', label: 'VENUE', accessor: r => formatVenueName(r.venue), default: true, pdfWidth: 60 },
     { id: 'count', label: 'NO. OF NIGHTS', accessor: r => r.count || 0, default: true, pdfWidth: 20 },
     { id: 'year', label: 'YEAR', accessor: r => r.year, default: false, pdfWidth: 20 },
@@ -261,8 +263,8 @@ const GeneratePage: React.FC = () => {
         });
 
         const extractCode = (text: string) => {
-            const match = text.match(/\((.*?)\)/);
-            return match ? normalize(match[1]) : null;
+            const match = text.match(/\((\d+)\)/);
+            return match ? match[1] : ''; // Keep raw code without normalization for display
         };
 
         const cleanName = (text: string) => {
@@ -295,6 +297,7 @@ const GeneratePage: React.FC = () => {
 
                 let posting = vName; // Default posting to full name
                 let cleanVenueName = vName; // Will hold just the name part
+                let venueCode = extractCode(vName); // Extract Code
 
                 if (!state && vName.includes('|')) {
                     const parts = vName.split('|').map(p => p.trim());
@@ -345,6 +348,7 @@ const GeneratePage: React.FC = () => {
                     assignment: aName,
                     mandate: mName,
                     venue: vName, // formatVenueName(vName) might be stripping code, using raw vName ensures PDF parser gets full string
+                    code: venueCode, // Populate code
                     posting: posting || '-',
                     state: state || '-',
                     count: p.count || 0,
@@ -353,8 +357,8 @@ const GeneratePage: React.FC = () => {
                         nceeMap.get(normalize(posting)) ||
                         giftedMap.get(normalize(vName)) ||
                         giftedMap.get(normalize(posting)) ||
-                        (extractCode(vName) ? nceeMap.get(extractCode(vName)!) : null) ||
-                        (extractCode(vName) ? giftedMap.get(extractCode(vName)!) : null) ||
+                        (venueCode ? nceeMap.get(normalize(venueCode)) : null) || // Check by code
+                        (venueCode ? giftedMap.get(normalize(venueCode)) : null) ||
                         nceeMap.get(cleanName(vName)) ||
                         nceeMap.get(cleanName(posting)) ||
                         giftedMap.get(cleanName(vName)) ||

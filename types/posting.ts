@@ -14,6 +14,7 @@ export interface PostingResponse {
     posted_for?: number | null;
     to_be_posted?: number | null;
     description?: string | null;
+    venue_code?: string[] | null;
     created_at?: string | null;
     updated_at?: string | null;
     created_by?: string | null;
@@ -42,6 +43,7 @@ export interface PostingCreate {
     posted_for?: number | null;
     to_be_posted?: number | null;
     description?: string | null;
+    venue_code?: string[] | null;
 }
 
 export interface PostingUpdate {
@@ -59,6 +61,7 @@ export interface PostingUpdate {
     posted_for?: number | null;
     to_be_posted?: number | null;
     description?: string | null;
+    venue_code?: string[] | null;
 }
 
 export interface BulkPostingCreateRequest {

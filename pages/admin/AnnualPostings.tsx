@@ -118,6 +118,20 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
         </td>
         <td className="px-4 py-4">
           <div className="flex flex-col gap-1.5">
+            {record.assignment_venue?.map((venue, idx) => {
+              // Try to find code in venue_code first, then parse from venue string (STRICT: digits only), then empty
+              const code = record.venue_code?.[idx] || (typeof venue === 'string' ? venue.match(/\((\d+)\)/)?.[1] : '');
+              if (idx === 0) console.log('DEBUG Code Extraction:', { venue, savedCode: record.venue_code?.[idx], extracted: code });
+              return (
+                <div key={idx} className="whitespace-normal min-w-[50px] font-mono text-xs font-bold text-slate-500">
+                  {code || '-'}
+                </div>
+              );
+            })}
+          </div>
+        </td>
+        <td className="px-4 py-4">
+          <div className="flex flex-col gap-1.5">
             {record.assignments.map((assignment, idx) => (
               <div key={idx}>
                 <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase whitespace-nowrap">
@@ -196,58 +210,60 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
           </div>
         </td>
       </tr>
-      {isExpanded && (
-        <tr className="bg-slate-50/50 dark:bg-slate-800/30">
-          <td colSpan={10} className="p-0">
-            <div className="px-16 py-6 animate-in slide-in-from-top-2 duration-200">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
-                <div>
-                  <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Mandates</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {record.mandates.map((m, i) => (
-                      <span key={i} className="px-2 py-1 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-sm font-bold text-sm">
-                        {typeof m === 'string' ? m : m.mandate || m.code}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="col-span-2 mt-2">
-                  <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Description</span>
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300 italic p-2 bg-white dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700 min-h-[30px]">
-                    {record.description || 'No description provided.'}
-                  </p>
-                </div>
-
-                <div>
-                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Qualification</span>
-                  <span className="text-slate-700 dark:text-slate-300 font-bold">{record.qualification || '-'}</span>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Posting Stats</span>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500">Count:</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-300">{record.count || 0}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500">Posted For:</span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 rounded">{record.posted_for || 0}</span>
+      {
+        isExpanded && (
+          <tr className="bg-slate-50/50 dark:bg-slate-800/30">
+            <td colSpan={10} className="p-0">
+              <div className="px-16 py-6 animate-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
+                  <div>
+                    <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Mandates</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {record.mandates.map((m, i) => (
+                        <span key={i} className="px-2 py-1 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-sm font-bold text-sm">
+                          {typeof m === 'string' ? m : m.mandate || m.code}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</span>
-                  <span className="inline-flex px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black">
-                    Post Active
-                  </span>
+
+                  {/* Description */}
+                  <div className="col-span-2 mt-2">
+                    <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Description</span>
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300 italic p-2 bg-white dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700 min-h-[30px]">
+                      {record.description || 'No description provided.'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Qualification</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-bold">{record.qualification || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Posting Stats</span>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500">Count:</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300">{record.count || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500">Posted For:</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 rounded">{record.posted_for || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</span>
+                    <span className="inline-flex px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black">
+                      Post Active
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </td>
-        </tr >
-      )}
+            </td>
+          </tr >
+        )
+      }
     </React.Fragment >
   );
 });
@@ -1292,6 +1308,7 @@ const AnnualPostings: React.FC = () => {
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Station</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Conraiss</th>
+                    <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Code</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assignments</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Mandates</th>
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Venue</th>

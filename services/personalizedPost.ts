@@ -201,8 +201,8 @@ export const bulkSaveAssignments = async (
     payload: {
         assignment: Assignment;
         mandate?: MandateColumn;
-        station?: { id: string; name: string; type: string; state?: string | null };
-        changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null; station?: { name: string; state?: string } }[];
+        station?: { id: string; name: string; type: string; state?: string | null; code?: string };
+        changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null; station?: { name: string; state?: string; code?: string } }[];
         numberOfNights?: number;
         description?: string;
     }
@@ -243,6 +243,7 @@ export const bulkSaveAssignments = async (
 
         // Use override station if provided, otherwise fallback to global station
         const venue = change.station?.name || station?.name || '';
+        const venueCode = change.station?.code || station?.code || '';
 
         if (change.action === 'add' || change.action === 'move') {
             const existingAssignments = postingRecord?.assignments || [];
@@ -270,11 +271,13 @@ export const bulkSaveAssignments = async (
             const newAssignments = postingRecord?.assignments ? [...postingRecord.assignments] : [];
             const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : newAssignments.map(_ => '');
             const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : newAssignments.map(_ => '');
+            const newVenueCodes = postingRecord?.venue_code ? [...postingRecord.venue_code] : (postingRecord?.assignment_venue?.map(_ => '') || []);
             const newStates = postingRecord?.state ? [...postingRecord.state] : newAssignments.map(_ => '');
 
             // Pad if out of sync
             while (newMandates.length < newAssignments.length) newMandates.push('');
             while (newVenues.length < newAssignments.length) newVenues.push('');
+            while (newVenueCodes.length < newAssignments.length) newVenueCodes.push('');
             while (newStates.length < newAssignments.length) newStates.push('');
 
             const normalize = (s: string) => s.toString().trim().toUpperCase();
@@ -288,6 +291,7 @@ export const bulkSaveAssignments = async (
                 newAssignments.splice(existingIdx, 1);
                 newMandates.splice(existingIdx, 1);
                 newVenues.splice(existingIdx, 1);
+                newVenueCodes.splice(existingIdx, 1);
                 newStates.splice(existingIdx, 1);
             }
 
@@ -296,6 +300,15 @@ export const bulkSaveAssignments = async (
 
             // Priority: Mandate Default > Change Override > Global Selection
             const finalVenue = matchedMandate?.station || change.station?.name || venue;
+            // Extract code from final venue name if not explicitly provided
+            let finalVenueCode = change.station?.code || station?.code || venueCode;
+            if (!finalVenueCode && finalVenue) {
+                const match = finalVenue.match(/^\(([^)]+)\)/); // match "(CODE)" at start
+                if (match) finalVenueCode = match[1];
+            }
+            // Ensure we handle defaults if still missing
+            finalVenueCode = finalVenueCode || '';
+
             let finalState = change.station?.state || station?.state || '';
 
             if (matchedMandate?.station?.includes('|')) {
@@ -305,6 +318,7 @@ export const bulkSaveAssignments = async (
             newAssignments.push(assignment.code);
             newMandates.push(mandateName.substring(0, 50));
             newVenues.push(finalVenue);
+            newVenueCodes.push(finalVenueCode);
             newStates.push(finalState);
 
             postingMap.set(normalizedStaffNo, {
@@ -320,6 +334,7 @@ export const bulkSaveAssignments = async (
                 assignments: newAssignments,
                 mandates: newMandates,
                 assignment_venue: newVenues,
+                venue_code: newVenueCodes,
                 state: newStates,
                 description: description || (postingRecord?.description) || null
             });
@@ -338,6 +353,7 @@ export const bulkSaveAssignments = async (
                 const assignments = postingRecord.assignments ? [...postingRecord.assignments] : [];
                 const mandates = postingRecord.mandates ? [...postingRecord.mandates] : [];
                 const venues = postingRecord.assignment_venue ? [...postingRecord.assignment_venue] : [];
+                const venueCodes = postingRecord.venue_code ? [...postingRecord.venue_code] : [];
                 const states = postingRecord.state ? [...postingRecord.state] : [];
 
                 const normalize = (s: string) => s.toString().trim().toUpperCase();
@@ -352,6 +368,7 @@ export const bulkSaveAssignments = async (
                     assignments.splice(idx, 1);
                     mandates.splice(idx, 1);
                     venues.splice(idx, 1);
+                    if (venueCodes.length > idx) venueCodes.splice(idx, 1);
                     if (states.length > idx) states.splice(idx, 1);
 
                     postingMap.set(normalizedStaffNo, {
@@ -359,6 +376,7 @@ export const bulkSaveAssignments = async (
                         assignments,
                         mandates,
                         assignment_venue: venues,
+                        venue_code: venueCodes,
                         state: states,
                         posted_for: assignments.length,
                         to_be_posted: allottedCount - assignments.length

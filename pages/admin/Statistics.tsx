@@ -586,6 +586,7 @@ const Statistics: React.FC = () => {
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">State</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">APC Status</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">Post Status</th>
+                                <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">Venue Code</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">DOPA</th>
                             </tr>
                         </thead>
@@ -625,6 +626,16 @@ const Statistics: React.FC = () => {
                                                 ) : (
                                                     hasAPC ? <span className="text-amber-600 font-medium">Not Posted</span> : '-'
                                                 )}
+                                            </td>
+                                            <td className="p-3 text-sm text-slate-700 dark:text-slate-300 font-mono font-bold">
+                                                {(() => {
+                                                    if (!isPosted || !p?.assignment_venue) return '-';
+                                                    const codes = p.assignment_venue.map((v: any) => {
+                                                        const vStr = typeof v === 'string' ? v : v.name || v.code || '';
+                                                        return (vStr.match(/\((\d+)\)/)?.[1]) || '-';
+                                                    }).filter(c => c !== '-');
+                                                    return codes.length > 0 ? codes.join(', ') : '-';
+                                                })()}
                                             </td>
                                             <td className="p-3 text-sm font-mono text-slate-700 dark:text-slate-300">{staff.dopa || '-'}</td>
                                         </tr>

@@ -713,6 +713,7 @@ const HODPostings: React.FC = () => {
                                 <th className="p-3">Name</th>
                                 <th className="p-3">Station</th>
                                 <th className="p-3">CON</th>
+                                <th className="p-3">Code</th>
                                 <th className="p-3">Venue</th>
                                 <th className="p-3">State</th>
                             </tr>
@@ -724,6 +725,12 @@ const HODPostings: React.FC = () => {
                                     <td className="p-3 font-medium">{p.name}</td>
                                     <td className="p-3 font-bold text-xs text-slate-500">{p.station || '-'}</td>
                                     <td className="p-3 font-bold">{p.conraiss}</td>
+                                    <td className="p-3 font-mono font-bold text-slate-500 text-xs">
+                                        {(() => {
+                                            const venue = p.assignment_venue?.[0] || '';
+                                            return (venue.match(/\((.*?)\)/)?.[1]) || '-';
+                                        })()}
+                                    </td>
                                     <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">{p.assignment_venue?.[0]}</td>
                                     <td className="p-3">{p.state || (p as any).state_name || '-'}</td>
                                 </tr>
