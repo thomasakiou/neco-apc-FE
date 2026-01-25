@@ -121,7 +121,6 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
             {record.assignment_venue?.map((venue, idx) => {
               // Try to find code in venue_code first, then parse from venue string (STRICT: digits only), then empty
               const code = record.venue_code?.[idx] || (typeof venue === 'string' ? venue.match(/\((\d+)\)/)?.[1] : '');
-              if (idx === 0) console.log('DEBUG Code Extraction:', { venue, savedCode: record.venue_code?.[idx], extracted: code });
               return (
                 <div key={idx} className="whitespace-normal min-w-[50px] font-mono text-xs font-bold text-slate-500">
                   {code || '-'}

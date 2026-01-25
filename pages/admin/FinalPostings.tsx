@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import * as XLSX from 'xlsx';
-import { getAllFinalPostings, deleteAllFinalPostings, bulkDeleteFinalPostings } from '../../services/finalPosting';
+import { getAllFinalPostings, deleteAllFinalPostings, bulkDeleteFinalPostings, updateFinalPosting } from '../../services/finalPosting';
 import { bulkCreatePostings } from '../../services/posting';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllStates } from '../../services/state';
@@ -340,85 +340,139 @@ const FinalPostings: React.FC = () => {
 
         // 1. Identify which original records actually match current filters
         const selectedGrouped = postings.filter(p => selectedIds.has(p.id));
-        const recordsToProcess: FinalPostingResponse[] = [];
+        const recordsToUpdate: { id: string, payload: any, removedAssignments: any[] }[] = [];
+        const idsToDelete: string[] = [];
 
         selectedGrouped.forEach(group => {
             const originalRecords = (group as any)._original || [group];
-            recordsToProcess.push(...originalRecords.filter(matchesFilter));
+
+            originalRecords.forEach((p: FinalPostingResponse) => {
+                const indices = getMatchingIndices(p);
+                if (indices.length === 0) return;
+
+                const totalLength = Math.max(
+                    p.assignments?.length || 0,
+                    p.mandates?.length || 0,
+                    p.assignment_venue?.length || 0
+                );
+
+                if (indices.length === totalLength) {
+                    // ALL assignments in this record match the filter - DELETE the record
+                    idsToDelete.push(p.id);
+                    recordsToUpdate.push({ id: p.id, payload: null, removedAssignments: p.assignments || [] });
+                } else {
+                    // Only SOME assignments match - UPDATE the record to remove them
+                    const remainingIndices = Array.from({ length: totalLength }, (_, i) => i).filter(i => !indices.includes(i));
+                    const payload = {
+                        // Include all required fields from p to ensure a complete update
+                        file_no: p.file_no,
+                        name: p.name,
+                        station: p.station,
+                        conraiss: p.conraiss,
+                        sex: p.sex,
+                        year: p.year,
+                        posted_for: p.posted_for,
+                        count: p.count,
+                        to_be_posted: p.to_be_posted,
+                        description: p.description,
+                        // Update the parallel arrays
+                        assignments: remainingIndices.map(i => p.assignments?.[i]),
+                        mandates: remainingIndices.map(i => p.mandates?.[i]),
+                        assignment_venue: remainingIndices.map(i => p.assignment_venue?.[i]),
+                        state: remainingIndices.map(i => p.state?.[i]),
+                        venue_code: remainingIndices.map(i => p.venue_code?.[i]),
+                    };
+                    recordsToUpdate.push({
+                        id: p.id,
+                        payload,
+                        removedAssignments: indices.map(i => p.assignments?.[i])
+                    });
+                }
+            });
         });
 
-        if (recordsToProcess.length === 0) {
+        if (recordsToUpdate.length === 0) {
             alert("No records match your current filters in the selection.");
             return;
         }
 
         const confirmed = window.confirm(
-            `Are you sure you want to delete ${recordsToProcess.length} assignment record(s)? This will return the staff to the pool.`
+            `Are you sure you want to remove assignment(s) for ${recordsToUpdate.length} record(s)? This will return them to the pool.`
         );
 
         if (!confirmed) return;
 
         try {
             setDeleting(true);
-            setDeletionProgress({ current: 0, total: recordsToProcess.length });
+            setDeletionProgress({ current: 0, total: recordsToUpdate.length });
 
             // 1. Fetch all APC records to perform updates
             const allAPC = await getAllAPCRecords(false, true);
             const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
 
-            // 2. Process matched records to update APC
-            const CHUNK_SIZE = 50;
-            for (let i = 0; i < recordsToProcess.length; i += CHUNK_SIZE) {
-                const chunk = recordsToProcess.slice(i, i + CHUNK_SIZE);
-                const updates = [];
+            // 2. Process records (Update or Delete in Final Table, and Restore APC)
+            const CHUNK_SIZE = 20; // Smaller chunk for complex operations
+            for (let i = 0; i < recordsToUpdate.length; i += CHUNK_SIZE) {
+                const chunk = recordsToUpdate.slice(i, i + CHUNK_SIZE);
+                const apiCalls = [];
 
-                for (const posting of chunk) {
-                    const normFileNo = posting.file_no.toString().padStart(4, '0');
-                    const apcRecord = apcMap.get(normFileNo);
+                for (const item of chunk) {
+                    // A. Restore APC
+                    const posting = selectedGrouped.flatMap(g => (g as any)._original || [g]).find(p => p.id === item.id);
+                    if (posting) {
+                        const normFileNo = posting.file_no.toString().padStart(4, '0');
+                        const apcRecord = apcMap.get(normFileNo);
 
-                    if (apcRecord && posting.assignments && posting.assignments.length > 0) {
-                        let payload: any = { ...apcRecord };
-                        const { id, created_at, updated_at, created_by, updated_by, ...rest } = payload;
-                        payload = { ...rest };
+                        if (apcRecord && item.removedAssignments.length > 0) {
+                            let apcPayload: any = { ...apcRecord };
+                            const { id, created_at, updated_at, created_by, updated_by, ...rest } = apcPayload;
+                            apcPayload = { ...rest };
 
-                        let hasChanges = false;
-                        posting.assignments.forEach((assignment: any) => {
-                            const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
-                            const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
-                            if (fieldName) {
-                                payload[fieldName] = null; // Clear the assignment field in APC (Mark as un-posted)
-                                hasChanges = true;
+                            let apcChanged = false;
+                            item.removedAssignments.forEach((assignment: any) => {
+                                const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
+                                const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
+                                if (fieldName) {
+                                    apcPayload[fieldName] = null; // Clear the assignment field in APC
+                                    apcChanged = true;
+                                }
+                            });
+
+                            if (apcChanged) {
+                                apiCalls.push(updateAPC(apcRecord.id, apcPayload));
                             }
-                        });
-
-                        if (hasChanges) {
-                            updates.push(updateAPC(apcRecord.id, payload));
                         }
+                    }
+
+                    // B. Modify Final Table
+                    if (item.payload === null) {
+                        // All assignments matched - Delete
+                        apiCalls.push(bulkDeleteFinalPostings([item.id]));
+                    } else {
+                        // Partial match - Update
+                        apiCalls.push(updateFinalPosting(item.id, item.payload));
                     }
                 }
 
-                if (updates.length > 0) {
-                    await Promise.allSettled(updates);
+                if (apiCalls.length > 0) {
+                    await Promise.allSettled(apiCalls);
                 }
 
                 setDeletionProgress(prev => ({
-                    current: Math.min(i + CHUNK_SIZE, recordsToProcess.length),
-                    total: recordsToProcess.length
+                    current: Math.min(i + CHUNK_SIZE, recordsToUpdate.length),
+                    total: recordsToUpdate.length
                 }));
             }
 
-            // 3. Delete from final table
-            const idsToDelete = recordsToProcess.map(r => r.id);
-            await bulkDeleteFinalPostings(idsToDelete);
-            success(`${recordsToProcess.length} assignment records deleted.`);
+            success(`Successfully removed matched assignments from ${recordsToUpdate.length} record(s).`);
 
             // Cleanup local state
             setSelectedIds(new Set());
             setDeletionProgress(null);
-            fetchInitialData(); // Full refresh to ensure grouped state is correct
+            fetchInitialData();
         } catch (err: any) {
             console.error(err);
-            error(err.message || 'Failed to delete final postings.');
+            error(err.message || 'Failed to update final postings.');
             setDeletionProgress(null);
         } finally {
             setDeleting(false);
@@ -684,6 +738,72 @@ const FinalPostings: React.FC = () => {
         assignmentMap
     ]);
 
+    const getMatchingIndices = useCallback((p: FinalPostingResponse) => {
+        const indices: number[] = [];
+        const length = Math.max(
+            p.assignments?.length || 0,
+            p.mandates?.length || 0,
+            p.assignment_venue?.length || 0,
+            p.state?.length || 0,
+            p.venue_code?.length || 0 // Include venue_code length
+        );
+
+        for (let i = 0; i < length; i++) {
+            let indexMatch = true;
+
+            // Check if the overall record matches general filters (fileNo, name, station)
+            if (debouncedFileNo && !String(p.file_no || '').toLowerCase().includes(debouncedFileNo.toLowerCase())) indexMatch = false;
+            if (debouncedName && !String(p.name || '').toLowerCase().includes(debouncedName.toLowerCase())) indexMatch = false;
+            if (debouncedStation && !p.station?.toLowerCase().includes(debouncedStation.toLowerCase())) indexMatch = false;
+            if (filterYear && p.year !== filterYear) indexMatch = false;
+
+            if (!indexMatch) continue; // If general filters don't match, this index can't match
+
+            // Check specific index-based filters
+            let subIndexMatch = true; // This flag tracks if the *current index* matches the specific filters
+
+            if (filterAssignment) {
+                const a = p.assignments?.[i];
+                const val = typeof a === 'string' ? a : a?.name || a?.code;
+                const name = assignmentMap.get(val || '') || val;
+                if (!name?.toLowerCase().includes(filterAssignment.toLowerCase())) {
+                    subIndexMatch = false;
+                }
+            }
+
+            if (subIndexMatch && filterMandate) {
+                const m = p.mandates?.[i];
+                const mName = typeof m === 'string' ? m : m?.mandate || m?.code;
+                if (mName !== filterMandate) {
+                    subIndexMatch = false;
+                }
+            }
+
+            if (subIndexMatch && filterVenue) {
+                const v = p.assignment_venue?.[i];
+                const vName = typeof v === 'string' ? v : v?.name || v?.code;
+                if (vName !== filterVenue) {
+                    subIndexMatch = false;
+                }
+            }
+
+            if (subIndexMatch && filterState) {
+                const s = p.state?.[i];
+                const venueStr = typeof p.assignment_venue?.[i] === 'string' ? p.assignment_venue?.[i] : p.assignment_venue?.[i]?.name;
+                const derivedState = s || (venueStr?.includes('|') ? venueStr.split('|').pop().trim() : undefined);
+
+                if (!derivedState || normalizeString(derivedState) !== normalizeString(filterState)) {
+                    subIndexMatch = false;
+                }
+            }
+
+            if (subIndexMatch) {
+                indices.push(i);
+            }
+        }
+        return indices;
+    }, [filterAssignment, filterMandate, filterVenue, filterState, assignmentMap, debouncedFileNo, debouncedName, debouncedStation, filterYear]);
+
     const filteredPostings = useMemo(() => {
         return postings.filter(matchesFilter);
     }, [postings, matchesFilter]);
@@ -718,19 +838,36 @@ const FinalPostings: React.FC = () => {
 
         // 1. Identify which original records actually match current filters
         const selectedGrouped = postings.filter(p => selectedIds.has(p.id));
-        const recordsToProcess: FinalPostingResponse[] = [];
+        const recordsToImport: FinalPostingResponse[] = [];
 
         selectedGrouped.forEach(group => {
             const originalRecords = (group as any)._original || [group];
-            recordsToProcess.push(...originalRecords.filter(matchesFilter));
+
+            originalRecords.forEach((p: FinalPostingResponse) => {
+                const indices = getMatchingIndices(p);
+                if (indices.length > 0) {
+                    // Create a "sliced" clone of the record containing only matching assignments
+                    // Ensure we don't send undefined/null if arrays are mismatched
+                    const slicedRecord: any = {
+                        ...p,
+                        assignments: indices.map(i => p.assignments?.[i]).filter(v => v !== undefined && v !== null),
+                        mandates: indices.map(i => p.mandates?.[i]).filter(v => v !== undefined && v !== null),
+                        assignment_venue: indices.map(i => p.assignment_venue?.[i]).filter(v => v !== undefined && v !== null),
+                        state: indices.map(i => p.state?.[i]).filter(v => v !== undefined && v !== null),
+                    };
+                    // Remove venue_code as it's not supported by PostingCreate in the backend
+                    delete (slicedRecord as any).venue_code;
+                    recordsToImport.push(slicedRecord);
+                }
+            });
         });
 
-        if (recordsToProcess.length === 0) {
+        if (recordsToImport.length === 0) {
             alert("No records match your current filters in the selection.");
             return;
         }
 
-        if (!window.confirm(`Are you sure you want to IMPORT ${recordsToProcess.length} records to the Staging area?`)) {
+        if (!window.confirm(`Are you sure you want to IMPORT ${recordsToImport.length} records to the Staging area?`)) {
             return;
         }
 
@@ -739,14 +876,14 @@ const FinalPostings: React.FC = () => {
 
             // Transform to PostingCreate format
             const payload = {
-                items: recordsToProcess.map(p => {
+                items: recordsToImport.map(p => {
                     const { id, created_at, updated_at, created_by, updated_by, ...rest } = p;
                     return rest;
                 })
             };
 
             await bulkCreatePostings(payload);
-            success(`Successfully imported ${recordsToProcess.length} records to Staging.`);
+            success(`Successfully imported ${recordsToImport.length} records to Staging.`);
             setSelectedIds(new Set()); // Clear selection
         } catch (err: any) {
             console.error("Import failed", err);

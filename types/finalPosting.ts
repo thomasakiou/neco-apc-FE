@@ -14,6 +14,7 @@ export interface FinalPostingResponse {
     posted_for?: number | null;
     to_be_posted?: number | null;
     description?: string | null;
+    venue_code?: string[] | null;
     created_at?: string | null;
     updated_at?: string | null;
     created_by?: string | null;

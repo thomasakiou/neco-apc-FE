@@ -1,6 +1,6 @@
 import { getAuthHeaders } from './apiUtils';
 import { API_BASE_URL } from '../src/config';
-import { FinalPostingListResponse, FinalPostingBulkUploadResponse } from '../types/finalPosting';
+import { FinalPostingListResponse, FinalPostingBulkUploadResponse, FinalPostingResponse } from '../types/finalPosting';
 
 const BASE_URL = `${API_BASE_URL}/final-posting`;
 
@@ -77,6 +77,24 @@ export const bulkDeleteFinalPostings = async (ids: string[]): Promise<any> => {
             ? JSON.stringify(errorData.detail)
             : (errorData.detail || 'Failed to delete selected final postings');
         throw new Error(errorMessage);
+    }
+
+    // Invalidate cache
+    finalPostingCache = null;
+
+    return response.json();
+};
+
+export const updateFinalPosting = async (id: string, payload: any): Promise<FinalPostingResponse> => {
+    const response = await fetch(`${BASE_URL}/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to update final posting');
     }
 
     // Invalidate cache
