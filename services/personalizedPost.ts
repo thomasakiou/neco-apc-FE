@@ -4,6 +4,7 @@ import { getMandatesByAssignment } from './assignment';
 import { getAllAPC, createAPC, updateAPC, deleteAPC } from './apc';
 import { Assignment } from '../types/assignment';
 import { getAllPostingRecords, bulkCreatePostings, bulkDeletePostings, createPosting, updatePosting } from './posting';
+import { getAllFinalPostings } from './finalPosting';
 import { PostingCreate, PostingUpdate, BulkPostingCreateRequest } from '../types/posting';
 
 // Map assignment codes and common names to APC field names
@@ -54,11 +55,12 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const useCache = staffCache && apcCacheFull && (now - lastCacheTime < CACHE_TTL);
 
     // 1. Fetch data (with caching logic)
-    const [mandates, allStaff, apcResponse, allPostings] = await Promise.all([
+    const [mandates, allStaff, apcResponse, allPostings, allFinalPostings] = await Promise.all([
         getMandatesByAssignment(assignment),
         useCache ? Promise.resolve(staffCache) : getAllStaff(true),
         useCache ? Promise.resolve({ items: apcCacheFull }) : getAllAPC(0, 100000, '', true),
-        getAllPostingRecords(true) // Always fetch postings fresh as they change frequently
+        getAllPostingRecords(true), // Always fetch postings fresh as they change frequently
+        getAllFinalPostings() // Also fetch final postings to exclude already archived staff
     ]);
 
     // Update caches
@@ -102,6 +104,7 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         }
     });
 
+    // Process Posting table records
     allPostings.forEach(p => {
         const normalizedFileNo = p.file_no.toString().padStart(4, '0');
         const assignmentsArr = Array.isArray(p.assignments) ? p.assignments : [];
@@ -110,6 +113,23 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         if (assignmentsArr.length > 0) {
             const specificSet = staffPostedSpecifics.get(normalizedFileNo) || new Set();
             assignmentsArr.forEach(code => {
+                if (code) specificSet.add(code.toString().trim().toUpperCase());
+            });
+            staffPostedSpecifics.set(normalizedFileNo, specificSet);
+        }
+    });
+
+    // Process Final Posting table records (to also exclude archived staff)
+    const finalPostingItems = allFinalPostings.items || (Array.isArray(allFinalPostings) ? allFinalPostings : []);
+    finalPostingItems.forEach((p: any) => {
+        const normalizedFileNo = p.file_no.toString().padStart(4, '0');
+        const assignmentsArr = Array.isArray(p.assignments) ? p.assignments : [];
+        // Add to count for final postings too
+        staffPostingsCount.set(normalizedFileNo, (staffPostingsCount.get(normalizedFileNo) || 0) + assignmentsArr.length);
+
+        if (assignmentsArr.length > 0) {
+            const specificSet = staffPostedSpecifics.get(normalizedFileNo) || new Set();
+            assignmentsArr.forEach((code: any) => {
                 if (code) specificSet.add(code.toString().trim().toUpperCase());
             });
             staffPostedSpecifics.set(normalizedFileNo, specificSet);
@@ -125,8 +145,21 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         const postedSpecifics = staffPostedSpecifics.get(normalizedStaffFileNo);
 
         // Hide if already posted for THIS assignment type (Case-Insensitive)
+        // Check both assignment code AND name since postings may store either
         const normalize = (s: string) => s.toString().trim().toUpperCase();
-        if (postedSpecifics && postedSpecifics.has(normalize(assignment.code))) return;
+        const assignmentCode = normalize(assignment.code);
+        const assignmentName = normalize(assignment.name);
+
+        if (postedSpecifics) {
+            // Check if any stored value matches the code or name
+            const isPosted = Array.from(postedSpecifics).some(stored =>
+                stored === assignmentCode ||
+                stored === assignmentName ||
+                assignmentName.includes(stored) ||
+                stored.includes(assignmentCode)
+            );
+            if (isPosted) return;
+        }
 
         const existingApcRecord = apcMap.get(normalizedStaffFileNo);
         const totalPosted = staffPostingsCount.get(normalizedStaffFileNo) || 0;
@@ -163,9 +196,29 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     // 5. Handle Orphans
     apcResponse.items.forEach((record: any) => {
         if (!usedApcIds.has(record.id) && fieldName) {
+            const normalizedFileNo = record.file_no.toString().padStart(4, '0');
+            const postedSpecifics = staffPostedSpecifics.get(normalizedFileNo);
+
+            // Hide if already posted for THIS assignment type (Case-Insensitive)
+            // Check both assignment code AND name since postings may store either
+            const normalize = (s: string) => s.toString().trim().toUpperCase();
+            const assignmentCode = normalize(assignment.code);
+            const assignmentName = normalize(assignment.name);
+
+            if (postedSpecifics) {
+                // Check if any stored value matches the code or name
+                const isPosted = Array.from(postedSpecifics).some(stored =>
+                    stored === assignmentCode ||
+                    stored === assignmentName ||
+                    assignmentName.includes(stored) ||
+                    stored.includes(assignmentCode)
+                );
+
+                if (isPosted) return;
+            }
+
             const val = record[fieldName as keyof APCRecord];
             if (val && val.toString().trim() !== '') {
-                const normalizedFileNo = record.file_no.padStart(4, '0');
                 const mandateId = assignedStaffMap.get(normalizedFileNo);
                 const assignLeft = Math.max(0, (record.count || 0) - (staffPostingsCount.get(normalizedFileNo) || 0));
 

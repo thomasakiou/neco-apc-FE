@@ -34,6 +34,11 @@ const PersonalizedPost: React.FC = () => {
     const [pendingChanges, setPendingChanges] = useState<{ staffId: string; staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[]>([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string>>(new Set());
     const [poolSearch, setPoolSearch] = useState('');
+    const [poolFilterConraiss, setPoolFilterConraiss] = useState('');
+    const [poolFilterStation, setPoolFilterStation] = useState('');
+    const [showPoolStationDropdown, setShowPoolStationDropdown] = useState(false);
+    const [poolStationSearch, setPoolStationSearch] = useState('');
+    const poolStationDropdownRef = React.useRef<HTMLDivElement>(null);
     const [boardSearch, setBoardSearch] = useState('');
     const [showHelp, setShowHelp] = useState(false);
 
@@ -62,11 +67,14 @@ const PersonalizedPost: React.FC = () => {
         }
     }, [selectedAssignmentId]);
 
-    // Click outside to close dropdown
+    // Click outside to close dropdowns
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (venueDropdownRef.current && !venueDropdownRef.current.contains(event.target as Node)) {
                 setShowVenueDropdown(false);
+            }
+            if (poolStationDropdownRef.current && !poolStationDropdownRef.current.contains(event.target as Node)) {
+                setShowPoolStationDropdown(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -308,16 +316,45 @@ const PersonalizedPost: React.FC = () => {
 
     // --- Memoized Filtering ---
 
+    // Extract unique Conraiss values from pool
+    const uniquePoolConraiss = useMemo(() => {
+        if (!boardData) return [];
+        const set = new Set<string>();
+        boardData.unassignedStaff.forEach(s => {
+            if (s.conr) set.add(s.conr);
+        });
+        return Array.from(set).sort();
+    }, [boardData?.unassignedStaff]);
+
+    // Extract unique Station values from pool
+    const uniquePoolStations = useMemo(() => {
+        if (!boardData) return [];
+        const set = new Set<string>();
+        boardData.unassignedStaff.forEach(s => {
+            if (s.current_station) set.add(s.current_station);
+        });
+        return Array.from(set).sort();
+    }, [boardData?.unassignedStaff]);
+
     const filteredPool = useMemo(() => {
         if (!boardData) return [];
         const search = poolSearch.toLowerCase();
-        return boardData.unassignedStaff.filter(s =>
-            s.staff_name.toLowerCase().includes(search) ||
-            s.staff_no.includes(search) ||
-            s.current_station.toLowerCase().includes(search) ||
-            s.qualification?.toLowerCase().includes(search)
-        );
-    }, [boardData?.unassignedStaff, poolSearch]);
+        return boardData.unassignedStaff.filter(s => {
+            // Search filter
+            const matchesSearch = !search || (
+                s.staff_name.toLowerCase().includes(search) ||
+                s.staff_no.includes(search) ||
+                s.current_station.toLowerCase().includes(search) ||
+                s.qualification?.toLowerCase().includes(search)
+            );
+            // Conraiss filter
+            const matchesConraiss = !poolFilterConraiss || s.conr === poolFilterConraiss;
+            // Station filter
+            const matchesStation = !poolFilterStation || s.current_station === poolFilterStation;
+
+            return matchesSearch && matchesConraiss && matchesStation;
+        });
+    }, [boardData?.unassignedStaff, poolSearch, poolFilterConraiss, poolFilterStation]);
 
     const filteredBoard = useMemo(() => {
         if (!boardData) return [];
@@ -570,7 +607,7 @@ const PersonalizedPost: React.FC = () => {
                             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Staff Pool</h2>
                             <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500">{filteredPool.length} Ready</span>
                         </div>
-                        <div className="relative group">
+                        <div className="relative group mb-3">
                             <input
                                 type="text"
                                 placeholder="Search pool..."
@@ -579,6 +616,71 @@ const PersonalizedPost: React.FC = () => {
                                 className="w-full h-11 pl-11 pr-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 ring-indigo-500/20 outline-none transition-all"
                             />
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg group-focus-within:text-indigo-500 transition-colors">person_search</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <select
+                                value={poolFilterConraiss}
+                                onChange={(e) => setPoolFilterConraiss(e.target.value)}
+                                className="flex-1 h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all cursor-pointer"
+                            >
+                                <option value="">All Conraiss</option>
+                                {uniquePoolConraiss.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                            <div ref={poolStationDropdownRef} className="flex-1 relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPoolStationDropdown(!showPoolStationDropdown)}
+                                    className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between cursor-pointer hover:border-indigo-400 outline-none transition-all"
+                                >
+                                    <span className="truncate">{poolFilterStation || 'All Stations'}</span>
+                                    <span className="material-symbols-outlined text-slate-400 text-sm">
+                                        {showPoolStationDropdown ? 'expand_less' : 'expand_more'}
+                                    </span>
+                                </button>
+                                {showPoolStationDropdown && (
+                                    <div className="absolute z-50 top-full left-0 mt-1 w-full max-h-60 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                                        <div className="sticky top-0 bg-white dark:bg-[#1E293B] p-2 border-b border-slate-100 dark:border-slate-800">
+                                            <input
+                                                type="text"
+                                                placeholder="Search stations..."
+                                                value={poolStationSearch}
+                                                onChange={(e) => setPoolStationSearch(e.target.value)}
+                                                className="w-full h-8 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className="max-h-44 overflow-y-auto">
+                                            <div
+                                                onClick={() => {
+                                                    setPoolFilterStation('');
+                                                    setShowPoolStationDropdown(false);
+                                                    setPoolStationSearch('');
+                                                }}
+                                                className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors ${!poolFilterStation ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                            >
+                                                All Stations
+                                            </div>
+                                            {uniquePoolStations
+                                                .filter(s => s.toLowerCase().includes(poolStationSearch.toLowerCase()))
+                                                .map(s => (
+                                                    <div
+                                                        key={s}
+                                                        onClick={() => {
+                                                            setPoolFilterStation(s);
+                                                            setShowPoolStationDropdown(false);
+                                                            setPoolStationSearch('');
+                                                        }}
+                                                        className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors ${poolFilterStation === s ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                    >
+                                                        {s}
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 

@@ -44,8 +44,19 @@ interface CollapsibleRowProps {
     assignmentMap: Map<string, string>;
 }
 
-const getColorScheme = (text: string, index: number) => {
-    const normalized = text.toLowerCase();
+// Simple hash function to get consistent index from text
+const hashString = (str: string): number => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+};
+
+const getColorScheme = (text: string) => {
+    const normalized = text.toLowerCase().trim();
     const schemes = [
         { // 0: Emerald (Green)
             bg: 'bg-emerald-50 dark:bg-emerald-900/20',
@@ -91,26 +102,27 @@ const getColorScheme = (text: string, index: number) => {
         }
     ];
 
-    // Priority Assignments
-    if (normalized.includes('ssce internal') || normalized.includes('int')) return schemes[0];
-    if (normalized.includes('ssce external') || normalized.includes('ext')) return schemes[1];
-    if (normalized.includes('trial') || normalized.includes('tt')) return schemes[2];
+    // Priority Assignments - exact matching for known assignment types
+    if (normalized.includes('ssce internal') || normalized === 'ssce int' || normalized.includes('internal')) return schemes[0];
+    if (normalized.includes('ssce external') || normalized === 'ssce ext' || normalized.includes('external')) return schemes[1];
+    if (normalized.includes('trial') || normalized.includes('tt center')) return schemes[2];
     if (normalized.includes('bece')) return schemes[3];
     if (normalized.includes('ncee')) return schemes[4];
 
-    return schemes[index % schemes.length];
+    // For any other assignment, use a hash of the name to get a consistent color
+    return schemes[hashString(normalized) % schemes.length];
 };
 
 const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSelect, assignmentMap }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
-    // Get color schemes for all assignments once to reuse across columns
-    const schemes = useMemo(() => {
-        return (record.assignments || []).map((a, idx) => {
-            const val = typeof a === 'string' ? a : a.name || a.code;
-            const name = assignmentMap.get(val) || val;
-            return getColorScheme(name, idx);
-        });
+    // Helper function to get color scheme based on assignment at given index
+    const getSchemeForIndex = useCallback((idx: number) => {
+        const assignment = record.assignments?.[idx];
+        if (!assignment) return getColorScheme('default');
+        const val = typeof assignment === 'string' ? assignment : assignment.name || assignment.code;
+        const name = assignmentMap.get(val) || val;
+        return getColorScheme(name);
     }, [record.assignments, assignmentMap]);
 
     return (
@@ -165,7 +177,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                         {record.assignments?.map((assignment, idx) => {
                             const val = typeof assignment === 'string' ? assignment : assignment.name || assignment.code;
                             const name = assignmentMap.get(val) || val;
-                            const scheme = schemes[idx] || getColorScheme(name, idx);
+                            const scheme = getColorScheme(name);
                             return (
                                 <div key={idx}>
                                     <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-black ${scheme.bg} ${scheme.text} border ${scheme.border} uppercase whitespace-nowrap shadow-sm`}>
@@ -180,7 +192,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                     <div className="flex flex-col gap-2.5">
                         {record.mandates?.map((mandate, idx) => {
                             const name = typeof mandate === 'string' ? mandate : mandate.mandate || mandate.code;
-                            const scheme = schemes[idx] || getColorScheme(name, idx);
+                            const scheme = getSchemeForIndex(idx);
                             return (
                                 <div key={idx} className={`text-xs font-black ${scheme.text} flex items-start gap-2.5 max-w-[220px] leading-relaxed py-0.5`} title={name}>
                                     <span className={`w-2 h-2 rounded-full ${scheme.dot} flex-shrink-0 shadow-sm shadow-current/30 mt-1`}></span>
@@ -195,7 +207,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                         {record.assignment_venue?.map((venue, idx) => {
                             const venueStr = typeof venue === 'string' ? venue : venue?.name || venue?.code || '';
                             const formatted = formatVenueName(venueStr);
-                            const scheme = schemes[idx] || getColorScheme(formatted, idx);
+                            const scheme = getSchemeForIndex(idx);
                             return (
                                 <div key={idx} className={`text-xs font-black ${scheme.text} border-l-[3px] ${scheme.border} pl-3 max-w-[250px] leading-relaxed py-0.5`} title={formatted}>
                                     {formatted}
@@ -209,7 +221,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                         {record.assignment_venue?.map((venue, idx) => {
                             const venueStr = typeof venue === 'string' ? venue : venue.name || venue.code;
                             const state = record.state?.[idx] || (venueStr?.includes('|') ? venueStr.split('|').pop().trim() : '-');
-                            const scheme = schemes[idx] || getColorScheme(state, idx);
+                            const scheme = getSchemeForIndex(idx);
                             return (
                                 <div key={idx}>
                                     <span className={`inline-flex px-3 py-1 rounded-md text-xs font-black ${scheme.bg} ${scheme.text} border ${scheme.border} uppercase shadow-sm`}>
