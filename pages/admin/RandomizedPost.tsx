@@ -430,7 +430,12 @@ const RandomizedPost: React.FC = () => {
                     else if (!stateObj && s.state_name) stateObj = stateNameMap.get(s.state_name.toLowerCase());
 
                     const stateName = stateObj?.name || s.state || s.state_name || '';
-                    const code = s.code || s.state_code || s.sch_no || '';
+                    let code = s.code || s.state_code || s.sch_no || '';
+
+                    // Pad NCEE Center codes to 5 digits
+                    if (type === 'ncee_center' && code) {
+                        code = code.toString().padStart(5, '0');
+                    }
 
                     // Value format: (CODE) | NAME | STATE
                     const parts = [];

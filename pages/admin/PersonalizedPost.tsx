@@ -276,7 +276,13 @@ const PersonalizedPost: React.FC = () => {
 
             setStationOptions(data.map(s => {
                 const stateVal = type === 'state' ? s.name : (s.state_name || s.state || null);
-                const codePrefix = (s.code || s.sch_no) ? `(${(s.code || s.sch_no)}) ` : '';
+
+                let rawCode = s.code || s.sch_no;
+                if (type === 'ncee_center' && rawCode) {
+                    rawCode = rawCode.toString().padStart(5, '0');
+                }
+
+                const codePrefix = rawCode ? `(${rawCode}) ` : '';
                 const baseName = `${codePrefix}${s.name || s.sch_name || s.station || s.venue_name || ''}`;
 
                 // Ensure we match RandomizedPost format: "(Code) Name | State"
@@ -293,7 +299,7 @@ const PersonalizedPost: React.FC = () => {
                     type,
                     state: stateVal,
                     group: type === 'state' ? 'All States' : (stateVal || 'Others'),
-                    code: s.code || s.sch_no // Store code for mapping
+                    code: rawCode // Store code for mapping
                 };
             }));
             setManualStationType(type);

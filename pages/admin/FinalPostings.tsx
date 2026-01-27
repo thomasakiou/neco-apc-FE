@@ -445,7 +445,15 @@ const FinalPostings: React.FC = () => {
                                 const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
                                 const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
                                 if (fieldName) {
-                                    apcPayload[fieldName] = null; // Clear the assignment field in APC
+                                    // Restore the assignment code (prefer code, fallback to name)
+                                    // Try to find the official code in the assignments list
+                                    const matchedDef = assignments.find(a =>
+                                        a.code?.toString().toUpperCase() === codeOrName.toString().toUpperCase() ||
+                                        a.name?.toString().toUpperCase() === codeOrName.toString().toUpperCase()
+                                    );
+
+                                    const val = matchedDef?.code || codeOrName;
+                                    apcPayload[fieldName] = val; // Restore assignment code
                                     apcChanged = true;
                                 }
                             });
@@ -538,7 +546,15 @@ const FinalPostings: React.FC = () => {
                             const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
                             const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
                             if (fieldName) {
-                                payload[fieldName] = null; // Mark as un-posted
+                                // Restore the assignment code (prefer code, fallback to name)
+                                // Try to find the official code in the assignments list
+                                const matchedDef = assignments.find(a =>
+                                    a.code?.toString().toUpperCase() === codeOrName.toString().toUpperCase() ||
+                                    a.name?.toString().toUpperCase() === codeOrName.toString().toUpperCase()
+                                );
+
+                                const val = matchedDef?.code || codeOrName;
+                                payload[fieldName] = val; // Restore assignment code
                                 hasChanges = true;
                             }
                         });
