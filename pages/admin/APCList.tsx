@@ -677,6 +677,14 @@ const APCList: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-xl">help</span>
                     </button>
+                    <button
+                        onClick={fetchAllRecords}
+                        disabled={loading}
+                        className={`flex items-center justify-center p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title="Refresh Data"
+                    >
+                        <span className={`material-symbols-outlined text-xl ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                    </button>
                     {selectedIds.size > 0 && (
                         <button
                             onClick={handleBulkDelete}

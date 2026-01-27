@@ -830,6 +830,14 @@ const SDLPage: React.FC = () => {
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">View and manage staff disposition records.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => { fetchData(); fetchAllStaff(); }}
+                        disabled={loading}
+                        className={`group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        <span className={`material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-indigo-600 dark:from-indigo-300 dark:to-indigo-500 group-hover:scale-110 transition-transform text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                        Refresh
+                    </button>
                     {selectedIds.size > 0 && (
                         <button
                             onClick={handleBulkDelete}

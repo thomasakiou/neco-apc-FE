@@ -1080,6 +1080,15 @@ const AnnualPostings: React.FC = () => {
               <span className="material-symbols-outlined text-lg">help</span>
               Help
             </button>
+            <button
+              onClick={fetchInitialData}
+              disabled={loading}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm font-bold text-xs ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title="Refresh Data"
+            >
+              <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+              Refresh
+            </button>
             {selectedIds.size > 0 && (
               <button
                 onClick={handleBulkDelete}
