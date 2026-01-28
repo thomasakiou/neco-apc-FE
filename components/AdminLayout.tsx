@@ -12,6 +12,19 @@ const AdminLayout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  // Close menus on click outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Close mobile menu on navigation
   React.useEffect(() => {
@@ -144,7 +157,6 @@ const AdminLayout: React.FC = () => {
 
             <NavItem to="/admin/statistics" icon="bar_chart" label="Statistics" active={isActive('/admin/statistics')} isLocked={isModuleLocked('reports') && !isSuperAdmin} />
 
-
             {isSuperAdmin && (
               <CollapsibleNavSection title="Configuration" icon="settings" active={
                 isActive('/admin/audit') || isActive('/admin/configuration')
@@ -154,56 +166,6 @@ const AdminLayout: React.FC = () => {
               </CollapsibleNavSection>
             )}
           </nav>
-        </div>
-
-        <div className="mt-auto p-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-2">
-          <a
-            href="https://docs.google.com/document/d/1JCXg8fvNSwwtJrBIF2Q4ftUbxWL8tkCgbGebPrDkCBU/edit?tab=t.0"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors w-full text-left"
-          >
-            <span className="material-symbols-outlined text-xl">menu_book</span>
-            <p className="text-sm font-medium leading-normal">User Manual</p>
-          </a>
-
-          <a
-            href="https://docs.google.com/document/d/1l60rxdaFD6r-nOG3nuLe56qvTjgUQiRoIiuocXzlfTw/edit?tab=t.0"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-full text-left"
-          >
-            <span className="material-symbols-outlined text-xl">summarize</span>
-            <p className="text-sm font-medium leading-normal">App Summary</p>
-          </a>
-
-          <button
-            onClick={toggleTheme}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-colors w-full text-left"
-          >
-            <span className="material-symbols-outlined text-xl">
-              {theme === 'dark' ? 'light_mode' : 'dark_mode'}
-            </span>
-            <p className="text-sm font-medium leading-normal">
-              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            </p>
-          </button>
-
-          <button
-            onClick={() => setIsPasswordModalOpen(true)}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-colors w-full text-left"
-          >
-            <span className="material-symbols-outlined text-xl">lock_reset</span>
-            <p className="text-sm font-medium leading-normal">Change Password</p>
-          </button>
-
-          <button
-            onClick={logout}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors w-full text-left"
-          >
-            <span className="material-symbols-outlined">logout</span>
-            <p className="text-sm font-medium leading-normal">Logout</p>
-          </button>
         </div>
       </aside>
 
@@ -228,13 +190,102 @@ const AdminLayout: React.FC = () => {
             <span className="material-symbols-outlined">menu</span>
           </button>
         </div>
+
+        {/* Floating User Menu Trigger */}
+        <div className="fixed top-4 right-6 z-40 hidden lg:block" ref={menuRef}>
+          <button
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="flex items-center gap-2 p-1.5 pr-3 rounded-full bg-white dark:bg-[#121b25] border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all group"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all">
+              {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'AD'}
+            </div>
+            <div className="flex flex-col items-start leading-tight">
+              <span className="text-[11px] font-bold text-slate-900 dark:text-white truncate max-w-[100px]">{user?.full_name || 'Admin'}</span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400 capitalize">{user?.role?.replace('_', ' ') || 'User'}</span>
+            </div>
+            <span className={`material-symbols-outlined text-sm text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+          </button>
+
+          {/* User Dropdown Menu */}
+          {isUserMenuOpen && (
+            <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#1a242f] rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 py-2 z-50 animate-in fade-in zoom-in duration-200 origin-top-right">
+              <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 mb-1">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Account</p>
+              </div>
+
+              <a
+                href="https://docs.google.com/document/d/1JCXg8fvNSwwtJrBIF2Q4ftUbxWL8tkCgbGebPrDkCBU/edit?tab=t.0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                onClick={() => setIsUserMenuOpen(false)}
+              >
+                <span className="material-symbols-outlined text-lg">menu_book</span>
+                <span className="text-sm font-medium">User Manual</span>
+              </a>
+
+              <a
+                href="https://docs.google.com/document/d/1l60rxdaFD6r-nOG3nuLe56qvTjgUQiRoIiuocXzlfTw/edit?tab=t.0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                onClick={() => setIsUserMenuOpen(false)}
+              >
+                <span className="material-symbols-outlined text-lg">summarize</span>
+                <span className="text-sm font-medium">App Summary</span>
+              </a>
+
+              <div className="h-px bg-gray-100 dark:bg-gray-800 my-1 mx-2" />
+
+              <button
+                onClick={() => {
+                  toggleTheme();
+                  setIsUserMenuOpen(false);
+                }}
+                className="flex items-center gap-3 px-4 py-2 w-full text-left text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">
+                  {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+                </span>
+                <span className="text-sm font-medium">
+                  {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsPasswordModalOpen(true);
+                  setIsUserMenuOpen(false);
+                }}
+                className="flex items-center gap-3 px-4 py-2 w-full text-left text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">lock_reset</span>
+                <span className="text-sm font-medium">Change Password</span>
+              </button>
+
+              <div className="h-px bg-gray-100 dark:bg-gray-800 my-1 mx-2" />
+
+              <button
+                onClick={() => {
+                  logout();
+                  setIsUserMenuOpen(false);
+                }}
+                className="flex items-center gap-3 px-4 py-2 w-full text-left text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">logout</span>
+                <span className="text-sm font-medium">Logout</span>
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <Outlet />
         </div>
       </main>
 
       <EnvironmentSwitcher />
-    </div>
+    </div >
   );
 };
 
