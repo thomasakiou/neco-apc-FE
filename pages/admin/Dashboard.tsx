@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { getDashboardStats, DashboardStats } from '../../services/dashboardStats';
 import { getRecentReactivations } from '../../services/apc';
@@ -66,6 +67,28 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
+      {/* Header Actions Portal */}
+      {document.getElementById('header-actions') && createPortal(
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowHelp(true)}
+            className="flex items-center justify-center p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm"
+            title="Dashboard Guide"
+          >
+            <span className="material-symbols-outlined text-xl">help</span>
+          </button>
+
+          <button
+            onClick={() => fetchStats(true)}
+            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-[10px] md:text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
+          >
+            <span className={`material-symbols-outlined text-base md:text-lg ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
+            {isRefreshing ? 'Refreshing...' : 'Live Data'}
+          </button>
+        </div>,
+        document.getElementById('header-actions')!
+      )}
+
       {/* Auto-Reactivation Notification Banner */}
       {showReactivationAlert && reactivatedStaff.length > 0 && (
         <div className="flex-none bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-3 shadow-lg">
@@ -95,47 +118,6 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Premium Header */}
-      <header className="flex-none flex flex-col sm:flex-row sm:items-center justify-between px-6 md:px-10 py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20 gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-            APCIC <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Dashboard</span>
-          </h1>
-          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">NECO APCIC Posting Ecosystem</p>
-        </div>
-
-
-        <div className="flex items-center justify-between sm:justify-end gap-4 md:gap-6 w-full sm:w-auto">
-          <button
-            onClick={() => setShowHelp(true)}
-            className="flex items-center justify-center p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm"
-            title="Dashboard Guide"
-          >
-            <span className="material-symbols-outlined text-xl">help</span>
-          </button>
-
-          <button
-            onClick={() => fetchStats(true)}
-            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-[10px] md:text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
-          >
-            <span className={`material-symbols-outlined text-base md:text-lg ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
-            {isRefreshing ? 'Refreshing...' : 'Live Data'}
-          </button>
-
-          <div className="hidden xs:block h-8 w-[1px] bg-slate-200 dark:bg-white/10"></div>
-
-          <div className="flex items-center gap-2 md:gap-3 bg-white dark:bg-white/5 p-1 md:p-1.5 md:pr-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
-            <div className="size-8 md:size-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-xs md:text-sm shadow-lg shadow-emerald-500/20">
-              AD
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] md:text-xs font-black text-slate-900 dark:text-white leading-none">Admin Controller</span>
-              <span className="text-[9px] md:text-[10px] font-bold text-emerald-500 uppercase leading-none mt-1">Neco HQ</span>
-            </div>
-          </div>
-        </div>
-      </header>
 
       <HelpModal
         isOpen={showHelp}
