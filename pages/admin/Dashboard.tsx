@@ -331,12 +331,12 @@ const GlassCard = ({ title, value, icon, gradient, trend }: any) => (
           LIVE
         </div>
       </div>
-      <p className="text-[10px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-2">{title}</p>
+      <p className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-2">{title}</p>
       <p className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
       <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
-        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic opacity-60">{trend}</span>
+        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase italic opacity-60">{trend}</span>
         <span className="material-symbols-outlined text-sm text-slate-300 dark:text-slate-600">arrow_forward_ios</span>
       </div>
     </div>
@@ -347,7 +347,7 @@ const MiniOperational = ({ title, value, icon }: any) => (
   <div className="flex flex-col gap-2">
     <div className="flex items-center gap-3">
       <span className="material-symbols-outlined text-emerald-400/60 text-xl">{icon}</span>
-      <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{title}</span>
+      <span className="text-[10px] font-black text-slate-300 dark:text-slate-400 uppercase tracking-widest">{title}</span>
     </div>
     <div className="flex items-end gap-2">
       <span className="text-3xl font-black text-white">{value.toLocaleString()}</span>
