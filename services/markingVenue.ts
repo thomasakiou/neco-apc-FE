@@ -7,6 +7,8 @@ const API_URL = `${API_BASE_URL}/marking-venues`;
 const SSCE_EXT_API_URL = `${API_BASE_URL}/ssce-ext-marking-venues`;
 const BECE_API_URL = `${API_BASE_URL}/bece-marking-venues`;
 
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
 export const getMarkingVenueList = async (page: number = 1, limit: number = 10, search: string = '', state?: string): Promise<MarkingVenueListResponse> => {
     const skip = (page - 1) * limit;
     const params = new URLSearchParams({
@@ -29,8 +31,10 @@ export const getMarkingVenueList = async (page: number = 1, limit: number = 10, 
     return response.json();
 };
 
-// Cache
-let venueCache: MarkingVenue[] | null = null;
+// Caches
+let venueCache: { data: MarkingVenue[], timestamp: number } | null = null;
+let ssceExtVenueCache: { data: any[], timestamp: number } | null = null;
+let beceVenueCache: { data: any[], timestamp: number } | null = null;
 
 export const createMarkingVenue = async (data: MarkingVenueCreate): Promise<MarkingVenue> => {
     const response = await fetch(API_URL, {
@@ -88,9 +92,9 @@ export const uploadMarkingVenueCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
-export const getAllMarkingVenues = async (onlyActive: boolean = false): Promise<MarkingVenue[]> => {
-    if (venueCache) {
-        return onlyActive ? venueCache.filter(v => v.active) : venueCache;
+export const getAllMarkingVenues = async (onlyActive: boolean = false, force: boolean = false): Promise<MarkingVenue[]> => {
+    if (!force && venueCache && (Date.now() - venueCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? venueCache.data.filter(v => v.active) : venueCache.data;
     }
 
     const response = await fetch(`${API_URL}?limit=10000`, {
@@ -100,7 +104,7 @@ export const getAllMarkingVenues = async (onlyActive: boolean = false): Promise<
         throw new Error('Failed to fetch all marking venues');
     }
     const data: MarkingVenueListResponse = await response.json();
-    venueCache = data.items;
+    venueCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter(v => v.active) : data.items;
 };
 
@@ -124,18 +128,21 @@ export const getSSCEExtMarkingVenueList = async (page: number = 1, limit: number
 export const createSSCEExtMarkingVenue = async (data: any): Promise<any> => {
     const response = await fetch(SSCE_EXT_API_URL, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(data) });
     if (!response.ok) throw new Error('Failed to create SSCE EXT marking venue');
+    ssceExtVenueCache = null; // Invalidate
     return response.json();
 };
 
 export const updateSSCEExtMarkingVenue = async (id: string, data: any): Promise<any> => {
     const response = await fetch(`${SSCE_EXT_API_URL}/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(data) });
     if (!response.ok) throw new Error('Failed to update SSCE EXT marking venue');
+    ssceExtVenueCache = null; // Invalidate
     return response.json();
 };
 
 export const deleteSSCEExtMarkingVenue = async (id: string): Promise<void> => {
     const response = await fetch(`${SSCE_EXT_API_URL}/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     if (!response.ok) throw new Error('Failed to delete SSCE EXT marking venue');
+    ssceExtVenueCache = null; // Invalidate
 };
 
 export const uploadSSCEExtMarkingVenueCsv = async (file: File): Promise<any> => {
@@ -143,13 +150,19 @@ export const uploadSSCEExtMarkingVenueCsv = async (file: File): Promise<any> => 
     formData.append('file', file);
     const response = await fetch(`${SSCE_EXT_API_URL}/upload`, { method: 'POST', headers: getAuthHeadersFormData(), body: formData });
     if (!response.ok) throw new Error('Failed to upload SSCE EXT marking venue CSV');
+    ssceExtVenueCache = null; // Invalidate
     return response.json();
 };
 
-export const getAllSSCEExtMarkingVenues = async (onlyActive: boolean = false): Promise<any[]> => {
+export const getAllSSCEExtMarkingVenues = async (onlyActive: boolean = false, force: boolean = false): Promise<any[]> => {
+    if (!force && ssceExtVenueCache && (Date.now() - ssceExtVenueCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? ssceExtVenueCache.data.filter((v: any) => v.active) : ssceExtVenueCache.data;
+    }
+
     const response = await fetch(`${SSCE_EXT_API_URL}?limit=10000`, { headers: getAuthHeaders() });
     if (!response.ok) throw new Error('Failed to fetch all SSCE EXT marking venues');
     const data = await response.json();
+    ssceExtVenueCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter((v: any) => v.active) : data.items;
 };
 
@@ -167,18 +180,21 @@ export const getBECEMarkingVenueList = async (page: number = 1, limit: number = 
 export const createBECEMarkingVenue = async (data: any): Promise<any> => {
     const response = await fetch(BECE_API_URL, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(data) });
     if (!response.ok) throw new Error('Failed to create BECE marking venue');
+    beceVenueCache = null; // Invalidate
     return response.json();
 };
 
 export const updateBECEMarkingVenue = async (id: string, data: any): Promise<any> => {
     const response = await fetch(`${BECE_API_URL}/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(data) });
     if (!response.ok) throw new Error('Failed to update BECE marking venue');
+    beceVenueCache = null; // Invalidate
     return response.json();
 };
 
 export const deleteBECEMarkingVenue = async (id: string): Promise<void> => {
     const response = await fetch(`${BECE_API_URL}/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     if (!response.ok) throw new Error('Failed to delete BECE marking venue');
+    beceVenueCache = null; // Invalidate
 };
 
 export const uploadBECEMarkingVenueCsv = async (file: File): Promise<any> => {
@@ -186,12 +202,18 @@ export const uploadBECEMarkingVenueCsv = async (file: File): Promise<any> => {
     formData.append('file', file);
     const response = await fetch(`${BECE_API_URL}/upload`, { method: 'POST', headers: getAuthHeadersFormData(), body: formData });
     if (!response.ok) throw new Error('Failed to upload BECE marking venue CSV');
+    beceVenueCache = null; // Invalidate
     return response.json();
 };
 
-export const getAllBECEMarkingVenues = async (onlyActive: boolean = false): Promise<any[]> => {
+export const getAllBECEMarkingVenues = async (onlyActive: boolean = false, force: boolean = false): Promise<any[]> => {
+    if (!force && beceVenueCache && (Date.now() - beceVenueCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? beceVenueCache.data.filter((v: any) => v.active) : beceVenueCache.data;
+    }
+
     const response = await fetch(`${BECE_API_URL}?limit=10000`, { headers: getAuthHeaders() });
     if (!response.ok) throw new Error('Failed to fetch all BECE marking venues');
     const data = await response.json();
+    beceVenueCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter((v: any) => v.active) : data.items;
 };

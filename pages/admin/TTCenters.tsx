@@ -1,26 +1,27 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getAllTTCenters, deleteTTCenter, createTTCenter, updateTTCenter, uploadTTCenters } from '../../services/ttCenter';
 import { TTCenter, TTCenterCreate } from '../../types/ttCenter';
 import AlertModal from '../../components/AlertModal';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 
 const TTCenters: React.FC = () => {
+    const cached = getPageCache('TTCenters');
     const [searchParams] = useSearchParams();
     const stateFilter = searchParams.get('state');
-    const [centers, setCenters] = useState<TTCenter[]>([]);
-    const [filteredCenters, setFilteredCenters] = useState<TTCenter[]>([]);
-    const [displayedCenters, setDisplayedCenters] = useState<TTCenter[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    const [centers, setCenters] = useState<TTCenter[]>(cached?.data || []);
+    const [loading, setLoading] = useState(!cached);
     const [uploading, setUploading] = useState(false);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof TTCenter | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 10);
+    const [sortField, setSortField] = useState<keyof TTCenter | null>(cached?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cached?.sortDirection || 'asc');
+    const [searchTerm, setSearchTerm] = useState(cached?.searchTerm || '');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCenter, setEditingCenter] = useState<TTCenter | null>(null);
+    const hasInitialized = useRef(!!cached);
     const [alertModal, setAlertModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -34,19 +35,19 @@ const TTCenters: React.FC = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const fetchCenters = async () => {
+    const fetchCenters = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
         setLoading(true);
         try {
-            // Note: Currently getAllTTCenters doesn't support state filtering directly in the service 
-            // but we can filter on the client side if needed, or update the service.
-            // Following the template's pattern:
-            const data = await getAllTTCenters();
+            const data = await getAllTTCenters(false, force);
             let result = data;
             if (stateFilter) {
                 result = data.filter(c => c.state?.toLowerCase() === stateFilter.toLowerCase());
             }
             setCenters(result);
-            setFilteredCenters(result);
         } catch (error) {
             console.error('Error fetching TT centers:', error);
             setAlertModal({
@@ -58,21 +59,35 @@ const TTCenters: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchCenters();
     }, [stateFilter]);
 
     useEffect(() => {
-        const filtered = centers.filter(center =>
+        fetchCenters();
+    }, [fetchCenters]);
+
+    // Update Cache
+    useEffect(() => {
+        setPageCache('TTCenters', {
+            data: centers,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm
+        });
+    }, [centers, page, limit, sortField, sortDirection, searchTerm]);
+
+    const filteredCenters = useMemo(() => {
+        return centers.filter(center =>
             center.sch_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             center.sch_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             center.state?.toLowerCase().includes(searchTerm.toLowerCase())
         );
+    }, [searchTerm, centers]);
 
-        const sorted = [...filtered].sort((a, b) => {
-            if (!sortField) return 0;
+    const sortedCenters = useMemo(() => {
+        if (!sortField) return filteredCenters;
+        return [...filteredCenters].sort((a, b) => {
             const aValue = a[sortField];
             const bValue = b[sortField];
             if (aValue === bValue) return 0;
@@ -82,14 +97,15 @@ const TTCenters: React.FC = () => {
             const compareResult = aValue < bValue ? -1 : 1;
             return sortDirection === 'asc' ? compareResult : -compareResult;
         });
+    }, [filteredCenters, sortField, sortDirection]);
 
-        setFilteredCenters(sorted);
-        setTotal(sorted.length);
+    const total = sortedCenters.length;
 
+    const displayedCenters = useMemo(() => {
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
-        setDisplayedCenters(sorted.slice(startIndex, endIndex));
-    }, [searchTerm, centers, sortField, sortDirection, page, limit]);
+        return sortedCenters.slice(startIndex, endIndex);
+    }, [sortedCenters, page, limit]);
 
     const handleSort = (field: keyof TTCenter) => {
         if (sortField === field) {
@@ -205,6 +221,14 @@ const TTCenters: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex gap-3">
+                        <button
+                            onClick={() => fetchCenters(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                            title="Refresh Data from Backend"
+                        >
+                            <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                            Refresh
+                        </button>
                         <button
                             onClick={() => {
                                 const headers = ['sch_no', 'sch_name', 'state', 'active'];

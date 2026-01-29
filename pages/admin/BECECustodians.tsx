@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { getBECECustodiansByState, getAllBECECustodians, createBECECustodian, updateBECECustodian, deleteBECECustodian, bulkDeleteBECECustodians, uploadBECECustodianCsv } from '../../services/custodianSpecific';
 import AlertModal from '../../components/AlertModal';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 
 interface BECECustodian {
     id: string;
@@ -17,18 +18,17 @@ interface BECECustodian {
 }
 
 const BECECustodians: React.FC = () => {
+    const cached = getPageCache('BECECustodians');
+
     const [searchParams] = useSearchParams();
     const stateFilter = searchParams.get('state');
-    const [custodians, setCustodians] = useState<BECECustodian[]>([]);
-    const [filteredCustodians, setFilteredCustodians] = useState<BECECustodian[]>([]);
-    const [displayedCustodians, setDisplayedCustodians] = useState<BECECustodian[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof BECECustodian | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [custodians, setCustodians] = useState<BECECustodian[]>(cached?.data || []);
+    const [loading, setLoading] = useState(!cached);
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 10);
+    const [sortField, setSortField] = useState<keyof BECECustodian | null>(cached?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cached?.sortDirection || 'asc');
+    const [searchTerm, setSearchTerm] = useState(cached?.searchTerm || '');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showModal, setShowModal] = useState(false);
     const [editingCustodian, setEditingCustodian] = useState<BECECustodian | null>(null);
@@ -43,19 +43,21 @@ const BECECustodians: React.FC = () => {
         title: '',
     });
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const hasInitialized = useRef(!!cached);
 
     useEffect(() => {
         fetchCustodians();
     }, []);
 
-    useEffect(() => {
+    // Use useMemo for filtered and sorted custodians
+    const filteredCustodians = useMemo(() => {
         const filtered = custodians.filter(custodian =>
             custodian.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             custodian.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             custodian.state?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
-        const sorted = [...filtered].sort((a, b) => {
+        return [...filtered].sort((a, b) => {
             if (!sortField) return 0;
             const aValue = a[sortField];
             const bValue = b[sortField];
@@ -66,37 +68,51 @@ const BECECustodians: React.FC = () => {
             const compareResult = aValue < bValue ? -1 : 1;
             return sortDirection === 'asc' ? compareResult : -compareResult;
         });
+    }, [searchTerm, custodians, sortField, sortDirection]);
 
-        setFilteredCustodians(sorted);
-        setTotal(sorted.length);
+    const total = filteredCustodians.length;
 
+    const displayedCustodians = useMemo(() => {
         const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        setDisplayedCustodians(sorted.slice(startIndex, endIndex));
-    }, [searchTerm, custodians, sortField, sortDirection, page, limit]);
+        return filteredCustodians.slice(startIndex, startIndex + limit);
+    }, [filteredCustodians, page, limit]);
 
     useEffect(() => {
         setPage(1);
     }, [searchTerm]);
 
-    const fetchCustodians = async () => {
+    // Update cache
+    useEffect(() => {
+        setPageCache('BECECustodians', {
+            data: custodians,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm
+        });
+    }, [custodians, page, limit, sortField, sortDirection, searchTerm]);
+
+    const fetchCustodians = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
         setLoading(true);
         try {
             if (stateFilter) {
                 const data = await getBECECustodiansByState(stateFilter);
                 setCustodians(data);
-                setFilteredCustodians(data);
             } else {
-                const items = await getAllBECECustodians();
+                const items = await getAllBECECustodians(false, force);
                 setCustodians(items);
-                setFilteredCustodians(items);
             }
         } catch (error) {
             console.error('Error fetching BECE custodians:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [stateFilter]);
 
     const handleSort = (field: keyof BECECustodian) => {
         if (sortField === field) {
@@ -229,6 +245,14 @@ const BECECustodians: React.FC = () => {
                     </p>
                 </div>
                 <div className="flex gap-3">
+                    <button
+                        onClick={() => fetchCustodians(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                        title="Refresh Data from Backend"
+                    >
+                        <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                        Refresh
+                    </button>
                     <button
                         onClick={handleTemplate}
                         className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"

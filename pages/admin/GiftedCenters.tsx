@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getAllGiftedCenters, deleteGiftedCenter, createGiftedCenter, updateGiftedCenter, uploadGiftedCenters } from '../../services/giftedCenter';
 import { GiftedCenter, GiftedCenterCreate } from '../../types/giftedCenter';
 import AlertModal from '../../components/AlertModal';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 
 const padCode = (code: string | null | undefined) => {
     if (!code) return '';
@@ -10,22 +11,22 @@ const padCode = (code: string | null | undefined) => {
 };
 
 const GiftedCenters: React.FC = () => {
+    const cached = getPageCache('GiftedCenters');
     const [searchParams] = useSearchParams();
     const stateFilter = searchParams.get('state');
-    const [centers, setCenters] = useState<GiftedCenter[]>([]);
-    const [filteredCenters, setFilteredCenters] = useState<GiftedCenter[]>([]);
-    const [displayedCenters, setDisplayedCenters] = useState<GiftedCenter[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    const [centers, setCenters] = useState<GiftedCenter[]>(cached?.data || []);
+    const [loading, setLoading] = useState(!cached);
     const [uploading, setUploading] = useState(false);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof GiftedCenter | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 10);
+    const [sortField, setSortField] = useState<keyof GiftedCenter | null>(cached?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cached?.sortDirection || 'asc');
+    const [searchTerm, setSearchTerm] = useState(cached?.searchTerm || '');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCenter, setEditingCenter] = useState<GiftedCenter | null>(null);
+    const hasInitialized = useRef(!!cached);
     const [alertModal, setAlertModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -39,19 +40,19 @@ const GiftedCenters: React.FC = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const fetchCenters = async () => {
+    const fetchCenters = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
         setLoading(true);
         try {
-            const data = await getAllGiftedCenters();
+            const data = await getAllGiftedCenters(false, force);
             if (stateFilter) {
-                // Assuming simplistic filtering if state name matches exactly or roughly
-                // Note: NCEE logic used a backend endpoint, here we filter client-side for now
                 const filtered = data.filter(c => c.state?.toLowerCase() === stateFilter.toLowerCase());
                 setCenters(filtered);
-                setFilteredCenters(filtered);
             } else {
                 setCenters(data);
-                setFilteredCenters(data);
             }
         } catch (error) {
             console.error('Error fetching Gifted centers:', error);
@@ -64,21 +65,35 @@ const GiftedCenters: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [stateFilter]);
 
     useEffect(() => {
         fetchCenters();
-    }, []);
+    }, [fetchCenters]);
 
+    // Update Cache
     useEffect(() => {
-        const filtered = centers.filter(center =>
+        setPageCache('GiftedCenters', {
+            data: centers,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm
+        });
+    }, [centers, page, limit, sortField, sortDirection, searchTerm]);
+
+    const filteredCenters = useMemo(() => {
+        return centers.filter(center =>
             center.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             center.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             center.state?.toLowerCase().includes(searchTerm.toLowerCase())
         );
+    }, [searchTerm, centers]);
 
-        const sorted = [...filtered].sort((a, b) => {
-            if (!sortField) return 0;
+    const sortedCenters = useMemo(() => {
+        if (!sortField) return filteredCenters;
+        return [...filteredCenters].sort((a, b) => {
             const aValue = a[sortField];
             const bValue = b[sortField];
             if (aValue === bValue) return 0;
@@ -88,14 +103,15 @@ const GiftedCenters: React.FC = () => {
             const compareResult = aValue < bValue ? -1 : 1;
             return sortDirection === 'asc' ? compareResult : -compareResult;
         });
+    }, [filteredCenters, sortField, sortDirection]);
 
-        setFilteredCenters(sorted);
-        setTotal(sorted.length);
+    const total = sortedCenters.length;
 
+    const displayedCenters = useMemo(() => {
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
-        setDisplayedCenters(sorted.slice(startIndex, endIndex));
-    }, [searchTerm, centers, sortField, sortDirection, page, limit]);
+        return sortedCenters.slice(startIndex, endIndex);
+    }, [sortedCenters, page, limit]);
 
     const handleSort = (field: keyof GiftedCenter) => {
         if (sortField === field) {
@@ -215,6 +231,14 @@ const GiftedCenters: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex gap-3">
+                        <button
+                            onClick={() => fetchCenters(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                            title="Refresh Data from Backend"
+                        >
+                            <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                            Refresh
+                        </button>
                         <button
                             onClick={() => {
                                 const headers = ['name', 'code', 'numb_of_cand', 'state', 'within_capital', 'outside_capital', 'active'];

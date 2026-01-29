@@ -5,6 +5,13 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const API_URL = `${API_BASE_URL}/ncee-centers`;
 
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let centerCache: { data: NCEECenter[], timestamp: number } | null = null;
+
+const invalidateCache = () => {
+    centerCache = null;
+};
+
 export const getNCEECenters = async (skip = 0, limit = 100000): Promise<NCEECenterListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
@@ -18,12 +25,18 @@ export const getNCEECenters = async (skip = 0, limit = 100000): Promise<NCEECent
     return response.json();
 };
 
-export const getAllNCEECenters = async (onlyActive: boolean = false): Promise<NCEECenter[]> => {
+export const getAllNCEECenters = async (onlyActive: boolean = false, force: boolean = false): Promise<NCEECenter[]> => {
+    if (!force && centerCache && (Date.now() - centerCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? centerCache.data.filter(item => item.active) : centerCache.data;
+    }
+
     const response = await fetch(`${API_URL}?skip=0&limit=100000`, {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch all NCEE centers');
     const data: NCEECenterListResponse = await response.json();
+
+    centerCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter(item => item.active) : data.items;
 };
 
@@ -42,6 +55,7 @@ export const createNCEECenter = async (data: NCEECenterCreate): Promise<NCEECent
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to create NCEE center');
+    invalidateCache();
     return response.json();
 };
 
@@ -52,6 +66,7 @@ export const updateNCEECenter = async (id: string, data: NCEECenterUpdate): Prom
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update NCEE center');
+    invalidateCache();
     return response.json();
 };
 
@@ -61,6 +76,7 @@ export const deleteNCEECenter = async (id: string): Promise<void> => {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete NCEE center');
+    invalidateCache();
 };
 
 export const deleteAllNCEECenters = async (): Promise<void> => {
@@ -72,6 +88,7 @@ export const deleteAllNCEECenters = async (): Promise<void> => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to delete all NCEE centers');
     }
+    invalidateCache();
 };
 
 export const uploadNCEECenters = async (file: File): Promise<NCEECenterBulkUploadResponse> => {

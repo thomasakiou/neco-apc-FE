@@ -5,8 +5,14 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const API_URL = `${API_BASE_URL}/states`;
 
-let allStatesCache: State[] | null = null;
-export const clearStateCache = () => { allStatesCache = null; };
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let allStatesCache: { data: State[], timestamp: number } | null = null;
+
+const invalidateCache = () => {
+    allStatesCache = null;
+};
+
+export const clearStateCache = invalidateCache;
 
 
 export const getStateList = async (page: number = 1, limit: number = 10, search: string = ''): Promise<StateListResponse> => {
@@ -34,10 +40,7 @@ export const createState = async (data: StateCreate): Promise<State> => {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
-    if (!response.ok) {
-        throw new Error('Failed to create state');
-    }
-    clearStateCache();
+    invalidateCache();
     return response.json();
 };
 
@@ -47,10 +50,7 @@ export const updateState = async (id: string, data: StateUpdate): Promise<State>
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
-    if (!response.ok) {
-        throw new Error('Failed to update state');
-    }
-    clearStateCache();
+    invalidateCache();
     return response.json();
 };
 
@@ -62,7 +62,7 @@ export const deleteState = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete state');
     }
-    clearStateCache();
+    invalidateCache();
 };
 
 export const uploadStateCsv = async (file: File): Promise<any> => {
@@ -80,12 +80,13 @@ export const uploadStateCsv = async (file: File): Promise<any> => {
         console.error('Upload Error Details:', errorData);
         throw new Error(errorData.detail || 'Failed to upload state CSV');
     }
+    invalidateCache();
     return response.json();
 }
 
-export const getAllStates = async (): Promise<State[]> => {
-    if (allStatesCache) {
-        return allStatesCache;
+export const getAllStates = async (force: boolean = false): Promise<State[]> => {
+    if (!force && allStatesCache && (Date.now() - allStatesCache.timestamp < CACHE_TTL)) {
+        return allStatesCache.data;
     }
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
@@ -94,7 +95,7 @@ export const getAllStates = async (): Promise<State[]> => {
         throw new Error('Failed to fetch all states');
     }
     const data: StateListResponse = await response.json();
-    allStatesCache = data.items;
+    allStatesCache = { data: data.items, timestamp: Date.now() };
     return data.items;
 };
 

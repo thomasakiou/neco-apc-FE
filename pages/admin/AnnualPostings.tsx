@@ -7,6 +7,7 @@ import { getAllAPCRecords, updateAPC, getAssignmentLimit } from '../../services/
 import { getAllAssignments } from '../../services/assignment';
 import { getAllStates } from '../../services/state';
 import { getAllMarkingVenues } from '../../services/markingVenue';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 import { PostingResponse, PostingCreate } from '../../types/posting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
@@ -269,8 +270,10 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
 
 
 const AnnualPostings: React.FC = () => {
-  const [postings, setPostings] = useState<PostingResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = getPageCache('AnnualPostings');
+
+  const [postings, setPostings] = useState<PostingResponse[]>(cached?.data || []);
+  const [loading, setLoading] = useState(!cached);
   const [showHelp, setShowHelp] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [archiveProgress, setArchiveProgress] = useState<{ current: number; total: number } | null>(null);
@@ -288,30 +291,32 @@ const AnnualPostings: React.FC = () => {
   const [replacementFilterType, setReplacementFilterType] = useState<'eligible' | 'all'>('eligible');
 
   // Pagination
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [page, setPage] = useState(cached?.page || 1);
+  const [limit, setLimit] = useState(cached?.limit || 10);
 
   // Filter Options
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [venues, setVenues] = useState<MarkingVenue[]>([]);
-  const [states, setStates] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>(cached?.assignmentsOptions || []);
+  const [venues, setVenues] = useState<MarkingVenue[]>(cached?.venuesOptions || []);
+  const [states, setStates] = useState<any[]>(cached?.statesOptions || []);
 
   // Search States
-  const [searchFileNo, setSearchFileNo] = useState('');
-  const [searchName, setSearchName] = useState('');
-  const [searchStation, setSearchStation] = useState('');
+  const [searchFileNo, setSearchFileNo] = useState(cached?.searchTerm || '');
+  const [searchName, setSearchName] = useState(cached?.filters?.searchName || '');
+  const [searchStation, setSearchStation] = useState(cached?.filters?.searchStation || '');
 
   // Dropdown Filter States
-  const [filterAssignment, setFilterAssignment] = useState('');
-  const [filterMandate, setFilterMandate] = useState('');
-  const [filterVenue, setFilterVenue] = useState('');
-  const [filterPostedFor, setFilterPostedFor] = useState('');
-  const [filterAssignmentsLeft, setFilterAssignmentsLeft] = useState(''); // New Filter
-  const [filterToBePosted, setFilterToBePosted] = useState('');
-  const [filterDescription, setFilterDescription] = useState('');
+  const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
+  const [filterMandate, setFilterMandate] = useState(cached?.filters?.filterMandate || '');
+  const [filterVenue, setFilterVenue] = useState(cached?.filters?.filterVenue || '');
+  const [filterPostedFor, setFilterPostedFor] = useState(cached?.filters?.filterPostedFor || '');
+  const [filterAssignmentsLeft, setFilterAssignmentsLeft] = useState(cached?.filters?.filterAssignmentsLeft || ''); // New Filter
+  const [filterToBePosted, setFilterToBePosted] = useState(cached?.filters?.filterToBePosted || '');
+  const [filterDescription, setFilterDescription] = useState(cached?.filters?.filterDescription || '');
   const [venueSearch, setVenueSearch] = useState('');
-  const [filterState, setFilterState] = useState('');
+  const [filterState, setFilterState] = useState(cached?.filters?.filterState || '');
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const hasInitialized = useRef(!!cached);
 
   // Debounced Search
   const debouncedFileNo = useDebounce(searchFileNo, 300);
@@ -335,7 +340,36 @@ const AnnualPostings: React.FC = () => {
     setIsEditModalOpen(true);
   }, []);
 
+  // Update cache
+  useEffect(() => {
+    setPageCache('AnnualPostings', {
+      data: postings,
+      page,
+      limit,
+      searchTerm: searchFileNo,
+      filters: {
+        searchName,
+        searchStation,
+        filterAssignment,
+        filterMandate,
+        filterVenue,
+        filterPostedFor,
+        filterAssignmentsLeft,
+        filterToBePosted,
+        filterDescription,
+        filterState
+      },
+      assignmentsOptions: assignments,
+      venuesOptions: venues,
+      statesOptions: states
+    });
+  }, [postings, page, limit, searchFileNo, searchName, searchStation, filterAssignment, filterMandate, filterVenue, filterPostedFor, filterAssignmentsLeft, filterToBePosted, filterDescription, filterState, assignments, venues, states]);
+
   const fetchInitialData = useCallback(async (force: boolean = false) => {
+    if (hasInitialized.current && !force) {
+      hasInitialized.current = false;
+      return;
+    }
     try {
       setLoading(true);
       // Step 1: Fetch primary data quickly

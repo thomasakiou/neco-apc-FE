@@ -158,10 +158,10 @@ const StateManagement: React.FC = () => {
         });
     }, []);
 
-    const fetchAllStates = useCallback(async () => {
+    const fetchAllStates = useCallback(async (force: boolean = false) => {
         setLoading(true);
         try {
-            const data = await getAllStates();
+            const data = await getAllStates(force);
             setAllStates(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error("Failed to load states", e);
@@ -407,6 +407,14 @@ const StateManagement: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <button
+                        onClick={() => fetchAllStates(true)}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm"
+                        title="Refresh Data from Backend"
+                    >
+                        <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                        Refresh
+                    </button>
                     <button
                         onClick={handleAdd}
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5 transition-all"

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { getMandateList, deleteMandate, createMandate, updateMandate, uploadMandateCsv, getAllMandates, bulkDeleteMandates } from '../../services/mandate';
 import { getAllAssignments } from '../../services/assignment';
@@ -130,34 +130,34 @@ const MandateConfig: React.FC = () => {
         setPage(1);
     }, [debouncedSearchTerm, selectedAssignment]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async (force: boolean = false) => {
         setLoading(true);
         try {
-            const data = await getAllMandates();
+            const data = await getAllMandates(false, force);
             setAllMandates(data);
         } catch (error) {
             console.error('Error fetching mandates:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchAllMandates = async () => {
+    const fetchAllMandates = useCallback(async (force: boolean = false) => {
         try {
-            const data = await getAllMandates();
+            const data = await getAllMandates(false, force);
             setAllMandates(data);
         } catch (error) {
             console.error('Error fetching all mandates:', error);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
 
     useEffect(() => {
         fetchAllMandates();
-    }, []);
+    }, [fetchAllMandates]);
 
     useEffect(() => {
         const fetchAssignments = async () => {
@@ -346,6 +346,16 @@ const MandateConfig: React.FC = () => {
                         Mandate Configuration
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Manage mandate types and map mandates by CONRAISS.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => fetchData(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                        title="Refresh Data from Backend"
+                    >
+                        <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                        Refresh
+                    </button>
                 </div>
             </div>
 

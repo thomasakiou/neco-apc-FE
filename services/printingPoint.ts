@@ -4,6 +4,13 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const API_URL = `${API_BASE_URL}/printing-points`;
 
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let printingPointCache: { data: PrintingPoint[], timestamp: number } | null = null;
+
+const invalidateCache = () => {
+    printingPointCache = null;
+};
+
 export const getPrintingPoints = async (skip = 0, limit = 100000): Promise<PrintingPointListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
@@ -17,12 +24,16 @@ export const getPrintingPoints = async (skip = 0, limit = 100000): Promise<Print
     return response.json();
 };
 
-export const getAllPrintingPoints = async (onlyActive: boolean = false): Promise<PrintingPoint[]> => {
+export const getAllPrintingPoints = async (onlyActive: boolean = false, force: boolean = false): Promise<PrintingPoint[]> => {
+    if (!force && printingPointCache && (Date.now() - printingPointCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? printingPointCache.data.filter(item => item.status === 'Active') : printingPointCache.data;
+    }
     const response = await fetch(`${API_URL}?skip=0&limit=100000`, {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch all Printing Points');
     const data: PrintingPointListResponse = await response.json();
+    printingPointCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter(item => item.status === 'Active') : data.items;
 };
 
@@ -41,6 +52,7 @@ export const createPrintingPoint = async (data: PrintingPointCreate): Promise<Pr
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to create Printing Point');
+    invalidateCache();
     return response.json();
 };
 
@@ -51,6 +63,7 @@ export const updatePrintingPoint = async (id: string, data: PrintingPointUpdate)
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update Printing Point');
+    invalidateCache();
     return response.json();
 };
 
@@ -60,6 +73,7 @@ export const deletePrintingPoint = async (id: string): Promise<void> => {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete Printing Point');
+    invalidateCache();
 };
 
 export const deleteAllPrintingPoints = async (): Promise<void> => {
@@ -71,6 +85,7 @@ export const deleteAllPrintingPoints = async (): Promise<void> => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to delete all Printing Points');
     }
+    invalidateCache();
 };
 
 export const uploadPrintingPoints = async (file: File): Promise<PrintingPointBulkUploadResponse> => {
@@ -84,5 +99,6 @@ export const uploadPrintingPoints = async (file: File): Promise<PrintingPointBul
     });
 
     if (!response.ok) throw new Error('Failed to upload Printing Points');
+    invalidateCache();
     return response.json();
 };

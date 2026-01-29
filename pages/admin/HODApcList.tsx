@@ -10,24 +10,29 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 
 const HODApcList: React.FC = () => {
-    const [allRecords, setAllRecords] = useState<HODApcRecord[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
+    const cached = getPageCache('HODApcList');
+
+    const [allRecords, setAllRecords] = useState<HODApcRecord[]>(cached?.data || []);
+    const [loading, setLoading] = useState(!cached);
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 10);
     const [showHelp, setShowHelp] = useState(false);
 
-    const [sortField, setSortField] = useState<keyof HODApcRecord | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [sortField, setSortField] = useState<keyof HODApcRecord | null>(cached?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cached?.sortDirection || 'asc');
 
-    const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>([]);
+    const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>(cached?.assignmentOptions || []);
 
-    const [searchFileNo, setSearchFileNo] = useState('');
-    const [searchName, setSearchName] = useState('');
-    const [filterConraiss, setFilterConraiss] = useState('');
-    const [filterStation, setFilterStation] = useState('');
-    const [filterAssignment, setFilterAssignment] = useState('');
+    const [searchFileNo, setSearchFileNo] = useState(cached?.searchTerm || '');
+    const [searchName, setSearchName] = useState(cached?.filters?.searchName || '');
+    const [filterConraiss, setFilterConraiss] = useState(cached?.filters?.filterConraiss || '');
+    const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
+    const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
+
+    const hasInitialized = useRef(!!cached);
 
     const debouncedSearchFileNo = useDebounce(searchFileNo, 300);
     const debouncedSearchName = useDebounce(searchName, 300);
@@ -117,10 +122,33 @@ const HODApcList: React.FC = () => {
         return Array.from(new Set(allRecords.map(r => r.station).filter(Boolean))).sort() as string[];
     }, [allRecords]);
 
-    const fetchAllRecords = useCallback(async () => {
+    // Update cache
+    useEffect(() => {
+        setPageCache('HODApcList', {
+            data: allRecords,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm: searchFileNo,
+            filters: {
+                searchName,
+                filterConraiss,
+                filterStation,
+                filterAssignment
+            },
+            assignmentOptions
+        });
+    }, [allRecords, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, assignmentOptions]);
+
+    const fetchAllRecords = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
         setLoading(true);
         try {
-            const all = await getAllHODApcRecords(false);
+            const all = await getAllHODApcRecords(false, force);
             setAllRecords(all);
         } catch (error) {
             console.error('Error fetching HOD APC records:', error);
@@ -288,6 +316,7 @@ const HODApcList: React.FC = () => {
 
     useEffect(() => {
         const loadAssignments = async () => {
+            if (cached?.assignmentOptions) return;
             try {
                 const data = await getAllAssignments(true);
                 setAssignmentOptions(data);
@@ -297,7 +326,7 @@ const HODApcList: React.FC = () => {
         };
         loadAssignments();
         fetchAllRecords();
-    }, [fetchAllRecords]);
+    }, [fetchAllRecords, cached?.assignmentOptions]);
 
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) return;

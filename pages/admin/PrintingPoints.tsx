@@ -1,26 +1,27 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getPrintingPoints, deletePrintingPoint, createPrintingPoint, updatePrintingPoint, uploadPrintingPoints } from '../../services/printingPoint';
+import { getAllPrintingPoints, deletePrintingPoint, createPrintingPoint, updatePrintingPoint, uploadPrintingPoints } from '../../services/printingPoint';
 import { PrintingPoint, PrintingPointCreate } from '../../types/printingPoint';
 import AlertModal from '../../components/AlertModal';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 
 const PrintingPoints: React.FC = () => {
+    const cached = getPageCache('PrintingPoints');
     const [searchParams] = useSearchParams();
     const stateFilter = searchParams.get('state');
-    const [points, setPoints] = useState<PrintingPoint[]>([]);
-    const [filteredPoints, setFilteredPoints] = useState<PrintingPoint[]>([]);
-    const [displayedPoints, setDisplayedPoints] = useState<PrintingPoint[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    const [points, setPoints] = useState<PrintingPoint[]>(cached?.data || []);
+    const [loading, setLoading] = useState(!cached);
     const [uploading, setUploading] = useState(false);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof PrintingPoint | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 10);
+    const [sortField, setSortField] = useState<keyof PrintingPoint | null>(cached?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cached?.sortDirection || 'asc');
+    const [searchTerm, setSearchTerm] = useState(cached?.searchTerm || '');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPoint, setEditingPoint] = useState<PrintingPoint | null>(null);
+    const hasInitialized = useRef(!!cached);
     const [alertModal, setAlertModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -34,16 +35,19 @@ const PrintingPoints: React.FC = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const fetchPoints = async () => {
+    const fetchPoints = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
         setLoading(true);
         try {
-            const data = await getPrintingPoints(0, 100000); // Fetch all for client-side filtering/sorting or implement server-side
-            let result = data.items;
+            const result = await getAllPrintingPoints(false, force);
+            let data = result;
             if (stateFilter) {
-                result = result.filter(c => c.state?.toLowerCase() === stateFilter.toLowerCase());
+                data = result.filter(c => c.state?.toLowerCase() === stateFilter.toLowerCase());
             }
-            setPoints(result);
-            setFilteredPoints(result);
+            setPoints(data);
         } catch (error) {
             console.error('Error fetching Printing Points:', error);
             setAlertModal({
@@ -55,21 +59,35 @@ const PrintingPoints: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchPoints();
     }, [stateFilter]);
 
     useEffect(() => {
-        const filtered = points.filter(point =>
+        fetchPoints();
+    }, [fetchPoints]);
+
+    // Update Cache
+    useEffect(() => {
+        setPageCache('PrintingPoints', {
+            data: points,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm
+        });
+    }, [points, page, limit, sortField, sortDirection, searchTerm]);
+
+    const filteredPoints = useMemo(() => {
+        return points.filter(point =>
             point.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             point.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             point.status?.toLowerCase().includes(searchTerm.toLowerCase())
         );
+    }, [searchTerm, points]);
 
-        const sorted = [...filtered].sort((a, b) => {
-            if (!sortField) return 0;
+    const sortedPoints = useMemo(() => {
+        if (!sortField) return filteredPoints;
+        return [...filteredPoints].sort((a, b) => {
             const aValue = a[sortField];
             const bValue = b[sortField];
             if (aValue === bValue) return 0;
@@ -79,14 +97,15 @@ const PrintingPoints: React.FC = () => {
             const compareResult = aValue < bValue ? -1 : 1;
             return sortDirection === 'asc' ? compareResult : -compareResult;
         });
+    }, [filteredPoints, sortField, sortDirection]);
 
-        setFilteredPoints(sorted);
-        setTotal(sorted.length);
+    const total = sortedPoints.length;
 
+    const displayedPoints = useMemo(() => {
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
-        setDisplayedPoints(sorted.slice(startIndex, endIndex));
-    }, [searchTerm, points, sortField, sortDirection, page, limit]);
+        return sortedPoints.slice(startIndex, endIndex);
+    }, [sortedPoints, page, limit]);
 
     const handleSort = (field: keyof PrintingPoint) => {
         if (sortField === field) {
@@ -202,6 +221,14 @@ const PrintingPoints: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex gap-3">
+                        <button
+                            onClick={() => fetchPoints(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                            title="Refresh Data from Backend"
+                        >
+                            <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                            Refresh
+                        </button>
                         <button
                             onClick={() => {
                                 const headers = ['name', 'state', 'status'];

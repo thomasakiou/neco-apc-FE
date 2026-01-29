@@ -5,6 +5,13 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const API_URL = `${API_BASE_URL}/stations`;
 
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let stationCache: { data: Station[], timestamp: number } | null = null;
+
+const invalidateCache = () => {
+    stationCache = null;
+};
+
 export const getStationList = async (page: number = 1, limit: number = 10, search: string = ''): Promise<StationListResponse> => {
     const skip = (page - 1) * limit;
     const params = new URLSearchParams({
@@ -56,6 +63,7 @@ export const deleteStation = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete station');
     }
+    invalidateCache();
 };
 
 export const uploadStationCsv = async (file: File): Promise<any> => {
@@ -73,10 +81,14 @@ export const uploadStationCsv = async (file: File): Promise<any> => {
         console.error('Upload Error Details:', errorData);
         throw new Error(errorData.detail || 'Failed to upload station CSV');
     }
+    invalidateCache();
     return response.json();
 }
 
-export const getAllStations = async (onlyActive: boolean = false): Promise<Station[]> => {
+export const getAllStations = async (onlyActive: boolean = false, force: boolean = false): Promise<Station[]> => {
+    if (!force && stationCache && (Date.now() - stationCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? stationCache.data.filter(s => s.active) : stationCache.data;
+    }
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -84,6 +96,7 @@ export const getAllStations = async (onlyActive: boolean = false): Promise<Stati
         throw new Error('Failed to fetch all stations');
     }
     const data: StationListResponse = await response.json();
+    stationCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter(s => s.active) : data.items;
 };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import * as XLSX from 'xlsx';
 import { getAllFinalPostings, deleteAllFinalPostings, bulkDeleteFinalPostings, updateFinalPosting } from '../../services/finalPosting';
@@ -13,6 +13,7 @@ import { useNotification } from '../../context/NotificationContext';
 import SearchableSelect from '../../components/SearchableSelect';
 import { getAllAPCRecords, updateAPC } from '../../services/apc';
 import { assignmentFieldMap } from '../../services/personalizedPost';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 
 const normalizeString = (str: string | null | undefined): string => {
     if (!str) return '';
@@ -273,30 +274,34 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
 });
 
 const FinalPostings: React.FC = () => {
-    const [postings, setPostings] = useState<FinalPostingResponse[]>([]);
-    const [loading, setLoading] = useState(true);
+    const cached = getPageCache('FinalPostings');
+
+    const [postings, setPostings] = useState<FinalPostingResponse[]>(cached?.data || []);
+    const [loading, setLoading] = useState(!cached);
     const [restoring, setRestoring] = useState(false);
     const { success, error } = useNotification();
 
     // Pagination
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(50); // Higher default limit for reading
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 50); // Higher default limit for reading
 
     // Filter Options (Fetched for convenience)
-    const [assignments, setAssignments] = useState<Assignment[]>([]);
-    const [venues, setVenues] = useState<MarkingVenue[]>([]);
+    const [assignments, setAssignments] = useState<Assignment[]>(cached?.assignmentsOptions || []);
+    const [venues, setVenues] = useState<MarkingVenue[]>(cached?.venuesOptions || []);
 
     // Search States
-    const [searchFileNo, setSearchFileNo] = useState('');
-    const [searchName, setSearchName] = useState('');
-    const [searchStation, setSearchStation] = useState('');
+    const [searchFileNo, setSearchFileNo] = useState(cached?.searchTerm || '');
+    const [searchName, setSearchName] = useState(cached?.filters?.searchName || '');
+    const [searchStation, setSearchStation] = useState(cached?.filters?.searchStation || '');
 
     // Dropdown Filter States
-    const [filterAssignment, setFilterAssignment] = useState('');
-    const [filterMandate, setFilterMandate] = useState('');
-    const [filterVenue, setFilterVenue] = useState('');
-    const [filterState, setFilterState] = useState('');
-    const [filterYear, setFilterYear] = useState('');
+    const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
+    const [filterMandate, setFilterMandate] = useState(cached?.filters?.filterMandate || '');
+    const [filterVenue, setFilterVenue] = useState(cached?.filters?.filterVenue || '');
+    const [filterState, setFilterState] = useState(cached?.filters?.filterState || '');
+    const [filterYear, setFilterYear] = useState(cached?.filters?.filterYear || '');
+
+    const hasInitialized = useRef(!!cached);
 
     // Debounce
     const debouncedFileNo = useDebounce(searchFileNo, 300);
@@ -624,13 +629,38 @@ const FinalPostings: React.FC = () => {
     // Helper for description unique
     const filterUnique = <T,>(arr: T[]): T[] => Array.from(new Set(arr));
 
-    const fetchInitialData = useCallback(async () => {
+    // Update cache
+    useEffect(() => {
+        setPageCache('FinalPostings', {
+            data: postings,
+            page,
+            limit,
+            searchTerm: searchFileNo,
+            filters: {
+                searchName,
+                searchStation,
+                filterAssignment,
+                filterMandate,
+                filterVenue,
+                filterState,
+                filterYear
+            },
+            assignmentsOptions: assignments,
+            venuesOptions: venues
+        });
+    }, [postings, page, limit, searchFileNo, searchName, searchStation, filterAssignment, filterMandate, filterVenue, filterState, filterYear, assignments, venues]);
+
+    const fetchInitialData = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
         try {
             setLoading(true);
             const [finalPostingsData, assignmentsData, venuesData] = await Promise.all([
-                getAllFinalPostings(),
-                getAllAssignments(),
-                getAllMarkingVenues()
+                getAllFinalPostings(0, 100000), // Adjusted to ensure we get all if forced
+                getAllAssignments(false, force),
+                getAllMarkingVenues(false, force)
             ]);
 
             const rawItems = finalPostingsData.items || (Array.isArray(finalPostingsData) ? finalPostingsData : []);
@@ -650,6 +680,8 @@ const FinalPostings: React.FC = () => {
     useEffect(() => {
         fetchInitialData();
     }, [fetchInitialData]);
+
+    const handleRefresh = () => fetchInitialData(true);
 
     // Derived Data Map
     const assignmentMap = useMemo(() => {

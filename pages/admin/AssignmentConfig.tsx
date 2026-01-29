@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { getAssignments, getAllAssignments, getMandatesByAssignment, deleteAssignment, createAssignment, updateAssignment, uploadAssignments, deleteAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
@@ -79,10 +79,10 @@ const AssignmentConfig: React.FC = () => {
     // For bulk actions selection
     const allFilteredAssignments = filteredAssignments;
 
-    const fetchAssignments = async () => {
+    const fetchAssignments = useCallback(async (force: boolean = false) => {
         setLoading(true);
         try {
-            const data = await getAllAssignments();
+            const data = await getAllAssignments(false, force);
             setAllAssignments(data);
         } catch (error: any) {
             console.error('Error fetching assignments:', error);
@@ -90,7 +90,7 @@ const AssignmentConfig: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         setPage(1);
@@ -98,7 +98,7 @@ const AssignmentConfig: React.FC = () => {
 
     useEffect(() => {
         fetchAssignments();
-    }, []);
+    }, [fetchAssignments]);
 
     useEffect(() => {
         const fetchMandatesData = async () => {
@@ -319,6 +319,14 @@ const AssignmentConfig: React.FC = () => {
                         <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Manage assignments and their active status</p>
                     </div>
                     <div className="flex gap-3">
+                        <button
+                            onClick={() => fetchAssignments(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                            title="Refresh Data from Backend"
+                        >
+                            <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                            Refresh
+                        </button>
                         <button
                             onClick={downloadCsvTemplate}
                             className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 hover:border-emerald-300 transition-all shadow-sm"

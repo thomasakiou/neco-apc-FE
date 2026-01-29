@@ -6,6 +6,13 @@ import { getAllMandates } from './mandate';
 
 const API_URL = `${BASE_URL}/assignments`;
 
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let assignmentCache: { data: Assignment[], timestamp: number } | null = null;
+
+const invalidateCache = () => {
+    assignmentCache = null;
+};
+
 export const getAssignments = async (skip = 0, limit = 100, search = ''): Promise<AssignmentListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
@@ -20,12 +27,9 @@ export const getAssignments = async (skip = 0, limit = 100, search = ''): Promis
     return response.json();
 };
 
-// Cache
-let assignmentCache: Assignment[] | null = null;
-
-export const getAllAssignments = async (onlyActive: boolean = false): Promise<Assignment[]> => {
-    if (assignmentCache) {
-        return onlyActive ? assignmentCache.filter(a => a.active) : assignmentCache;
+export const getAllAssignments = async (onlyActive: boolean = false, force: boolean = false): Promise<Assignment[]> => {
+    if (!force && assignmentCache && (Date.now() - assignmentCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? assignmentCache.data.filter(a => a.active) : assignmentCache.data;
     }
 
     const response = await fetch(`${API_URL}?skip=0&limit=10000`, {
@@ -34,7 +38,7 @@ export const getAllAssignments = async (onlyActive: boolean = false): Promise<As
     if (!response.ok) throw new Error('Failed to fetch all assignments');
     const data: AssignmentListResponse = await response.json();
 
-    assignmentCache = data.items;
+    assignmentCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter(a => a.active) : data.items;
 };
 
@@ -62,7 +66,7 @@ export const createAssignment = async (data: AssignmentCreate): Promise<Assignme
         const errorData = await response.json();
         throw new Error(errorData.detail?.[0]?.msg || 'Failed to create assignment');
     }
-    assignmentCache = null; // Invalidate
+    invalidateCache();
     return response.json();
 };
 
@@ -78,7 +82,7 @@ export const updateAssignment = async (id: string, data: AssignmentUpdate): Prom
         console.error('Update assignment error:', errorData);
         throw new Error('Failed to update assignment');
     }
-    assignmentCache = null; // Invalidate
+    invalidateCache();
     return response.json();
 };
 
@@ -88,7 +92,7 @@ export const deleteAssignment = async (id: string): Promise<void> => {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete assignment');
-    assignmentCache = null; // Invalidate
+    invalidateCache();
 };
 
 export const deleteAssignments = async (): Promise<void> => {
@@ -97,7 +101,7 @@ export const deleteAssignments = async (): Promise<void> => {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete all assignments');
-    assignmentCache = null; // Invalidate
+    invalidateCache();
 };
 
 export const uploadAssignments = async (file: File): Promise<AssignmentBulkUploadResponse> => {
@@ -114,6 +118,6 @@ export const uploadAssignments = async (file: File): Promise<AssignmentBulkUploa
         const errorData = await response.json();
         throw new Error(errorData.detail?.[0]?.msg || 'Failed to upload assignments');
     }
-    assignmentCache = null; // Invalidate
+    invalidateCache();
     return response.json();
 };

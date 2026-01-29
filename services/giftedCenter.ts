@@ -5,6 +5,13 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const API_URL = `${API_BASE_URL}/gifted-centers`;
 
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let centerCache: { data: GiftedCenter[], timestamp: number } | null = null;
+
+const invalidateCache = () => {
+    centerCache = null;
+};
+
 export const getGiftedCenters = async (skip = 0, limit = 100000): Promise<GiftedCenterListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
@@ -18,12 +25,18 @@ export const getGiftedCenters = async (skip = 0, limit = 100000): Promise<Gifted
     return response.json();
 };
 
-export const getAllGiftedCenters = async (onlyActive: boolean = false): Promise<GiftedCenter[]> => {
+export const getAllGiftedCenters = async (onlyActive: boolean = false, force: boolean = false): Promise<GiftedCenter[]> => {
+    if (!force && centerCache && (Date.now() - centerCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? centerCache.data.filter(item => item.active) : centerCache.data;
+    }
+
     const response = await fetch(`${API_URL}?skip=0&limit=100000`, {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch all Gifted centers');
     const data: GiftedCenterListResponse = await response.json();
+
+    centerCache = { data: data.items, timestamp: Date.now() };
     return onlyActive ? data.items.filter(item => item.active) : data.items;
 };
 
@@ -42,6 +55,7 @@ export const createGiftedCenter = async (data: GiftedCenterCreate): Promise<Gift
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to create Gifted center');
+    invalidateCache();
     return response.json();
 };
 
@@ -52,6 +66,7 @@ export const updateGiftedCenter = async (id: string, data: GiftedCenterUpdate): 
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update Gifted center');
+    invalidateCache();
     return response.json();
 };
 
@@ -61,6 +76,7 @@ export const deleteGiftedCenter = async (id: string): Promise<void> => {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete Gifted center');
+    invalidateCache();
 };
 
 export const deleteAllGiftedCenters = async (): Promise<void> => {
@@ -72,6 +88,7 @@ export const deleteAllGiftedCenters = async (): Promise<void> => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to delete all Gifted centers');
     }
+    invalidateCache();
 };
 
 export const uploadGiftedCenters = async (file: File): Promise<GiftedCenterBulkUploadResponse> => {
@@ -85,5 +102,6 @@ export const uploadGiftedCenters = async (file: File): Promise<GiftedCenterBulkU
     });
 
     if (!response.ok) throw new Error('Failed to upload Gifted centers');
+    invalidateCache();
     return response.json();
 };

@@ -5,6 +5,7 @@ import { APCRecord, APCCreate, APCUpdate } from '../../types/apc';
 import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, appendAPC, bulkDeleteAPC, getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllPostingRecords, updatePosting } from '../../services/posting';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 import { PostingResponse } from '../../types/posting';
 import { assignmentFieldMap } from '../../services/personalizedPost';
 import { Assignment } from '../../types/assignment';
@@ -15,30 +16,33 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import SearchableSelect from '../../components/SearchableSelect';
-
 const APCList: React.FC = () => {
-    const [allRecords, setAllRecords] = useState<APCRecord[]>([]);
-    const [allPostings, setAllPostings] = useState<PostingResponse[]>([]);
-    const [loading, setLoading] = useState(true);
+    const cached = getPageCache('APCList');
+
+    const [allRecords, setAllRecords] = useState<APCRecord[]>(cached?.data || []);
+    const [allPostings, setAllPostings] = useState<PostingResponse[]>(cached?.allPostings || []);
+    const [loading, setLoading] = useState(!cached);
     const [showHelp, setShowHelp] = useState(false);
     // Search and Filter States
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 10);
 
     // Sorting State
-    const [sortField, setSortField] = useState<keyof APCRecord | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [sortField, setSortField] = useState<keyof APCRecord | null>(cached?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cached?.sortDirection || 'asc');
 
 
-    const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>([]);
+    const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>(cached?.assignmentOptions || []);
 
     // Filters
-    const [searchFileNo, setSearchFileNo] = useState('');
-    const [searchName, setSearchName] = useState('');
-    const [filterConraiss, setFilterConraiss] = useState('');
-    const [filterStation, setFilterStation] = useState('');
-    const [filterAssignment, setFilterAssignment] = useState('');
-    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+    const [searchFileNo, setSearchFileNo] = useState(cached?.searchTerm || '');
+    const [searchName, setSearchName] = useState(cached?.filters?.searchName || '');
+    const [filterConraiss, setFilterConraiss] = useState(cached?.filters?.filterConraiss || '');
+    const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
+    const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>(cached?.filters?.filterStatus || 'all');
+
+    const hasInitialized = useRef(!!cached);
 
     // Debounced search
     const debouncedSearchFileNo = useDebounce(searchFileNo, 300);
@@ -148,12 +152,38 @@ const APCList: React.FC = () => {
         return stations.map(s => ({ id: s, name: s }));
     }, [allRecords]);
 
-    const fetchAllRecords = useCallback(async () => {
+    // Update cache
+    useEffect(() => {
+        setPageCache('APCList', {
+            data: allRecords,
+            allPostings,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm: searchFileNo,
+            filters: {
+                searchName,
+                filterConraiss,
+                filterStation,
+                filterAssignment,
+                filterStatus
+            },
+            assignmentOptions
+        });
+    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions]);
+
+    const fetchAllRecords = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
+
         setLoading(true);
         try {
             const [all, postingsData] = await Promise.all([
-                getAllAPCRecords(true, true),
-                getAllPostingRecords(true)
+                getAllAPCRecords(false, force),
+                getAllPostingRecords(force)
             ]);
             setAllRecords(all);
             setAllPostings(postingsData);
@@ -209,6 +239,7 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         const loadAssignments = async () => {
+            if (cached?.assignmentOptions) return;
             try {
                 const data = await getAllAssignments(true);
                 setAssignmentOptions(data);
@@ -218,7 +249,7 @@ const APCList: React.FC = () => {
         };
         loadAssignments();
         fetchAllRecords();
-    }, [fetchAllRecords]);
+    }, [fetchAllRecords, cached?.assignmentOptions]);
 
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) return;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { getBECEMarkingVenueList, deleteBECEMarkingVenue, createBECEMarkingVenue, updateBECEMarkingVenue, uploadBECEMarkingVenueCsv, getAllBECEMarkingVenues } from '../../services/markingVenue';
 import { BECEMarkingVenue, BECEMarkingVenueCreate } from '../../types/markingVenue';
@@ -6,19 +6,23 @@ import { getAllStates } from '../../services/state';
 import { State } from '../../types/state';
 import MarkingVenueModal from './MarkingVenueModal';
 import AlertModal from '../../components/AlertModal';
+import { getPageCache, setPageCache } from '../../services/pageCache';
 
 const BECEMarkingVenues: React.FC = () => {
+    const cached = getPageCache('BECEMarkingVenues');
+
     const [states, setStates] = useState<State[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof BECEMarkingVenue | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(!cached);
+    const [page, setPage] = useState(cached?.page || 1);
+    const [limit, setLimit] = useState(cached?.limit || 10);
+    const [sortField, setSortField] = useState<keyof BECEMarkingVenue | null>(cached?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cached?.sortDirection || 'asc');
+    const [searchTerm, setSearchTerm] = useState(cached?.searchTerm || '');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
-    const [allVenues, setAllVenues] = useState<BECEMarkingVenue[]>([]);
-    const [selectedState, setSelectedState] = useState('All');
+    const [allVenues, setAllVenues] = useState<BECEMarkingVenue[]>(cached?.data || []);
+    const [selectedState, setSelectedState] = useState(cached?.selectedState || 'All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const hasInitialized = useRef(!!cached);
 
     const filteredVenues = useMemo(() => {
         let result = allVenues;
@@ -123,26 +127,43 @@ const BECEMarkingVenues: React.FC = () => {
         }
     };
 
-    const fetchAllVenues = async () => {
+    const fetchAllVenues = useCallback(async (force: boolean = false) => {
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
         setLoading(true);
         try {
-            const data = await getAllBECEMarkingVenues();
+            const data = await getAllBECEMarkingVenues(false, force);
             setAllVenues(data);
         } catch (error) {
             console.error('Error fetching all BECE marking venues:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchStates = async () => {
+    const fetchStates = useCallback(async () => {
         try {
             const data = await getAllStates();
             setStates(data);
         } catch (error) {
             console.error('Error fetching states:', error);
         }
-    };
+    }, []);
+
+    // Update cache
+    useEffect(() => {
+        setPageCache('BECEMarkingVenues', {
+            data: allVenues,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm,
+            selectedState
+        });
+    }, [allVenues, page, limit, sortField, sortDirection, searchTerm, selectedState]);
 
     useEffect(() => {
         setPage(1);
@@ -285,6 +306,14 @@ const BECEMarkingVenues: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap gap-3">
                     <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} className="hidden" id="csv-upload" />
+                    <button
+                        onClick={() => fetchAllVenues(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                        title="Refresh Data"
+                    >
+                        <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                        Refresh
+                    </button>
                     <button onClick={downloadCsvTemplate} className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
                         <span className="material-symbols-outlined text-lg">download</span> Template
                     </button>

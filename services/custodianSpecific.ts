@@ -5,6 +5,12 @@ const BECE_API_URL = `${API_BASE_URL}/bece-custodians`;
 const SSCE_API_URL = `${API_BASE_URL}/ssce-custodians`;
 const SSCE_EXT_API_URL = `${API_BASE_URL}/ssce-ext-custodians`;
 
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+let beceCache: { data: any[], timestamp: number } | null = null;
+let ssceCache: { data: any[], timestamp: number } | null = null;
+let ssceExtCache: { data: any[], timestamp: number } | null = null;
+
 // --- BECE Custodians ---
 
 const STATE_API_URL = `${API_BASE_URL}/states`;
@@ -29,7 +35,11 @@ export const getSSCECustodiansByState = async (stateName: string): Promise<any[]
     return response.json();
 };
 
-export const getAllBECECustodians = async (onlyActive: boolean = false): Promise<any[]> => {
+export const getAllBECECustodians = async (onlyActive: boolean = false, force: boolean = false): Promise<any[]> => {
+    if (!force && beceCache && (Date.now() - beceCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? beceCache.data.filter((i: any) => i.active) : beceCache.data;
+    }
+
     const response = await fetch(`${BECE_API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -38,6 +48,8 @@ export const getAllBECECustodians = async (onlyActive: boolean = false): Promise
     }
     const data = await response.json();
     const items = data.items || [];
+
+    beceCache = { data: items, timestamp: Date.now() };
     return onlyActive ? items.filter((i: any) => i.active) : items;
 };
 
@@ -50,6 +62,7 @@ export const createBECECustodian = async (data: any): Promise<any> => {
     if (!response.ok) {
         throw new Error('Failed to create BECE Custodian');
     }
+    beceCache = null; // Invalidate cache
     return response.json();
 };
 
@@ -62,6 +75,7 @@ export const updateBECECustodian = async (id: string, data: any): Promise<any> =
     if (!response.ok) {
         throw new Error('Failed to update BECE Custodian');
     }
+    beceCache = null; // Invalidate cache
     return response.json();
 };
 
@@ -73,6 +87,7 @@ export const deleteBECECustodian = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete BECE Custodian');
     }
+    beceCache = null; // Invalidate cache
 };
 
 export const bulkDeleteBECECustodians = async (ids: string[]): Promise<void> => {
@@ -84,6 +99,7 @@ export const bulkDeleteBECECustodians = async (ids: string[]): Promise<void> => 
     if (!response.ok) {
         throw new Error('Failed to bulk delete BECE Custodians');
     }
+    beceCache = null; // Invalidate cache
 };
 
 export const uploadBECECustodianCsv = async (file: File): Promise<any> => {
@@ -97,12 +113,17 @@ export const uploadBECECustodianCsv = async (file: File): Promise<any> => {
     if (!response.ok) {
         throw new Error('Failed to upload BECE Custodian CSV');
     }
+    beceCache = null; // Invalidate cache
     return response.json();
 };
 
 // --- SSCE Custodians ---
 
-export const getAllSSCECustodians = async (onlyActive: boolean = false): Promise<any[]> => {
+export const getAllSSCECustodians = async (onlyActive: boolean = false, force: boolean = false): Promise<any[]> => {
+    if (!force && ssceCache && (Date.now() - ssceCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? ssceCache.data.filter((i: any) => i.active) : ssceCache.data;
+    }
+
     const response = await fetch(`${SSCE_API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -111,6 +132,8 @@ export const getAllSSCECustodians = async (onlyActive: boolean = false): Promise
     }
     const data = await response.json();
     const items = data.items || [];
+
+    ssceCache = { data: items, timestamp: Date.now() };
     return onlyActive ? items.filter((i: any) => i.active) : items;
 };
 
@@ -123,6 +146,7 @@ export const createSSCECustodian = async (data: any): Promise<any> => {
     if (!response.ok) {
         throw new Error('Failed to create SSCE Custodian');
     }
+    ssceCache = null; // Invalidate
     return response.json();
 };
 
@@ -135,6 +159,7 @@ export const updateSSCECustodian = async (id: string, data: any): Promise<any> =
     if (!response.ok) {
         throw new Error('Failed to update SSCE Custodian');
     }
+    ssceCache = null; // Invalidate
     return response.json();
 };
 
@@ -146,6 +171,7 @@ export const deleteSSCECustodian = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete SSCE Custodian');
     }
+    ssceCache = null; // Invalidate
 };
 
 export const bulkDeleteSSCECustodians = async (ids: string[]): Promise<void> => {
@@ -157,6 +183,7 @@ export const bulkDeleteSSCECustodians = async (ids: string[]): Promise<void> => 
     if (!response.ok) {
         throw new Error('Failed to bulk delete SSCE Custodians');
     }
+    ssceCache = null; // Invalidate
 };
 
 export const uploadSSCECustodianCsv = async (file: File): Promise<any> => {
@@ -170,12 +197,17 @@ export const uploadSSCECustodianCsv = async (file: File): Promise<any> => {
     if (!response.ok) {
         throw new Error('Failed to upload SSCE Custodian CSV');
     }
+    ssceCache = null; // Invalidate
     return response.json();
 };
 
 // --- SSCE External Custodians ---
 
-export const getAllSSCEExtCustodians = async (onlyActive: boolean = false): Promise<any[]> => {
+export const getAllSSCEExtCustodians = async (onlyActive: boolean = false, force: boolean = false): Promise<any[]> => {
+    if (!force && ssceExtCache && (Date.now() - ssceExtCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? ssceExtCache.data.filter((i: any) => i.active) : ssceExtCache.data;
+    }
+
     const response = await fetch(`${SSCE_EXT_API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -184,6 +216,8 @@ export const getAllSSCEExtCustodians = async (onlyActive: boolean = false): Prom
     }
     const data = await response.json();
     const items = data.items || [];
+
+    ssceExtCache = { data: items, timestamp: Date.now() };
     return onlyActive ? items.filter((i: any) => i.active) : items;
 };
 
@@ -206,6 +240,7 @@ export const createSSCEExtCustodian = async (data: any): Promise<any> => {
     if (!response.ok) {
         throw new Error('Failed to create SSCE External Custodian');
     }
+    ssceExtCache = null; // Invalidate
     return response.json();
 };
 
@@ -218,6 +253,7 @@ export const updateSSCEExtCustodian = async (id: string, data: any): Promise<any
     if (!response.ok) {
         throw new Error('Failed to update SSCE External Custodian');
     }
+    ssceExtCache = null; // Invalidate
     return response.json();
 };
 
@@ -229,6 +265,7 @@ export const deleteSSCEExtCustodian = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete SSCE External Custodian');
     }
+    ssceExtCache = null; // Invalidate
 };
 
 export const bulkDeleteSSCEExtCustodians = async (ids: string[]): Promise<void> => {
@@ -240,6 +277,7 @@ export const bulkDeleteSSCEExtCustodians = async (ids: string[]): Promise<void> 
     if (!response.ok) {
         throw new Error('Failed to bulk delete SSCE External Custodians');
     }
+    ssceExtCache = null; // Invalidate
 };
 
 export const uploadSSCEExtCustodianCsv = async (file: File): Promise<any> => {
@@ -253,5 +291,6 @@ export const uploadSSCEExtCustodianCsv = async (file: File): Promise<any> => {
     if (!response.ok) {
         throw new Error('Failed to upload SSCE External Custodian CSV');
     }
+    ssceExtCache = null; // Invalidate
     return response.json();
 };

@@ -223,7 +223,22 @@ export const promoteStaff = async (file: File, confirm: boolean = false, promoti
     return response.json();
 }
 
-export const getAllStaff = async (onlyActive: boolean = false): Promise<Staff[]> => {
+// Global cache for all staff
+let allStaffCache: { data: Staff[], timestamp: number } | null = null;
+const ALL_STAFF_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+export const getAllStaff = async (onlyActive: boolean = false, forceRefresh: boolean = false): Promise<Staff[]> => {
+    // Return from cache if available and not expired
+    if (!forceRefresh && allStaffCache && (Date.now() - allStaffCache.timestamp < ALL_STAFF_CACHE_TTL)) {
+        console.log('[Staff Service] Returning all staff from cache');
+        let items = allStaffCache.data;
+        if (onlyActive) {
+            items = items.filter(item => item.active);
+        }
+        return items;
+    }
+
+    console.log('[Staff Service] Fetching all staff from server');
     const response = await fetch(`${API_URL}?limit=10000`, {
         headers: getAuthHeaders(),
     });
@@ -231,11 +246,23 @@ export const getAllStaff = async (onlyActive: boolean = false): Promise<Staff[]>
         throw new Error('Failed to fetch all staff');
     }
     const data: StaffListResponse = await response.json();
-    let items = (data.items || []).map(mapApiStaffToStaff);
+    const items = (data.items || []).map(mapApiStaffToStaff);
+
+    // Update global cache
+    allStaffCache = {
+        data: items,
+        timestamp: Date.now()
+    };
+
+    let result = items;
     if (onlyActive) {
-        items = items.filter(item => item.active);
+        result = result.filter(item => item.active);
     }
-    return items;
+    return result;
+};
+
+export const clearAllStaffCache = () => {
+    allStaffCache = null;
 };
 
 export const bulkDeleteStaff = async (ids: string[]): Promise<void> => {

@@ -77,7 +77,16 @@ export const bulkDeleteHODApc = async (ids: string[]): Promise<void> => {
     }
 };
 
-export const getAllHODApcRecords = async (onlyActive: boolean = false): Promise<HODApcRecord[]> => {
+let hodApcCache: { data: HODApcRecord[], timestamp: number } | null = null;
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+export const getAllHODApcRecords = async (onlyActive: boolean = false, force: boolean = false): Promise<HODApcRecord[]> => {
+    if (!force && hodApcCache && (Date.now() - hodApcCache.timestamp < CACHE_TTL)) {
+        console.log('[HOD APC Service] Returning from cache');
+        return onlyActive ? hodApcCache.data.filter(item => item.active) : hodApcCache.data;
+    }
+
+    console.log('[HOD APC Service] Fetching from server');
     const response = await fetch(`${REQUEST_URL}?limit=100000`, {
         headers: getAuthHeaders(),
     });
@@ -85,11 +94,14 @@ export const getAllHODApcRecords = async (onlyActive: boolean = false): Promise<
         throw new Error('Failed to fetch all HOD APC records');
     }
     const data: HODApcListResponse = await response.json();
-    let items = data.items;
-    if (onlyActive) {
-        items = items.filter(item => item.active);
-    }
-    return items;
+    const items = data.items;
+
+    hodApcCache = {
+        data: items,
+        timestamp: Date.now()
+    };
+
+    return onlyActive ? items.filter(item => item.active) : items;
 };
 
 // Assignment field mapping for HOD APC records

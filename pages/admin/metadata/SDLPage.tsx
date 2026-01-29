@@ -1,36 +1,44 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff } from '../../../services/staff';
 import { Staff, StaffCreate } from '../../../types/staff';
+import { getSDLCache, setSDLCache, SDLCache } from '../../../services/sdlCache';
 import StaffModal from '../StaffModal';
 import AlertModal from '../../../components/AlertModal';
 
 const SDLPage: React.FC = () => {
-    const [staffList, setStaffList] = useState<Staff[]>([]);
-    const [allStaff, setAllStaff] = useState<Staff[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [sortField, setSortField] = useState<keyof Staff | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedStation, setSelectedStation] = useState('All');
-    const [selectedRank, setSelectedRank] = useState('All');
-    const [selectedConr, setSelectedConr] = useState('All');
-    const [selectedState, setSelectedState] = useState('All');
-    const [selectedHOD, setSelectedHOD] = useState('All');
-    const [selectedStateCoord, setSelectedStateCoord] = useState('All');
-    const [selectedDirector, setSelectedDirector] = useState('All');
-    const [selectedEducation, setSelectedEducation] = useState('All');
-    const [selectedSecretary, setSelectedSecretary] = useState('All');
-    const [selectedOthers, setSelectedOthers] = useState('All');
-    const [selectedPromotionDate, setSelectedPromotionDate] = useState('All');
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // Cache Initialization
+    const cachedData = getSDLCache();
+
+    const [staffList, setStaffList] = useState<Staff[]>(cachedData?.staffList || []);
+    const [allStaff, setAllStaff] = useState<Staff[]>(cachedData?.allStaff || []);
+    const [loading, setLoading] = useState(!cachedData);
+    const [total, setTotal] = useState(cachedData?.total || 0);
+    const [page, setPage] = useState(cachedData?.page || 1);
+    const [limit, setLimit] = useState(cachedData?.limit || 10);
+    const [sortField, setSortField] = useState<keyof Staff | null>(cachedData?.sortField || null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cachedData?.sortDirection || 'asc');
+    const [searchTerm, setSearchTerm] = useState(cachedData?.searchTerm || '');
+    const [selectedStation, setSelectedStation] = useState(cachedData?.filters.selectedStation || 'All');
+    const [selectedRank, setSelectedRank] = useState(cachedData?.filters.selectedRank || 'All');
+    const [selectedConr, setSelectedConr] = useState(cachedData?.filters.selectedConr || 'All');
+    const [selectedState, setSelectedState] = useState(cachedData?.filters.selectedState || 'All');
+    const [selectedHOD, setSelectedHOD] = useState(cachedData?.filters.selectedHOD || 'All');
+    const [selectedStateCoord, setSelectedStateCoord] = useState(cachedData?.filters.selectedStateCoord || 'All');
+    const [selectedDirector, setSelectedDirector] = useState(cachedData?.filters.selectedDirector || 'All');
+    const [selectedEducation, setSelectedEducation] = useState(cachedData?.filters.selectedEducation || 'All');
+    const [selectedSecretary, setSelectedSecretary] = useState(cachedData?.filters.selectedSecretary || 'All');
+    const [selectedOthers, setSelectedOthers] = useState(cachedData?.filters.selectedOthers || 'All');
+    const [selectedPromotionDate, setSelectedPromotionDate] = useState(cachedData?.filters.selectedPromotionDate || 'All');
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Flag to prevent redundant fetch on mount if cache exists
+    const hasInitialized = useRef(!!cachedData);
 
     // New state for collapsible rows
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -55,11 +63,11 @@ const SDLPage: React.FC = () => {
     const [showDopaDropdown, setShowDopaDropdown] = useState(false);
     const dopaDropdownRef = useRef<HTMLDivElement>(null);
 
-    const uniqueStations = Array.from(new Set(allStaff.map(s => s.station).filter(Boolean))) as string[];
-    const uniqueRanks = Array.from(new Set(allStaff.map(s => s.rank).filter(Boolean))) as string[];
-    const uniqueConrs = Array.from(new Set(allStaff.map(s => s.conr).filter(Boolean))) as string[];
-    const uniqueStates = Array.from(new Set(allStaff.map(s => s.state).filter(Boolean))).sort() as string[];
-    const uniquePromotionDates = Array.from(new Set(allStaff.map(s => s.dopa?.split('T')[0]?.split(' ')[0]).filter(Boolean))).sort() as string[];
+    const uniqueStations = useMemo(() => Array.from(new Set(allStaff.map(s => s.station).filter(Boolean))) as string[], [allStaff]);
+    const uniqueRanks = useMemo(() => Array.from(new Set(allStaff.map(s => s.rank).filter(Boolean))) as string[], [allStaff]);
+    const uniqueConrs = useMemo(() => Array.from(new Set(allStaff.map(s => s.conr).filter(Boolean))) as string[], [allStaff]);
+    const uniqueStates = useMemo(() => Array.from(new Set(allStaff.map(s => s.state).filter(Boolean))).sort() as string[], [allStaff]);
+    const uniquePromotionDates = useMemo(() => Array.from(new Set(allStaff.map(s => s.dopa?.split('T')[0]?.split(' ')[0]).filter(Boolean))).sort() as string[], [allStaff]);
 
     const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
         selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' ||
@@ -279,7 +287,41 @@ const SDLPage: React.FC = () => {
         setPage(1);
     }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
 
-    const fetchData = async () => {
+    // Update Cache whenever relevant state changes
+    useEffect(() => {
+        setSDLCache({
+            staffList,
+            allStaff,
+            total,
+            page,
+            limit,
+            sortField,
+            sortDirection,
+            searchTerm,
+            filters: {
+                selectedStation,
+                selectedRank,
+                selectedConr,
+                selectedState,
+                selectedHOD,
+                selectedStateCoord,
+                selectedDirector,
+                selectedEducation,
+                selectedSecretary,
+                selectedOthers,
+                selectedPromotionDate,
+            },
+            lastUpdated: Date.now()
+        });
+    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
+
+    const fetchData = async (force: boolean = false) => {
+        // Skip fetch if we have cached data and it's the initial mount
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
+
         setLoading(true);
         try {
             if (hasActiveFilters) {
@@ -325,9 +367,9 @@ const SDLPage: React.FC = () => {
         }
     };
 
-    const fetchAllStaff = async () => {
+    const fetchAllStaff = async (force: boolean = false) => {
         try {
-            const all = await getAllStaff();
+            const all = await getAllStaff(false, force);
             setAllStaff(all);
         } catch (error) {
             console.error('Error fetching all staff:', error);
@@ -831,7 +873,7 @@ const SDLPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => { fetchData(); fetchAllStaff(); }}
+                        onClick={() => { fetchData(true); fetchAllStaff(true); }}
                         disabled={loading}
                         className={`group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
