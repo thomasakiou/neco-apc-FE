@@ -60,10 +60,18 @@ const AdminDashboard: React.FC = () => {
       staffDistribution: [],
       postingStatus: [],
       totalPostings: 0
+    },
+    staffRoles: {
+      hods: 0,
+      education: 0,
+      stateCoordinators: 0,
+      directors: 0,
+      secretaries: 0,
+      others: 0
     }
   };
 
-  const { counts, charts } = safeStats;
+  const { counts, charts, staffRoles } = safeStats;
 
   return (
     <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
@@ -158,6 +166,25 @@ const AdminDashboard: React.FC = () => {
               gradient="from-amber-500 to-orange-600"
               trend="All 37 Regions Active"
             />
+          </section>
+
+          {/* Staff Composition Stats */}
+          <section className="bg-white dark:bg-[#121b25] rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200 dark:border-white/5">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="size-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <span className="material-symbols-outlined text-xl">badge</span>
+              </div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wide">Staff Composition</h3>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+              <RoleStatCard title="HODs" count={staffRoles.hods} icon="supervisor_account" color="text-purple-600" bg="bg-purple-50 dark:bg-purple-900/20" />
+              <RoleStatCard title="Education" count={staffRoles.education} icon="school" color="text-blue-600" bg="bg-blue-50 dark:bg-blue-900/20" />
+              <RoleStatCard title="Coordinators" count={staffRoles.stateCoordinators} icon="map" color="text-emerald-600" bg="bg-emerald-50 dark:bg-emerald-900/20" />
+              <RoleStatCard title="Directors" count={staffRoles.directors} icon="admin_panel_settings" color="text-amber-600" bg="bg-amber-50 dark:bg-amber-900/20" />
+              <RoleStatCard title="Secretaries" count={staffRoles.secretaries} icon="assignment" color="text-rose-600" bg="bg-rose-50 dark:bg-rose-900/20" />
+              <RoleStatCard title="Others" count={staffRoles.others} icon="more_horiz" color="text-slate-600" bg="bg-slate-50 dark:bg-slate-800" />
+            </div>
           </section>
 
           {/* Core Analytics Sections */}
@@ -373,6 +400,16 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, bg }) =>
       <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{title}</p>
       <p className="text-slate-900 dark:text-slate-200 text-2xl font-black">{value}</p>
     </div>
+  </div>
+);
+
+const RoleStatCard = ({ title, count, icon, color, bg }: any) => (
+  <div className={`flex flex-col items-center justify-center p-4 rounded-2xl ${bg} transition-transform hover:scale-105`}>
+    <div className={`mb-3 ${color}`}>
+      <span className="material-symbols-outlined text-3xl">{icon}</span>
+    </div>
+    <span className="text-2xl font-black text-slate-900 dark:text-white mb-1">{count.toLocaleString()}</span>
+    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">{title}</span>
   </div>
 );
 

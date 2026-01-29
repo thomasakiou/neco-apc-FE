@@ -30,6 +30,14 @@ export interface DashboardStats {
         postingStatus: { name: string; value: number; color: string }[];
         totalPostings: number; // Total number of APC records considered
     };
+    staffRoles: {
+        hods: number;
+        education: number;
+        stateCoordinators: number;
+        directors: number;
+        secretaries: number;
+        others: number;
+    };
 }
 
 // Helper to swallow errors and return a default value with timeout
@@ -132,9 +140,27 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
 
     // Data Processing for Charts with null checks
     const stationCounts: Record<string, number> = {};
+
+    // Staff Role Counters
+    let hodCount = 0;
+    let educationCount = 0;
+    let coordinatorCount = 0;
+    let directorCount = 0;
+    let secretaryCount = 0;
+    let othersCount = 0;
+
     if (allStaff.length > 0) {
         for (let i = 0; i < allStaff.length; i++) {
             const staff = allStaff[i];
+
+            // Role Counting
+            if (staff.is_hod) hodCount++;
+            if (staff.is_education) educationCount++;
+            if (staff.is_state_coordinator || staff.is_state_cordinator) coordinatorCount++;
+            if (staff.is_director) directorCount++;
+            if (staff.is_secretary) secretaryCount++;
+            if (staff.others) othersCount++;
+
             if (!staff?.station) continue;
             let stationName = staff.station.trim();
             if (stationName.toLowerCase().includes('hq') || stationName.toLowerCase().includes('headquarter') || stationName.toLowerCase() === 'minna') {
@@ -206,6 +232,14 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
             staffDistribution,
             postingStatus,
             totalPostings: apcCount
+        },
+        staffRoles: {
+            hods: hodCount,
+            education: educationCount,
+            stateCoordinators: coordinatorCount,
+            directors: directorCount,
+            secretaries: secretaryCount,
+            others: othersCount
         }
     };
 
