@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
-import { getDashboardStats, DashboardStats } from '../../services/dashboardStats';
+import { getDashboardStats, getCachedStats, DashboardStats } from '../../services/dashboardStats';
 import { getRecentReactivations } from '../../services/apc';
 import { APCRecord } from '../../types/apc';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
 
 const AdminDashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(getCachedStats());
+  const [loading, setLoading] = useState(!getCachedStats());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [reactivatedStaff, setReactivatedStaff] = useState<APCRecord[]>([]);
@@ -17,7 +17,7 @@ const AdminDashboard: React.FC = () => {
 
   const fetchStats = async (force = false) => {
     if (force) setIsRefreshing(true);
-    else setLoading(true);
+    else if (!stats) setLoading(true);
 
     try {
       const data = await getDashboardStats(force);

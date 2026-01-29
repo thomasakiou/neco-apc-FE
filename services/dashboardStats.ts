@@ -57,7 +57,9 @@ async function safeFetch<T>(promise: Promise<T>, fallback: T, timeoutMs: number 
 // Cache for dashboard stats
 let dashboardCache: DashboardStats | null = null;
 let lastCacheTime = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 30 * 60 * 1000; // Increased to 30 minutes for better experience
+
+export const getCachedStats = () => dashboardCache;
 
 export const getDashboardStats = async (forceRefresh = false): Promise<DashboardStats> => {
     const now = Date.now();
