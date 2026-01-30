@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff } from '../../../services/staff';
 import { Staff, StaffCreate } from '../../../types/staff';
-import { getSDLCache, setSDLCache, SDLCache } from '../../../services/sdlCache';
+import { getPageCache, setPageCache } from '../../../services/pageCache';
 import StaffModal from '../StaffModal';
 import AlertModal from '../../../components/AlertModal';
 
@@ -13,28 +13,28 @@ const SDLPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Cache Initialization
-    const cachedData = getSDLCache();
+    const cachedData = getPageCache('sdl');
 
-    const [staffList, setStaffList] = useState<Staff[]>(cachedData?.staffList || []);
+    const [staffList, setStaffList] = useState<Staff[]>(cachedData?.data || []);
     const [allStaff, setAllStaff] = useState<Staff[]>(cachedData?.allStaff || []);
     const [loading, setLoading] = useState(!cachedData);
     const [total, setTotal] = useState(cachedData?.total || 0);
     const [page, setPage] = useState(cachedData?.page || 1);
     const [limit, setLimit] = useState(cachedData?.limit || 10);
-    const [sortField, setSortField] = useState<keyof Staff | null>(cachedData?.sortField || null);
+    const [sortField, setSortField] = useState<keyof Staff | null>(cachedData?.sortField as any || null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(cachedData?.sortDirection || 'asc');
     const [searchTerm, setSearchTerm] = useState(cachedData?.searchTerm || '');
-    const [selectedStation, setSelectedStation] = useState(cachedData?.filters.selectedStation || 'All');
-    const [selectedRank, setSelectedRank] = useState(cachedData?.filters.selectedRank || 'All');
-    const [selectedConr, setSelectedConr] = useState(cachedData?.filters.selectedConr || 'All');
-    const [selectedState, setSelectedState] = useState(cachedData?.filters.selectedState || 'All');
-    const [selectedHOD, setSelectedHOD] = useState(cachedData?.filters.selectedHOD || 'All');
-    const [selectedStateCoord, setSelectedStateCoord] = useState(cachedData?.filters.selectedStateCoord || 'All');
-    const [selectedDirector, setSelectedDirector] = useState(cachedData?.filters.selectedDirector || 'All');
-    const [selectedEducation, setSelectedEducation] = useState(cachedData?.filters.selectedEducation || 'All');
-    const [selectedSecretary, setSelectedSecretary] = useState(cachedData?.filters.selectedSecretary || 'All');
-    const [selectedOthers, setSelectedOthers] = useState(cachedData?.filters.selectedOthers || 'All');
-    const [selectedPromotionDate, setSelectedPromotionDate] = useState(cachedData?.filters.selectedPromotionDate || 'All');
+    const [selectedStation, setSelectedStation] = useState(cachedData?.filters?.selectedStation || 'All');
+    const [selectedRank, setSelectedRank] = useState(cachedData?.filters?.selectedRank || 'All');
+    const [selectedConr, setSelectedConr] = useState(cachedData?.filters?.selectedConr || 'All');
+    const [selectedState, setSelectedState] = useState(cachedData?.filters?.selectedState || 'All');
+    const [selectedHOD, setSelectedHOD] = useState(cachedData?.filters?.selectedHOD || 'All');
+    const [selectedStateCoord, setSelectedStateCoord] = useState(cachedData?.filters?.selectedStateCoord || 'All');
+    const [selectedDirector, setSelectedDirector] = useState(cachedData?.filters?.selectedDirector || 'All');
+    const [selectedEducation, setSelectedEducation] = useState(cachedData?.filters?.selectedEducation || 'All');
+    const [selectedSecretary, setSelectedSecretary] = useState(cachedData?.filters?.selectedSecretary || 'All');
+    const [selectedOthers, setSelectedOthers] = useState(cachedData?.filters?.selectedOthers || 'All');
+    const [selectedPromotionDate, setSelectedPromotionDate] = useState(cachedData?.filters?.selectedPromotionDate || 'All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     // Flag to prevent redundant fetch on mount if cache exists
@@ -180,8 +180,8 @@ const SDLPage: React.FC = () => {
                     message: response.message
                 }
             });
-            fetchData();
-            fetchAllStaff();
+            fetchData(true);
+            fetchAllStaffData(true);
         } catch (error: any) {
             console.error('Promotion failed:', error);
             setAlertModal({
@@ -216,8 +216,8 @@ const SDLPage: React.FC = () => {
                     errorData: response.errors || []
                 }
             });
-            fetchData();
-            fetchAllStaff();
+            fetchData(true);
+            fetchAllStaffData(true);
         } catch (error: any) {
             console.error('Upload failed:', error);
             setAlertModal({
@@ -254,8 +254,8 @@ const SDLPage: React.FC = () => {
                     errorData: response.errors || []
                 }
             });
-            fetchData();
-            fetchAllStaff();
+            fetchData(true);
+            fetchAllStaffData(true);
         } catch (error: any) {
             console.error('Append failed:', error);
             setAlertModal({
@@ -289,8 +289,8 @@ const SDLPage: React.FC = () => {
 
     // Update Cache whenever relevant state changes
     useEffect(() => {
-        setSDLCache({
-            staffList,
+        setPageCache('sdl', {
+            data: staffList,
             allStaff,
             total,
             page,
@@ -310,12 +310,11 @@ const SDLPage: React.FC = () => {
                 selectedSecretary,
                 selectedOthers,
                 selectedPromotionDate,
-            },
-            lastUpdated: Date.now()
+            }
         });
     }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
 
-    const fetchData = async (force: boolean = false) => {
+    const fetchData = useCallback(async (force: boolean = false) => {
         // Skip fetch if we have cached data and it's the initial mount
         if (hasInitialized.current && !force) {
             hasInitialized.current = false;
@@ -325,7 +324,9 @@ const SDLPage: React.FC = () => {
         setLoading(true);
         try {
             if (hasActiveFilters) {
-                const allData = await getAllStaff();
+                // ALL_STAFF_CACHE_TTL in services/staff.ts is 30 mins
+                // This leverages service-level memory cache automatically
+                const allData = await getAllStaff(false, force);
                 const filtered = allData.filter(staff => {
                     const matchesSearch = !searchTerm ||
                         staff.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -336,10 +337,6 @@ const SDLPage: React.FC = () => {
                     const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
                     const matchesState = selectedState === 'All' || staff.state === selectedState;
 
-                    const remarkLower = (staff.remark || '').toLowerCase();
-                    const qualLower = (staff.qualification || '').toLowerCase();
-                    const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
-                    const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
                     const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
                     const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
                     const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
@@ -365,24 +362,24 @@ const SDLPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate, hasActiveFilters]);
 
-    const fetchAllStaff = async (force: boolean = false) => {
+    const fetchAllStaffData = useCallback(async (force: boolean = false) => {
         try {
             const all = await getAllStaff(false, force);
             setAllStaff(all);
         } catch (error) {
             console.error('Error fetching all staff:', error);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchTerm, limit, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
+    }, [fetchData]);
 
     useEffect(() => {
-        fetchAllStaff();
-    }, []);
+        fetchAllStaffData();
+    }, [fetchAllStaffData]);
 
     // Click outside handler for station dropdown
     useEffect(() => {
@@ -462,8 +459,8 @@ const SDLPage: React.FC = () => {
                 try {
                     setLoading(true);
                     await deleteStaff(id);
-                    fetchData();
-                    fetchAllStaff();
+                    fetchData(true);
+                    fetchAllStaffData(true);
                     setAlertModal({
                         isOpen: true,
                         title: 'Success',
@@ -506,8 +503,8 @@ const SDLPage: React.FC = () => {
                     setLoading(true);
                     await bulkDeleteStaff(Array.from(selectedIds));
                     setSelectedIds(new Set());
-                    fetchData();
-                    fetchAllStaff();
+                    fetchData(true);
+                    fetchAllStaffData(true);
                     setAlertModal({
                         isOpen: true,
                         title: 'Success',
@@ -546,8 +543,8 @@ const SDLPage: React.FC = () => {
             } else {
                 await createStaff(data);
             }
-            fetchData();
-            fetchAllStaff();
+            fetchData(true);
+            fetchAllStaffData(true);
             setIsModalOpen(false);
         } catch (error) {
             console.error('Error saving staff:', error);
@@ -800,7 +797,7 @@ const SDLPage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
             <StaffModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -871,9 +868,9 @@ const SDLPage: React.FC = () => {
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">View and manage staff disposition records.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
                     <button
-                        onClick={() => { fetchData(true); fetchAllStaff(true); }}
+                        onClick={() => { fetchData(true); fetchAllStaffData(true); }}
                         disabled={loading}
                         className={`group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
