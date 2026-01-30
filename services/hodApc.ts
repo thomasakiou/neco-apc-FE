@@ -41,7 +41,9 @@ export const syncHODApc = async (): Promise<{ message: string; created_count: nu
     if (!response.ok) {
         throw new Error('Failed to sync HOD APC records');
     }
-    return response.json();
+    const result = await response.json();
+    hodApcCache = null; // Invalidate cache
+    return result;
 };
 
 export const updateHODApc = async (id: string, data: HODApcUpdate): Promise<HODApcRecord> => {
@@ -53,7 +55,9 @@ export const updateHODApc = async (id: string, data: HODApcUpdate): Promise<HODA
     if (!response.ok) {
         throw new Error('Failed to update HOD APC record');
     }
-    return response.json();
+    const result = await response.json();
+    hodApcCache = null; // Invalidate cache
+    return result;
 };
 
 export const deleteHODApc = async (id: string): Promise<void> => {
@@ -64,6 +68,7 @@ export const deleteHODApc = async (id: string): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to delete HOD APC record');
     }
+    hodApcCache = null; // Invalidate cache
 };
 
 export const bulkDeleteHODApc = async (ids: string[]): Promise<void> => {
@@ -75,6 +80,7 @@ export const bulkDeleteHODApc = async (ids: string[]): Promise<void> => {
     if (!response.ok) {
         throw new Error('Failed to bulk delete HOD APC records');
     }
+    hodApcCache = null; // Invalidate cache
 };
 
 let hodApcCache: { data: HODApcRecord[], timestamp: number } | null = null;

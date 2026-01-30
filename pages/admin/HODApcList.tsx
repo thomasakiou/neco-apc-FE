@@ -170,15 +170,15 @@ const HODApcList: React.FC = () => {
 
         setLoading(true);
         try {
-            const allHODs = await getAllHODApcRecords(false);
-            const updates: Promise<any>[] = [];
+            const allHODs = await getAllHODApcRecords(false, true); // Force fresh fetch
+            const updates: { id: string, data: any }[] = [];
 
             // Fields to clear
             const fields = Object.values(assignmentFieldMap);
 
             allHODs.forEach(hod => {
                 let hasData = false;
-                const updateData: any = {};
+                const updateData: any = { count: 0 }; // Reset count to 0
 
                 fields.forEach(field => {
                     const val = (hod as any)[field];
@@ -190,19 +190,33 @@ const HODApcList: React.FC = () => {
 
                 if (hasData) {
                     const { id, created_at, updated_at, created_by, updated_by, ...clean } = hod;
-                    updates.push(updateHODApc(id, { ...clean, ...updateData }));
+                    updates.push({ id, data: { ...clean, ...updateData } });
                 }
             });
 
             if (updates.length > 0) {
-                await Promise.all(updates);
+                // Batch process updates (5 at a time)
+                const BATCH_SIZE = 5;
+                let successCount = 0;
+                for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+                    const chunk = updates.slice(i, i + BATCH_SIZE);
+                    await Promise.all(chunk.map(async (u) => {
+                        try {
+                            await updateHODApc(u.id, u.data);
+                            successCount++;
+                        } catch (err) {
+                            console.error(`Failed to clear record ${u.id}:`, err);
+                        }
+                    }));
+                }
+
                 setAlertModal({
                     isOpen: true,
                     title: 'Success',
-                    message: `Successfully cleared assignment data from ${updates.length} records.`,
+                    message: `Successfully cleared assignment data from ${successCount} records.`,
                     type: 'success'
                 });
-                fetchAllRecords();
+                fetchAllRecords(true); // Force refresh
             } else {
                 setAlertModal({
                     isOpen: true,
@@ -263,7 +277,7 @@ const HODApcList: React.FC = () => {
                 message: `Successfully synchronized HOD data from SDL. ${result.created_count} records were processed.${cleanupMsg}`,
                 type: 'success'
             });
-            fetchAllRecords();
+            fetchAllRecords(true); // Force refresh
         } catch (error: any) {
             console.error('Sync failed:', error);
             setAlertModal({
@@ -341,7 +355,7 @@ const HODApcList: React.FC = () => {
                     setLoading(true);
                     await bulkDeleteHODApc(Array.from(selectedIds));
                     setSelectedIds(new Set());
-                    fetchAllRecords();
+                    fetchAllRecords(true);
                     setAlertModal({ isOpen: true, title: 'Success', message: 'Records deleted successfully.', type: 'success' });
                 } catch (error) {
                     setAlertModal({ isOpen: true, title: 'Error', message: 'Failed to delete records.', type: 'error' });
@@ -569,7 +583,7 @@ const HODApcList: React.FC = () => {
                 try {
                     setLoading(true);
                     await deleteHODApc(id);
-                    fetchAllRecords();
+                    fetchAllRecords(true);
                     setAlertModal({
                         isOpen: true,
                         title: 'Success',
@@ -832,7 +846,7 @@ const HODApcList: React.FC = () => {
                                 await updateHODApc(editingRecord.id, data);
                                 setAlertModal({ isOpen: true, title: 'Success', message: 'HOD APC record updated successfully.', type: 'success' });
                             }
-                            fetchAllRecords();
+                            fetchAllRecords(true); // Force refresh
                         } catch (error: any) {
                             setAlertModal({ isOpen: true, title: 'Error', message: `Failed to save record: ${error.message}`, type: 'error' });
                         }
@@ -875,7 +889,7 @@ const HODApcList: React.FC = () => {
                                 }));
                             }
 
-                            await fetchAllRecords();
+                            await fetchAllRecords(true);
 
                             // Compile skipped data
                             const skippedData = [
