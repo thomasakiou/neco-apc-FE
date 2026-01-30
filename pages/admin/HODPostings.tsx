@@ -9,6 +9,8 @@ import { HODApcRecord } from '../../types/hodApc';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
 import { HODPostingCreate as PostingCreate, HODPostingResponse as PostingResponse } from '../../types/hodPosting';
+import { HODFinalPostingResponse } from '../../types/hodFinalPosting';
+import { getAllHODFinalPostings } from '../../services/hodFinalPosting';
 import { useNotification } from '../../context/NotificationContext';
 import AlertModal from '../../components/AlertModal';
 import StationTypeSelectionModal from '../../components/StationTypeSelectionModal';
@@ -41,6 +43,7 @@ const HODPostings: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [mandates, setMandates] = useState<Mandate[]>([]);
     const [existingPostings, setExistingPostings] = useState<PostingResponse[]>([]);
+    const [finalPostings, setFinalPostings] = useState<HODFinalPostingResponse[]>([]);
     const [allStates, setAllStates] = useState<State[]>([]);
     const [allStations, setAllStations] = useState<Station[]>([]);
     const [venues, setVenues] = useState<{ id: string; name: string; display_name?: string; type: string; state_name?: string; zone?: string; code?: string }[]>([]);
@@ -116,12 +119,13 @@ const HODPostings: React.FC = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [hodsData, assignmentsData, mandatesData, venuesData, postingsData, statesData, stationsData] = await Promise.all([
+            const [hodsData, assignmentsData, mandatesData, venuesData, postingsData, finalPostingsData, statesData, stationsData] = await Promise.all([
                 getAllHODApcRecords(true),
                 getAllAssignments(true),
                 getAllMandates(true),
                 getAllMarkingVenues(true),
                 getAllHODPostings(),
+                getAllHODFinalPostings(),
                 getAllStates(),
                 getAllStations(true)
             ]);
@@ -130,6 +134,7 @@ const HODPostings: React.FC = () => {
             setAssignments(assignmentsData);
             setMandates(mandatesData);
             setExistingPostings(postingsData || []);
+            setFinalPostings(finalPostingsData?.items || []);
             setAllStates(statesData);
             setAllStations(stationsData);
 
@@ -403,26 +408,38 @@ const HODPostings: React.FC = () => {
             return [];
         }
 
-        // Pre-calculate posted counts
-        const postedCountMap = new Map<string, number>();
+        // Pre-calculate posted counts and existence
+        const alreadyPostedFileNos = new Set<string>();
+
+        // Check existing postings
         existingPostings.forEach(p => {
-            const count = (p.assignments || []).length;
-            postedCountMap.set(p.file_no, (postedCountMap.get(p.file_no) || 0) + count);
+            if (p.file_no) {
+                alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0'));
+            }
+        });
+
+        // Check final postings
+        finalPostings.forEach(p => {
+            if (p.file_no) {
+                alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0'));
+            }
         });
 
         const filtered = allHODs.filter(hod => {
             if (!hod.active) return false;
+
+            // Exclude if already in any posting table (not posted yet)
+            const normalizedFileNo = String(hod.file_no).padStart(4, '0');
+            if (alreadyPostedFileNos.has(normalizedFileNo)) return false;
+
             const val = hod[apcField as keyof HODApcRecord];
             if (!val || val.toString().trim() === '') return false;
-            // Capacity check (simple version)
-            const totalPosted = postedCountMap.get(hod.file_no) || 0;
-            const totalAllotted = hod.count || 0;
-            if (totalPosted >= totalAllotted) return false;
+
             return true;
         });
 
         return filtered;
-    }, [selectedAssignment, allHODs, assignments, existingPostings]);
+    }, [selectedAssignment, allHODs, assignments, existingPostings, finalPostings]);
 
     const generateRandomPostings = async () => {
         if (!selectedAssignment || !selectedMandate) {
@@ -447,55 +464,22 @@ const HODPostings: React.FC = () => {
         try {
             const assignmentRecord = assignments.find(a => a.id === selectedAssignment);
             const assignmentCode = assignmentRecord?.code || selectedAssignment;
+            const assignmentName = assignmentRecord?.name || '';
             const targetMandate = mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate;
 
             // 1. Existing Assignments Lookup (duplicate prevention)
-            const alreadyAssignedStaffIds = new Set<string>();
-            const assignmentName = assignmentRecord?.name || '';
+            const alreadyPostedFileNos = new Set<string>();
+            existingPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
+            finalPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
 
-            // Helper for robust comparison
-            const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
-            const targetCode = normalize(assignmentCode);
-            const targetName = normalize(assignmentName);
-            const targetMandateNorm = normalize(targetMandate);
-
-            existingPostings.forEach(p => {
-                // Check if posted for this assignment (by code or name)
-                let matchesAssignment = false;
-                if (Array.isArray(p.assignments)) {
-                    matchesAssignment = p.assignments.some(a => {
-                        const normA = normalize(a);
-                        return (targetCode && normA === targetCode) || (targetName && normA === targetName);
-                    });
-                }
-
-                // Fallback: check mandates if assignment check was insufficient or for specific mandate constraints
-                let matchesMandate = false;
-                if (Array.isArray(p.mandates)) {
-                    matchesMandate = p.mandates.some(m => normalize(m) === targetMandateNorm);
-                }
-
-                if (matchesAssignment || matchesMandate) {
-                    // Ensure file_no is normalized to match other comparisons
-                    alreadyAssignedStaffIds.add(String(p.file_no).padStart(4, '0'));
-                }
-            });
-
-            console.log('DEBUG: Duplicate Check', {
-                assignmentCode,
-                assignmentName,
-                totalExisting: existingPostings.length,
-                foundDuplicates: alreadyAssignedStaffIds.size,
-                samplePosting: existingPostings[0]
-            });
             // 2. Filter Eligible HODs
-            let skippedDueToDuplicate = 0;
+            let skippedAlreadyPosted = 0;
             const apcField = hodApcFieldMap[assignmentCode] || hodApcFieldMap[assignmentName];
 
             const eligibleHODs = allHODs.filter(hod => {
                 const normalizedFileNo = String(hod.file_no).padStart(4, '0');
-                if (alreadyAssignedStaffIds.has(normalizedFileNo)) {
-                    skippedDueToDuplicate++;
+                if (alreadyPostedFileNos.has(normalizedFileNo)) {
+                    skippedAlreadyPosted++;
                     return false;
                 }
                 // Basic capacity check
@@ -650,8 +634,8 @@ const HODPostings: React.FC = () => {
             } else {
                 info('No HODs matched criteria or quotas already met.');
             }
-            if (skippedDueToDuplicate > 0) {
-                warning(`${skippedDueToDuplicate} HOD(s) were skipped because they are already posted for this Assignment.`);
+            if (skippedAlreadyPosted > 0) {
+                warning(`${skippedAlreadyPosted} HOD(s) were skipped because they already have existing postings in either the Posting or Final Posting tables.`);
             }
         } catch (err) {
             console.error("Error generating postings", err);
