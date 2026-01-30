@@ -128,9 +128,11 @@ const AdminLayout: React.FC = () => {
               isActive('/admin/apc/hod') ||
               isActive('/admin/assignments/hod') ||
               isActive('/admin/assignments/hod/final') ||
-              isActive('/admin/assignments/hod/table')
+              isActive('/admin/assignments/hod/table') ||
+              isActive('/admin/assignments/hod/compare')
             }>
               <NavItem to="/admin/apc/hod" icon="assignment_ind" label="HOD's APC" active={isActive('/admin/apc/hod')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/assignments/hod/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/assignments/hod/compare')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/hod" icon="shuffle" label="HOD Posting" active={location.pathname === '/admin/assignments/hod'} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/hod/table" icon="table_view" label="Posting Reports" active={isActive('/admin/assignments/hod/table')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/hod/final" icon="verified" label="Final HOD Post Table" active={isActive('/admin/assignments/hod/final')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />

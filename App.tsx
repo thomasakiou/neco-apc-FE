@@ -40,6 +40,7 @@ import FinalHodPostings from './pages/admin/FinalHodPostings';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import Statistics from './pages/admin/Statistics';
+import HODJuxtapose from './pages/admin/HODJuxtapose';
 import AdminLayout from './components/AdminLayout';
 
 const ScrollToTop = () => {
@@ -109,6 +110,7 @@ const App: React.FC = () => {
               <Route path="assignments/hod" element={<ProtectedRoute moduleName="posting"><HODPostings /></ProtectedRoute>} />
               <Route path="assignments/hod/table" element={<ProtectedRoute moduleName="posting"><HODPostingsTable /></ProtectedRoute>} />
               <Route path="assignments/hod/final" element={<ProtectedRoute moduleName="posting"><FinalHodPostings /></ProtectedRoute>} />
+              <Route path="assignments/hod/compare" element={<ProtectedRoute moduleName="hod"><HODJuxtapose /></ProtectedRoute>} />
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
               <Route path="statistics" element={<ProtectedRoute moduleName="reports"><Statistics /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />

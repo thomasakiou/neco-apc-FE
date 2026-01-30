@@ -242,7 +242,7 @@ const Configuration: React.FC = () => {
                                                                 {u.role === 'user' && (
                                                                     <button
                                                                         onClick={async () => {
-                                                                            if (window.confirm(`Are you sure you want to reset password for ${u.full_name}? Their password will be reset to the default.`)) {
+                                                                            if (window.confirm(`Are you sure you want to reset password for ${u.full_name}? Their password will be reset to the default (password123).`)) {
                                                                                 try {
                                                                                     await resetUserPassword(u.id);
                                                                                     showNotification(`Password for ${u.full_name} has been reset to: password123`, 'success');

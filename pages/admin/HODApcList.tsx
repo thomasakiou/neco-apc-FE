@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
 import { getPageCache, setPageCache } from '../../services/pageCache';
+import { getAllStaff } from '../../services/staff';
 
 const HODApcList: React.FC = () => {
     const cached = getPageCache('HODApcList');
@@ -53,7 +54,7 @@ const HODApcList: React.FC = () => {
 
     // Report State
     const [showReportModal, setShowReportModal] = useState(false);
-    const [reportTitle, setReportTitle] = useState('2025 APC FOR HODS');
+    const [reportTitle, setReportTitle] = useState('2026 HODs ANNUAL POSTING CALENDAR (APC)');
 
 
 
@@ -246,14 +247,15 @@ const HODApcList: React.FC = () => {
             const result = await syncHODApc();
 
             // 2. Run Clean-up (Removes invalid entries)
-            // Fetch all current HOD records and all Staff records
+            // Fetch all current HOD records and all Staff records in parallel
             const [currentHODs, allStaff] = await Promise.all([
-                getAllHODApcRecords(false),
-                import('../../services/staff').then(m => m.getAllStaff(true))
+                getAllHODApcRecords(false, true), // Force fetch fresh HOD records after sync
+                getAllStaff(true, true) // Force fetch fresh Staff records (active only)
             ]);
 
             const staffMap = new Map(allStaff.map(s => [s.fileno, s]));
             const idsToDelete: string[] = [];
+            const validRecords: HODApcRecord[] = [];
 
             currentHODs.forEach(hod => {
                 const staff = staffMap.get(hod.file_no);
@@ -262,6 +264,8 @@ const HODApcList: React.FC = () => {
                 // 2. Staff exists but is_hod is false
                 if (!staff || !staff.is_hod) {
                     idsToDelete.push(hod.id);
+                } else {
+                    validRecords.push(hod);
                 }
             });
 
@@ -277,7 +281,24 @@ const HODApcList: React.FC = () => {
                 message: `Successfully synchronized HOD data from SDL. ${result.created_count} records were processed.${cleanupMsg}`,
                 type: 'success'
             });
-            fetchAllRecords(true); // Force refresh
+
+            // 3. Update state immediately with valid records to avoid re-fetching
+            setAllRecords(validRecords);
+            setPageCache('HODApcList', {
+                data: validRecords,
+                page: page,
+                limit: limit,
+                sortField: sortField,
+                sortDirection: sortDirection,
+                filters: {
+                    searchName,
+                    filterConraiss,
+                    filterStation,
+                    filterAssignment
+                },
+                assignmentOptions,
+                searchTerm: searchFileNo
+            });
         } catch (error: any) {
             console.error('Sync failed:', error);
             setAlertModal({
@@ -471,7 +492,7 @@ const HODApcList: React.FC = () => {
 
                 doc.setTextColor(0);
                 doc.setFontSize(14);
-                doc.text(reportTitle.toUpperCase(), width / 2, 26, { align: 'center' });
+                doc.text(reportTitle, width / 2, 26, { align: 'center' });
 
                 // --- Signature ---
                 const signatureY = pageHeight - 20;
@@ -505,8 +526,15 @@ const HODApcList: React.FC = () => {
             // Create a map for code to name lookup
             const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
 
-            // Prepare Data - Sort by Conraiss descending for the report
+            // Prepare Data - Sort by Station (ASC) and Conraiss (DESC)
             const sortedForReport = [...filteredRecords].sort((a, b) => {
+                // First sort by Station (alphabetical)
+                const stationA = (a.station || '').toLowerCase();
+                const stationB = (b.station || '').toLowerCase();
+                if (stationA < stationB) return -1;
+                if (stationA > stationB) return 1;
+
+                // Then sort by Conraiss (descending)
                 const conA = parseInt(a.conraiss) || 0;
                 const conB = parseInt(b.conraiss) || 0;
                 return conB - conA;
