@@ -486,13 +486,19 @@ const HODApcList: React.FC = () => {
                 doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
             };
 
-            const tableColumn = ["S/N", "FILE NO", "NAME", "CONRAISS", "STATION", "ASSIGNMENT"];
+            const tableColumn = ["S/N", "FILE NO", "NAME", "CONR.", "STATION", "ASSIGNMENT"];
 
             // Create a map for code to name lookup
             const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
 
-            // Prepare Data
-            const tableRows = filteredRecords.map((record, index) => {
+            // Prepare Data - Sort by Conraiss descending for the report
+            const sortedForReport = [...filteredRecords].sort((a, b) => {
+                const conA = parseInt(a.conraiss) || 0;
+                const conB = parseInt(b.conraiss) || 0;
+                return conB - conA;
+            });
+
+            const tableRows = sortedForReport.map((record, index) => {
                 // Aggregate Assignments
                 const assignments: string[] = [];
                 Object.entries(assignmentFieldMap).forEach(([key, field]) => {
@@ -503,13 +509,16 @@ const HODApcList: React.FC = () => {
                     }
                 });
 
+                // Number the assignments
+                const numberedAssignments = assignments.map((a, i) => `${i + 1}. ${a}`).join('\n');
+
                 return [
                     index + 1,
                     record.file_no,
                     record.name,
                     record.conraiss,
                     record.station || '-',
-                    assignments.join('\n')
+                    numberedAssignments
                 ];
             });
 
@@ -519,15 +528,15 @@ const HODApcList: React.FC = () => {
                 startY: 35,
                 margin: { top: 35, bottom: 50 },
                 theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 1.5, minCellHeight: 6 },
+                styles: { fontSize: 12, cellPadding: 2, minCellHeight: 8 },
                 bodyStyles: { fontStyle: 'bold' },
-                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green header
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold', fontSize: 12 }, // Green header
                 columnStyles: {
                     0: { cellWidth: 12, halign: 'center' }, // S/N
                     1: { cellWidth: 25 }, // File No
                     2: { cellWidth: 70 }, // Name
                     3: { cellWidth: 20, halign: 'center' }, // CONRAISS
-                    4: { cellWidth: 40 }, // Station
+                    4: { cellWidth: 30 }, // Station
                     5: { cellWidth: 'auto' } // Assignment
                 },
                 alternateRowStyles: { fillColor: [240, 253, 244] },
@@ -697,7 +706,7 @@ const HODApcList: React.FC = () => {
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                            <table className="w-full text-left text-base text-slate-600 dark:text-slate-400">
                                 <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
                                     <tr>
                                         <th className="p-4 w-10 text-center">
