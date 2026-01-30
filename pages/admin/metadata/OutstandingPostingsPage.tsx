@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getAllAPCRecords } from '../../../services/apc';
 import { getAllFinalPostings } from '../../../services/finalPosting';
+import { getPageCache, setPageCache } from '../../../services/pageCache';
 import { assignmentFieldMap } from '../../../services/personalizedPost';
 import { APCRecord } from '../../../types/apc';
 import { FinalPostingResponse } from '../../../types/finalPosting';
@@ -37,9 +38,33 @@ const OutstandingPostingsPage: React.FC = () => {
         setCurrentPage(1);
     }, [searchName, searchFileNo, searchStation, rowsPerPage, countRatioFilter]);
 
+    // State persistence via PageCache
     useEffect(() => {
+        const cached = getPageCache('outstanding-postings');
+        if (cached) {
+            setSearchName(cached.searchTerm || '');
+            setSearchFileNo(cached.filters?.fileNo || '');
+            setSearchStation(cached.filters?.station || '');
+            setCountRatioFilter(cached.filters?.countRatio || 'all');
+            setCurrentPage(cached.page || 1);
+            setRowsPerPage(cached.limit || 10);
+        }
         fetchData();
     }, []);
+
+    // Save cache on state change
+    useEffect(() => {
+        setPageCache('outstanding-postings', {
+            searchTerm: searchName,
+            page: currentPage,
+            limit: rowsPerPage,
+            filters: {
+                fileNo: searchFileNo,
+                station: searchStation,
+                countRatio: countRatioFilter
+            }
+        });
+    }, [searchName, searchFileNo, searchStation, countRatioFilter, currentPage, rowsPerPage]);
 
     const handleExportCSV = () => {
         try {
@@ -47,10 +72,10 @@ const OutstandingPostingsPage: React.FC = () => {
                 'File No': item.fileNo,
                 'Name': item.name,
                 'Station': item.station,
-                'CONRAISS': item.conraiss,
-                'Scheduled': item.scheduled.join(', '),
-                'Posted': item.posted.join(', '),
-                'Pending': item.pending.join(', ')
+                'CONR': item.conraiss,
+                'Alloted': `${item.scheduled.length} (${item.scheduled.join(', ')})`,
+                'Assigned': `${item.posted.length} (${item.posted.join(', ')})`,
+                'Outstanding': `${item.pending.length} (${item.pending.join(', ')})`
             }));
 
             const ws = XLSX.utils.json_to_sheet(exportData);
@@ -107,16 +132,16 @@ const OutstandingPostingsPage: React.FC = () => {
                 doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, width - 15, height - 10, { align: 'right' });
             };
 
-            const columns = ["S/N", "FILE NO", "NAME", "STATION", "CONR", "SCHEDULED", "POSTED", "PENDING"];
+            const columns = ["S/N", "FILE NO", "NAME", "STATION", "CONR", "ALLOTED", "ASSIGNED", "OUTSTANDING"];
             const rows = filteredList.map((item, i) => [
                 i + 1,
                 item.fileNo,
                 item.name,
                 item.station,
                 item.conraiss,
-                item.scheduled.join(', '),
-                item.posted.join(', '),
-                item.pending.join(', ')
+                `${item.scheduled.length} (${item.scheduled.join(', ')})`,
+                `${item.posted.length} (${item.posted.join(', ')})`,
+                `${item.pending.length} (${item.pending.join(', ')})`
             ]);
 
             autoTable(doc, {
@@ -126,15 +151,15 @@ const OutstandingPostingsPage: React.FC = () => {
                 margin: { top: 40, bottom: 20 },
                 theme: 'grid',
                 headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: 'bold' }, // Rose 600
-                styles: { fontSize: 8 },
+                styles: { fontSize: 7 }, // Sligthly smaller for more content
                 columnStyles: {
-                    0: { cellWidth: 10 },
-                    1: { cellWidth: 20 },
-                    2: { cellWidth: 50 },
-                    3: { cellWidth: 40 },
-                    4: { cellWidth: 15 },
-                    5: { cellWidth: 40 },
-                    6: { cellWidth: 40 },
+                    0: { cellWidth: 8 },
+                    1: { cellWidth: 15 },
+                    2: { cellWidth: 35 },
+                    3: { cellWidth: 30 },
+                    4: { cellWidth: 12 },
+                    5: { cellWidth: 45 },
+                    6: { cellWidth: 45 },
                     7: { cellWidth: 'auto' }
                 },
                 didDrawPage: (data) => drawHeader(data)
@@ -148,31 +173,33 @@ const OutstandingPostingsPage: React.FC = () => {
         }
     };
 
-    const fetchData = async () => {
+    const fetchData = async (force: boolean = false) => {
         setLoading(true);
         try {
             const [apcRecords, finalPostingData] = await Promise.all([
-                getAllAPCRecords(true, true), // Active records only
-                getAllFinalPostings()         // Get final postings
+                getAllAPCRecords(true, force), // Active records only
+                getAllFinalPostings(0, 100000, force) // Get final postings with limit
             ]);
 
             // Handle both array and object response formats
             const finalPostingRecords: FinalPostingResponse[] = finalPostingData.items || (Array.isArray(finalPostingData) ? finalPostingData : []);
 
             // Create Final Posting Map for fast lookup (Aggregated by File No)
-            const postingMap = new Map<string, string[]>();
+            // Optimization: Use Sets for faster membership checks and deduplication
+            const postingMap = new Map<string, Set<string>>();
             finalPostingRecords.forEach(p => {
                 const normFileNo = p.file_no.trim().padStart(4, '0');
-                const existing = postingMap.get(normFileNo) || [];
-                const newAssignments = (p.assignments || []).map((a: any) =>
-                    typeof a === 'string' ? a : a.code || a.name
-                ).filter(Boolean);
-
-                postingMap.set(normFileNo, Array.from(new Set([...existing, ...newAssignments])));
+                if (!postingMap.has(normFileNo)) {
+                    postingMap.set(normFileNo, new Set());
+                }
+                const set = postingMap.get(normFileNo)!;
+                (p.assignments || []).forEach((a: any) => {
+                    const code = typeof a === 'string' ? a : a.code || a.name;
+                    if (code) set.add(code);
+                });
             });
 
             // Static deterministic map for display codes
-            // Ensures 1-to-1 mapping from DB field to Display Code
             const fieldToDisplayCode: { [key: string]: string } = {
                 'tt': 'TT',
                 'ssce_int': 'SSCE-INT',
@@ -181,7 +208,7 @@ const OutstandingPostingsPage: React.FC = () => {
                 'ssce_ext_mrk': 'SSCE-EXT-MRK',
                 'ncee': 'NCEE',
                 'becep': 'BECEP',
-                'bece_mrkp': 'BECE-MRKP', // Canonical
+                'bece_mrkp': 'BECE-MRKP',
                 'mar_accr': 'MAR-ACCR',
                 'oct_accr': 'OCT-ACCR',
                 'pur_samp': 'PUR-SAMP',
@@ -196,31 +223,21 @@ const OutstandingPostingsPage: React.FC = () => {
             apcRecords.forEach(staff => {
                 const pendingFromApc: string[] = [];
 
-                // Iterate over specific assignment fields we care about
+                // Iterate over specific assignment fields
                 Object.entries(fieldToDisplayCode).forEach(([field, code]) => {
                     const val = (staff as any)[field];
                     const trimmedVal = val ? val.toString().trim() : '';
-                    // Strict check for value presence. 
-                    // ANY text counts as a valid assignment UNLESS it is 'Returned' or empty.
                     if (trimmedVal !== '' && trimmedVal.toUpperCase() !== 'RETURNED') {
                         pendingFromApc.push(code);
                     }
                 });
 
                 const normFileNo = staff.file_no.trim().padStart(4, '0');
-                const posted = postingMap.get(normFileNo) || [];
+                const postedSet = postingMap.get(normFileNo);
+                const posted = postedSet ? Array.from(postedSet) : [];
 
                 // Combine Pending + Posted to get the Original Schedule
-                // We use a Set to avoid duplicates if data state is inconsistent, but typically they should be mutually exclusive
                 const allScheduled = Array.from(new Set([...pendingFromApc, ...posted]));
-
-                // Determine effectively pending (redundant with pendingFromApc but good for safety)
-                // Actually, logic is: allScheduled - posted = pending.
-                // But pendingFromApc IS the source of truth for what is NOT posted yet.
-                // So we can just use pendingFromApc as 'pending'.
-
-                // However, we only include in the list if there is something outstanding OR if we want to show history.
-                // The page is "Outstanding Postings", so we filter by whether there are pending items.
 
                 if (allScheduled.length > 0) {
                     results.push({
@@ -288,7 +305,7 @@ const OutstandingPostingsPage: React.FC = () => {
                 {!loading && filteredList.length > 0 && (
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={fetchData}
+                            onClick={() => fetchData(true)}
                             className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
                             title="Reload data from server"
                         >
@@ -415,17 +432,14 @@ const OutstandingPostingsPage: React.FC = () => {
                                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                                         <tr>
                                             <th className="px-6 py-4">Staff Details</th>
-                                            <th className="px-6 py-4">CONR</th>
-                                            <th className="px-6 py-4">Pending Assignment(s)</th>
-                                            <th className="px-6 py-4">Scheduled</th>
-                                            <th className="px-6 py-4">Posted</th>
+                                            <th className="px-6 py-4">Conr</th>
+                                            <th className="px-6 py-4">Alloted</th>
+                                            <th className="px-6 py-4">Assigned</th>
+                                            <th className="px-6 py-4">Outstanding</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                                         {paginatedList.map((item, idx) => {
-                                            const isValid = item.scheduled.length === item.limit;
-                                            const isOver = item.scheduled.length > item.limit;
-
                                             return (
                                                 <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                                     <td className="px-6 py-4">
@@ -441,24 +455,10 @@ const OutstandingPostingsPage: React.FC = () => {
                                                         {item.conraiss}
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {(item.posted.length < item.scheduled.length && item.pending.length > 0) ? item.pending.map(code => (
-                                                                <span key={code} className="px-2 py-1 rounded bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 text-xs font-bold">
-                                                                    {code}
-                                                                </span>
-                                                            )) : <span className="text-slate-400 font-bold">-</span>}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex flex-col gap-1.5">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase
-                                                                    ${item.posted.length >= item.scheduled.length ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                                                        item.posted.length === 0 ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' :
-                                                                            'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                                                                    Posted: {item.posted.length} / {item.scheduled.length}
-                                                                </div>
-                                                            </div>
+                                                        <div className="flex flex-col gap-2">
+                                                            <span className="text-base font-black text-slate-700 dark:text-slate-200">
+                                                                {item.scheduled.length}
+                                                            </span>
                                                             <div className="flex flex-wrap gap-1">
                                                                 {item.scheduled.map(code => (
                                                                     <span key={code} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-bold">
@@ -469,12 +469,31 @@ const OutstandingPostingsPage: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {item.posted.length > 0 ? item.posted.map(code => (
-                                                                <span key={code} className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 text-[10px] font-bold">
-                                                                    {code}
-                                                                </span>
-                                                            )) : <span className="text-slate-400 text-xs italic">None</span>}
+                                                        <div className="flex flex-col gap-2">
+                                                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                                                                {item.posted.length}
+                                                            </span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {item.posted.length > 0 ? item.posted.map(code => (
+                                                                    <span key={code} className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 text-[10px] font-bold">
+                                                                        {code}
+                                                                    </span>
+                                                                )) : <span className="text-slate-400 text-xs italic">None</span>}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col gap-2">
+                                                            <span className={`text-base font-black ${item.pending.length > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+                                                                {item.pending.length}
+                                                            </span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {item.pending.length > 0 ? item.pending.map(code => (
+                                                                    <span key={code} className="px-2 py-1 rounded bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 text-[10px] font-bold">
+                                                                        {code}
+                                                                    </span>
+                                                                )) : <span className="text-slate-400 font-bold">-</span>}
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>

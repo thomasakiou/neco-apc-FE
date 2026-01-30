@@ -38,7 +38,8 @@ export const getAllAPC = async (
 };
 
 // Cache
-let apcCache: APCRecord[] | null = null;
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let apcCache: { data: APCRecord[], timestamp: number } | null = null;
 
 export const createAPC = async (data: APCCreate): Promise<APCRecord> => {
     const response = await fetch(REQUEST_URL, {
@@ -144,8 +145,8 @@ export const appendAPC = async (file: File): Promise<any> => {
 };
 
 export const getAllAPCRecords = async (onlyActive: boolean = false, force: boolean = false): Promise<APCRecord[]> => {
-    if (apcCache && !force) {
-        return onlyActive ? apcCache.filter(item => item.active) : apcCache;
+    if (!force && apcCache && (Date.now() - apcCache.timestamp < CACHE_TTL)) {
+        return onlyActive ? apcCache.data.filter(item => item.active) : apcCache.data;
     }
 
     const response = await fetch(`${REQUEST_URL}?limit=100000`, {
@@ -155,7 +156,7 @@ export const getAllAPCRecords = async (onlyActive: boolean = false, force: boole
         throw new Error('Failed to fetch all APC records');
     }
     const data: APCListResponse = await response.json();
-    apcCache = data.items;
+    apcCache = { data: data.items, timestamp: Date.now() };
 
     let items = data.items;
     if (onlyActive) {

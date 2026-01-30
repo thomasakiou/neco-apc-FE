@@ -4,16 +4,17 @@ import { FinalPostingListResponse, FinalPostingBulkUploadResponse, FinalPostingR
 
 const BASE_URL = `${API_BASE_URL}/final-posting`;
 
-let finalPostingCache: FinalPostingListResponse | null = null;
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let finalPostingCache: { data: FinalPostingListResponse, timestamp: number } | null = null;
 
 export const getAllFinalPostings = async (
     skip: number = 0,
-    limit: number = 100000 // Large limit by default as per other services
+    limit: number = 100000, // Large limit by default as per other services
+    force: boolean = false
 ): Promise<FinalPostingListResponse> => {
     // Basic caching strategy
-    if (finalPostingCache && skip === 0) {
-        // You might want to remove cache logic if data changes frequently or add time-expiry
-        // return finalPostingCache; 
+    if (!force && finalPostingCache && (Date.now() - finalPostingCache.timestamp < CACHE_TTL) && skip === 0) {
+        return finalPostingCache.data;
     }
 
     const response = await fetch(`${BASE_URL}?skip=${skip}&limit=${limit}`, {
@@ -23,7 +24,7 @@ export const getAllFinalPostings = async (
     if (!response.ok) throw new Error('Failed to fetch final postings');
 
     const data = await response.json();
-    if (skip === 0) finalPostingCache = data;
+    if (skip === 0) finalPostingCache = { data, timestamp: Date.now() };
     return data;
 };
 

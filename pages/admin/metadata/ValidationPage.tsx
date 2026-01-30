@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { getAllAPCRecords } from '../../../services/apc';
 import { getAllPostingRecords } from '../../../services/posting';
+import { getPageCache, setPageCache } from '../../../services/pageCache';
 import { APCRecord } from '../../../types/apc';
 import { PostingResponse } from '../../../types/posting';
 import { assignmentFieldMap } from '../../../services/personalizedPost';
@@ -38,10 +39,43 @@ const AssignmentValidationPage: React.FC = () => {
         });
     }, [validationResults, searchFileNo, searchName, searchStation]);
 
+    // State persistence via PageCache
+    useEffect(() => {
+        const cached = getPageCache('assignment-validation');
+        if (cached) {
+            setSelectedAssignment(cached.selectedAssignment || '');
+            setSearchFileNo(cached.filters?.fileNo || '');
+            setSearchName(cached.filters?.name || '');
+            setSearchStation(cached.filters?.station || '');
+            setCurrentPage(cached.page || 1);
+            setRowsPerPage(cached.rowsPerPage || 10);
+            if (cached.results) {
+                setValidationResults(cached.results);
+                setHasRun(true);
+            }
+        }
+    }, []);
+
+    // Save cache on relevant state changes
+    useEffect(() => {
+        setPageCache('assignment-validation', {
+            selectedAssignment,
+            filters: {
+                fileNo: searchFileNo,
+                name: searchName,
+                station: searchStation
+            },
+            page: currentPage,
+            rowsPerPage,
+            results: validationResults, // Cache the expensive results
+            hasRun
+        });
+    }, [selectedAssignment, searchFileNo, searchName, searchStation, currentPage, rowsPerPage, validationResults, hasRun]);
+
     // Reset page on filter or rowsPerPage change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchFileNo, searchName, searchStation, rowsPerPage, validationResults]);
+    }, [searchFileNo, searchName, searchStation, rowsPerPage]);
 
     const totalPages = Math.ceil(filteredResults.length / rowsPerPage);
 
@@ -174,16 +208,16 @@ const AssignmentValidationPage: React.FC = () => {
         }
     };
 
-    const handleRunCheck = async () => {
+    const handleRunCheck = async (force: boolean = false) => {
         if (!selectedAssignment) return;
         setLoading(true);
         setHasRun(true);
-        setValidationResults([]);
+        // setValidationResults([]); // Keep existing results to prevent flicker if fetching from cache
 
         try {
             const [apcRecords, postingRecords] = await Promise.all([
-                getAllAPCRecords(true, true), // only active
-                getAllPostingRecords(true) // force fresh fetch
+                getAllAPCRecords(true, force), // only active
+                getAllPostingRecords(force) // force refresh only if requested
             ]);
 
             const targetField = assignmentFieldMap[selectedAssignment];
@@ -265,7 +299,7 @@ const AssignmentValidationPage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-200">
                 <div className="flex flex-col gap-2">
@@ -278,11 +312,11 @@ const AssignmentValidationPage: React.FC = () => {
                 </div>
 
                 {hasRun && !loading && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
                         <button
-                            onClick={handleRunCheck}
+                            onClick={() => handleRunCheck(true)}
                             className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
-                            title="Rerun validation check"
+                            title="Rerun validation check with fresh data from server"
                         >
                             <span className="material-symbols-outlined text-emerald-500 group-hover:rotate-180 transition-transform duration-500 text-lg">refresh</span>
                             Refresh Data
@@ -328,7 +362,7 @@ const AssignmentValidationPage: React.FC = () => {
                     </div>
 
                     <button
-                        onClick={handleRunCheck}
+                        onClick={() => handleRunCheck()}
                         disabled={loading || !selectedAssignment}
                         className="h-11 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:shadow-none transition-all flex items-center gap-2"
                     >
@@ -439,7 +473,7 @@ const AssignmentValidationPage: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-gray-700">
+                                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-gray-700">
                                         <table className="w-full text-left text-sm">
                                             <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                                                 <tr>
@@ -461,9 +495,9 @@ const AssignmentValidationPage: React.FC = () => {
                                                             {result.station}
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30">
-                                                                <span className="material-symbols-outlined text-base">warning</span>
-                                                                <span className="text-xs font-bold">{result.issue}</span>
+                                                            <div className="flex items-center gap-2 px-3 py-1 rounded bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 w-fit max-w-full">
+                                                                <span className="material-symbols-outlined text-base flex-shrink-0">warning</span>
+                                                                <span className="text-xs font-bold break-words">{result.issue}</span>
                                                             </div>
                                                         </td>
                                                     </tr>

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllAPC, createAPC } from '../../../services/apc';
+import { getAllAPCRecords, createAPC } from '../../../services/apc';
 import { getAllStaff } from '../../../services/staff';
+import { getPageCache, setPageCache } from '../../../services/pageCache';
 import { APCRecord, APCCreate } from '../../../types/apc';
 import { Staff } from '../../../types/staff';
 
@@ -49,23 +50,46 @@ const ComparePage: React.FC = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<MissingRow | null>(null);
 
+    // State persistence via PageCache
     useEffect(() => {
+        const cached = getPageCache('compare-page');
+        if (cached) {
+            setActiveTab(cached.activeTab || 'compare');
+            setStatusFilter(cached.filters?.status || 'All');
+            setMismatchTypeFilter(cached.filters?.mismatchType || 'All');
+            setSearchQuery(cached.searchTerm || '');
+            setPage(cached.page || 1);
+            setLimit(cached.limit || 25);
+        }
         fetchData();
     }, []);
 
+    // Save cache on state change
+    useEffect(() => {
+        setPageCache('compare-page', {
+            activeTab,
+            searchTerm: searchQuery,
+            page,
+            limit,
+            filters: {
+                status: statusFilter,
+                mismatchType: mismatchTypeFilter
+            }
+        });
+    }, [activeTab, statusFilter, mismatchTypeFilter, searchQuery, page, limit]);
+
+    // Reset page on filter change
     useEffect(() => {
         setPage(1);
     }, [activeTab, statusFilter, mismatchTypeFilter, searchQuery]);
 
-    const fetchData = async () => {
+    const fetchData = async (force: boolean = false) => {
         setLoading(true);
         try {
-            const [apcRes, staffList] = await Promise.all([
-                getAllAPC(0, 10000, '', true),
-                getAllStaff(true)
+            const [apcRecords, staffList] = await Promise.all([
+                getAllAPCRecords(true, force),
+                getAllStaff(true, force)
             ]);
-
-            const apcRecords = apcRes.items;
             const staffMap = new Map<string, Staff>();
 
             staffList.forEach(s => {
@@ -171,7 +195,17 @@ const ComparePage: React.FC = () => {
                 <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-500 tracking-tight">
                     Data Comparison
                 </h1>
-                <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Reconcile differences between APC records and Staff Disposition List (SDL).</p>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Reconcile differences between APC records and Staff Disposition List (SDL).</p>
+                    <button
+                        onClick={() => fetchData(true)}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                        title="Reload both APC and Staff data from server"
+                    >
+                        <span className="material-symbols-outlined text-emerald-500 group-hover:rotate-180 transition-transform duration-500 text-lg">refresh</span>
+                        Refresh Data
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -302,7 +336,7 @@ const ComparePage: React.FC = () => {
                     onSuccess={() => {
                         setShowAddModal(false);
                         setSelectedStaff(null);
-                        fetchData();
+                        fetchData(true);
                     }}
                 />
             )}
