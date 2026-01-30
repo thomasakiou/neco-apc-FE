@@ -294,48 +294,54 @@ const Configuration: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         <ModuleToggle
-                                            label="Staff Data Module"
-                                            description="Lock/Unlock access to SDL and Juxtapose features."
+                                            label="STAFF DATA"
+                                            description="SDL, Juxtapose, Flagged Staff, Validation, and Outstanding records."
                                             isLocked={moduleLocks['staff_data']}
                                             onToggle={() => handleToggleLock('staff_data')}
                                             icon="badge"
+                                            color="emerald"
                                         />
                                         <ModuleToggle
-                                            label="APC Module"
-                                            description="Lock/Unlock access to Generate APC, Posting Modes, and APC List."
-                                            isLocked={moduleLocks['apc']}
-                                            onToggle={() => handleToggleLock('apc')}
-                                            icon="assignment_ind"
-                                        />
-                                        <ModuleToggle
-                                            label="HODs Management Module"
-                                            description="Lock/Unlock access to HOD's APC and HOD Posting features."
-                                            isLocked={moduleLocks['hod']}
-                                            onToggle={() => handleToggleLock('hod')}
-                                            icon="supervisor_account"
-                                        />
-                                        <ModuleToggle
-                                            label="Meta Data Module"
-                                            description="Lock/Unlock access to States, Stations, Venues, etc."
+                                            label="Meta Data"
+                                            description="States, Stations, Marking Venues, Centers, Mandates, and Assignments."
                                             isLocked={moduleLocks['metadata']}
                                             onToggle={() => handleToggleLock('metadata')}
-                                            icon="database"
+                                            icon="dataset"
+                                            color="blue"
                                         />
                                         <ModuleToggle
-                                            label="Posting Module"
-                                            description="Lock/Unlock access to Board and Randomized Post Generator."
+                                            label="STAFF MGMT (APC)"
+                                            description="Staff APC, Drivers APC, Typesetting APC, Custom and Random APC."
+                                            isLocked={moduleLocks['apc']}
+                                            onToggle={() => handleToggleLock('apc')}
+                                            icon="work"
+                                            color="amber"
+                                        />
+                                        <ModuleToggle
+                                            label="STAFF MGMT (Posting)"
+                                            description="Post Table, Randomized Post, Personalized Post, and Final Post Table."
                                             isLocked={moduleLocks['posting']}
                                             onToggle={() => handleToggleLock('posting')}
                                             icon="send"
+                                            color="amber"
                                         />
                                         <ModuleToggle
-                                            label="Reports Module"
-                                            description="Lock/Unlock access to Assignment History and Reports."
+                                            label="HODS MANAGEMENT"
+                                            description="HOD's APC, HOD Juxtapose, HOD Posting, and HOD Reports."
+                                            isLocked={moduleLocks['hod']}
+                                            onToggle={() => handleToggleLock('hod')}
+                                            icon="supervisor_account"
+                                            color="violet"
+                                        />
+                                        <ModuleToggle
+                                            label="REPORTS & STATISTICS"
+                                            description="Global Statistics and Assignment History reports."
                                             isLocked={moduleLocks['reports']}
                                             onToggle={() => handleToggleLock('reports')}
-                                            icon="analytics"
+                                            icon="bar_chart"
+                                            color="slate"
                                         />
                                     </div>
 
@@ -359,6 +365,7 @@ const Configuration: React.FC = () => {
                                             isLocked={moduleLocks['staff_portal_login']}
                                             onToggle={() => handleToggleLock('staff_portal_login')}
                                             icon="login"
+                                            color="cyan"
                                         />
                                         <ModuleToggle
                                             label="Posting Access"
@@ -366,6 +373,7 @@ const Configuration: React.FC = () => {
                                             isLocked={moduleLocks['staff_portal_posting']}
                                             onToggle={() => handleToggleLock('staff_portal_posting')}
                                             icon="send"
+                                            color="cyan"
                                         />
                                         <ModuleToggle
                                             label="APC Access"
@@ -373,6 +381,7 @@ const Configuration: React.FC = () => {
                                             isLocked={moduleLocks['staff_portal_apc']}
                                             onToggle={() => handleToggleLock('staff_portal_apc')}
                                             icon="assignment_ind"
+                                            color="cyan"
                                         />
                                     </div>
                                 </div>
@@ -575,11 +584,24 @@ const Configuration: React.FC = () => {
     );
 };
 
-function ModuleToggle({ label, description, isLocked, onToggle, icon }: { label: string, description: string, isLocked: boolean, onToggle: () => void, icon: string }) {
+function ModuleToggle({ label, description, isLocked, onToggle, icon, color = 'emerald' }: { label: string, description: string, isLocked: boolean, onToggle: () => void, icon: string, color?: string }) {
+    const colorClasses: Record<string, string> = {
+        emerald: 'bg-emerald-500/10 text-emerald-500',
+        blue: 'bg-blue-500/10 text-blue-500',
+        amber: 'bg-amber-500/10 text-amber-500',
+        rose: 'bg-rose-500/10 text-rose-500',
+        indigo: 'bg-indigo-500/10 text-indigo-500',
+        violet: 'bg-violet-500/10 text-violet-500',
+        slate: 'bg-slate-500/10 text-slate-500',
+        cyan: 'bg-cyan-500/10 text-cyan-500',
+    };
+
+    const activeColorClass = colorClasses[color] || colorClasses.emerald;
+
     return (
         <div className="group relative flex items-center justify-between p-6 rounded-[2rem] bg-slate-50/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/[0.08] transition-all duration-300">
             <div className="flex items-center gap-5">
-                <div className={`size-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${isLocked ? 'bg-rose-500/10 text-rose-500 rotate-12' : 'bg-emerald-500/10 text-emerald-500 group-hover:scale-110'}`}>
+                <div className={`size-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${isLocked ? 'bg-rose-500/10 text-rose-500 rotate-12' : `${activeColorClass} group-hover:scale-110`}`}>
                     <span className="material-symbols-outlined text-3xl">{isLocked ? 'lock' : icon}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">

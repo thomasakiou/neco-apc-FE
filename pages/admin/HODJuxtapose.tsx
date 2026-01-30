@@ -168,7 +168,7 @@ const HODJuxtapose: React.FC = () => {
                             placeholder="Search by Name or File No..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                         />
                     </div>
                     <div className="flex items-center gap-2">
@@ -176,7 +176,7 @@ const HODJuxtapose: React.FC = () => {
                         <select
                             value={limit}
                             onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                            className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                            className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg px-2 py-1 text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-primary/20"
                         >
                             <option value={10}>10</option>
                             <option value={25}>25</option>

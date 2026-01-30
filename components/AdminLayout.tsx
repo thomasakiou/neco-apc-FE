@@ -70,7 +70,7 @@ const AdminLayout: React.FC = () => {
           <nav className="flex flex-col gap-2">
             <NavItem to="/admin/dashboard" icon="dashboard" label="Dashboard" active={isActive('/admin/dashboard')} isCollapsed={isSidebarCollapsed} />
 
-            <CollapsibleNavSection title="STAFF DATA" icon="badge" isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
+            <CollapsibleNavSection title="STAFF DATA" icon="badge" iconColor="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
               isActive('/admin/metadata/sdl') ||
               isActive('/admin/metadata/compare') ||
               isActive('/admin/metadata/flagged') ||
@@ -79,12 +79,15 @@ const AdminLayout: React.FC = () => {
             }>
               <NavItem to="/admin/metadata/sdl" icon="fact_check" label="SDL" active={isActive('/admin/metadata/sdl')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/metadata/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/metadata/compare')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
               <NavItem to="/admin/metadata/flagged" icon="flag" label="Flagged Staff" active={isActive('/admin/metadata/flagged')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/metadata/validation" icon="fact_check" label="Validation" active={isActive('/admin/metadata/validation')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/metadata/outstanding" icon="pending_actions" label="Outstanding" active={isActive('/admin/metadata/outstanding')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
-            <CollapsibleNavSection title="Meta Data" icon="dataset" isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
+            <CollapsibleNavSection title="Meta Data" icon="dataset" iconColor="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
               isActive('/admin/states') ||
               isActive('/admin/stations') ||
               isActive('/admin/marking-venues') ||
@@ -100,31 +103,76 @@ const AdminLayout: React.FC = () => {
             }>
               <NavItem to="/admin/states" icon="map" label="States" active={isActive('/admin/states')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/stations" icon="location_on" label="Stations" active={isActive('/admin/stations')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
               <NavItem to="/admin/marking-venues" icon="edit_location" label="SSCE INT Marking Venues" active={isActive('/admin/marking-venues')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/ncee-centers" icon="school" label="NCEE Centers" active={isActive('/admin/ncee-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/gifted-centers" icon="auto_awesome" label="Gifted Centers" active={isActive('/admin/gifted-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/tt-centers" icon="science" label="TT Centers" active={isActive('/admin/tt-centers')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/printing-points" icon="print" label="Printing Points" active={isActive('/admin/printing-points')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
               <NavItem to="/admin/bece-custodians" icon="security" label="BECE Custodians" active={isActive('/admin/bece-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/ssce-custodians" icon="verified_user" label="SSCE INT Custodians" active={isActive('/admin/ssce-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/ssce-ext-custodians" icon="verified_user" label="SSCE EXT Custodians" active={isActive('/admin/ssce-ext-custodians')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
               <NavItem to="/admin/ssce-ext-marking-venues" icon="edit_location" label="SSCE EXT Marking Venues" active={isActive('/admin/ssce-ext-marking-venues')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/bece-marking-venues" icon="edit_location" label="BECE Marking Venues" active={isActive('/admin/bece-marking-venues')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
               <NavItem to="/admin/mandates/config" icon="admin_panel_settings" label="Mandates" active={isActive('/admin/mandates/config')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/config" icon="assignment_ind" label="Assignments" active={isActive('/admin/assignments/config')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
 
-            <CollapsibleNavSection title="APC Management" icon="work" isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
-              isActive('/admin/apc/list')
+            <CollapsibleNavSection title="STAFF MANAGEMENT" icon="work" iconColor="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" isCollapsed={isSidebarCollapsed} active={
+              isActive('/admin/apc/list') ||
+              isActive('/admin/apc/custom') ||
+              isActive('/admin/apc/random') ||
+              isActive('/admin/apc/modes') ||
+              isActive('/admin/apc/annual') ||
+              isActive('/admin/apc/final') ||
+              isActive('/admin/assignments/board') ||
+              isActive('/admin/assignments/random') ||
+              isActive('/admin/mandates/history')
             }>
               <NavItem to="/admin/apc/list" icon="table_view" label="Staff APC" active={isActive('/admin/apc/list')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/apc/custom" icon="person_add" label="Custom APC" active={isActive('/admin/apc/custom')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/apc/random" icon="casino" label="Random APC" active={isActive('/admin/apc/random')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
+              {/* <NavItem to="/admin/apc/modes" icon="tune" label="Posting Modes" active={isActive('/admin/apc/modes')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} /> */}
+              <NavItem to="/admin/apc/annual" icon="list_alt" label="Post Table" active={isActive('/admin/apc/annual')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/assignments/board" icon="view_kanban" label="Personalized-Post" active={isActive('/admin/assignments/board')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/assignments/random" icon="shuffle" label="Randomized-Post" active={isActive('/admin/assignments/random')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/apc/final" icon="verified" label="Final Post Table" active={isActive('/admin/apc/final')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
+              <NavItem to="/admin/mandates/history" icon="summarize" label="Generate Reports" active={isActive('/admin/mandates/history')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
 
-            <CollapsibleNavSection title="HOD's Management" icon="supervisor_account" isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
+            <CollapsibleNavSection title="DRIVERS MANAGEMENT" icon="directions_car" iconColor="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400" isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
+              isActive('/admin/drivers/apc')
+            }>
+              <NavItem to="/admin/drivers/apc" icon="table_view" label="Driver's APC" active={isActive('/admin/drivers/apc')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+            </CollapsibleNavSection>
+
+            <CollapsibleNavSection title="TYPESETTINGS MANAGEMENT" icon="keyboard" iconColor="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400" isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
+              isActive('/admin/typesetting/apc')
+            }>
+              <NavItem to="/admin/typesetting/apc" icon="table_view" label="Typesetting's APC" active={isActive('/admin/typesetting/apc')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+            </CollapsibleNavSection>
+
+
+            <CollapsibleNavSection title="HODS MANAGEMENT" icon="supervisor_account" iconColor="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400" isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
               isActive('/admin/apc/hod') ||
               isActive('/admin/assignments/hod') ||
               isActive('/admin/assignments/hod/final') ||
@@ -133,43 +181,30 @@ const AdminLayout: React.FC = () => {
             }>
               <NavItem to="/admin/apc/hod" icon="assignment_ind" label="HOD's APC" active={isActive('/admin/apc/hod')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/hod/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/assignments/hod/compare')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
               <NavItem to="/admin/assignments/hod" icon="shuffle" label="HOD Posting" active={location.pathname === '/admin/assignments/hod'} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/hod/table" icon="table_view" label="Posting Reports" active={isActive('/admin/assignments/hod/table')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/hod/final" icon="verified" label="Final HOD Post Table" active={isActive('/admin/assignments/hod/final')} isLocked={isModuleLocked('hod') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
 
-            <CollapsibleNavSection title="Posting Management" icon="folder_shared" isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
-              isActive('/admin/apc/modes') ||
-              isActive('/admin/apc/annual') ||
-              isActive('/admin/apc/final') ||
-              isActive('/admin/assignments/board') ||
-              isActive('/admin/assignments/random')
-            }>
-              <NavItem to="/admin/apc/modes" icon="tune" label="Posting Modes" active={isActive('/admin/apc/modes')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
-              <NavItem to="/admin/apc/annual" icon="list_alt" label="Post Table" active={isActive('/admin/apc/annual')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
-              <NavItem to="/admin/assignments/board" icon="view_kanban" label="Personalized-Post" active={isActive('/admin/assignments/board')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
-              <NavItem to="/admin/assignments/random" icon="shuffle" label="Randomized-Post" active={isActive('/admin/assignments/random')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
-              <NavItem to="/admin/apc/final" icon="verified" label="Final Post Table" active={isActive('/admin/apc/final')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
-            </CollapsibleNavSection>
 
 
-            <CollapsibleNavSection title="Reports" icon="summarize" isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
-              isActive('/admin/mandates/history')
-            }>
-              <NavItem to="/admin/mandates/history" icon="summarize" label="Generate Reports" active={isActive('/admin/mandates/history')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
-            </CollapsibleNavSection>
 
-            <NavItem to="/admin/statistics" icon="bar_chart" label="Statistics" active={isActive('/admin/statistics')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
 
             {isSuperAdmin && (
-              <CollapsibleNavSection title="Configuration" icon="settings" isCollapsed={isSidebarCollapsed} active={
+              <CollapsibleNavSection title="Configuration" icon="settings" iconColor="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400" isCollapsed={isSidebarCollapsed} active={
                 isActive('/admin/audit') || isActive('/admin/configuration')
               }>
                 <NavItem to="/admin/configuration" icon="tune" label="Super Admin" active={isActive('/admin/configuration')} isCollapsed={isSidebarCollapsed} />
                 <NavItem to="/admin/audit" icon="visibility" label="Audit Logs" active={isActive('/admin/audit')} isCollapsed={isSidebarCollapsed} />
               </CollapsibleNavSection>
             )}
+
+            <NavItem to="/admin/statistics" icon="bar_chart" label="Statistics" active={isActive('/admin/statistics')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
           </nav>
         </div>
       </aside>
@@ -348,7 +383,7 @@ const NavItem = ({ to, icon, label, active, isLocked, isCollapsed }: { to: strin
   );
 };
 
-const CollapsibleNavSection = ({ title, icon, children, active, isLocked, isCollapsed }: { title: string; icon: string; children: React.ReactNode; active: boolean, isLocked?: boolean, isCollapsed?: boolean }) => {
+const CollapsibleNavSection = ({ title, icon, iconColor, children, active, isLocked, isCollapsed }: { title: string; icon: string; iconColor?: string; children: React.ReactNode; active: boolean, isLocked?: boolean, isCollapsed?: boolean }) => {
   const [isOpen, setIsOpen] = React.useState(active);
 
   React.useEffect(() => {
@@ -361,34 +396,36 @@ const CollapsibleNavSection = ({ title, icon, children, active, isLocked, isColl
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 mb-1">
       <button
         onClick={handleToggle}
         disabled={isLocked}
-        className={`flex items-center relative px-3 py-2 rounded-lg transition-all duration-200 w-full text-left ${active ? 'text-primary bg-primary/5 dark:bg-primary/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+        className={`flex items-center relative px-3 py-2.5 rounded-xl transition-all duration-300 w-full text-left ${active
+          ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+          : 'bg-slate-100/80 dark:bg-white/5 text-slate-800 dark:text-slate-300 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10'
           } ${isLocked ? 'opacity-60 cursor-not-allowed' : ''} ${isCollapsed ? 'justify-center mx-2' : 'justify-between'}`}
         title={isCollapsed ? title : ''}
       >
         <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}>
-          <div className="relative">
-            <span className="material-symbols-outlined text-xl">{icon}</span>
+          <div className={`relative flex items-center justify-center p-2 rounded-lg transition-colors ${active ? 'bg-primary text-white' : `${iconColor || 'bg-white dark:bg-slate-800'} text-slate-500`}`}>
+            <span className="material-symbols-outlined text-lg">{icon}</span>
             {isLocked && (
               <span className={`absolute -top-1 -right-1 rounded-full bg-rose-500 border-2 border-white dark:border-[#121b25] flex items-center justify-center ${isCollapsed ? 'size-2' : 'size-3'}`}>
                 {!isCollapsed && <span className="material-symbols-outlined text-[8px] text-white font-black">lock</span>}
               </span>
             )}
           </div>
-          {!isCollapsed && <p className="text-sm font-semibold uppercase tracking-wide animate-in fade-in duration-300">{title}</p>}
+          {!isCollapsed && <p className="text-sm font-bold uppercase tracking-wider animate-in fade-in duration-300">{title}</p>}
         </div>
         {!isLocked && !isCollapsed && (
-          <span className={`material-symbols-outlined transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+          <span className={`material-symbols-outlined transition-transform duration-200 text-slate-400 ${isOpen ? 'rotate-180' : ''}`}>
             expand_more
           </span>
         )}
       </button>
 
       {!isCollapsed && (
-        <div className={`flex flex-col gap-1 pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-5 overflow-hidden transition-all duration-300 ${isOpen && !isLocked ? 'max-h-[1000px] opacity-100 mt-1' : 'max-h-0 opacity-0'
+        <div className={`flex flex-col gap-1 pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-6 overflow-hidden transition-all duration-300 ${isOpen && !isLocked ? 'max-h-[1000px] opacity-100 mt-2 mb-2' : 'max-h-0 opacity-0'
           }`}>
           {children}
         </div>

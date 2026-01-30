@@ -11,6 +11,8 @@ import PostingModes from './pages/admin/PostingModes';
 import AnnualPostings from './pages/admin/AnnualPostings';
 import FinalPostings from './pages/admin/FinalPostings';
 import APCList from './pages/admin/APCList';
+import DriverAPCList from './pages/admin/DriverAPCList';
+import TypesettingAPCList from './pages/admin/TypesettingAPCList';
 import CustomAPC from './pages/admin/CustomAPC';
 import RandomAPC from './pages/admin/RandomAPC';
 import NCEECenters from './pages/admin/NCEECenters';
@@ -76,6 +78,8 @@ const App: React.FC = () => {
 
               <Route path="apc/modes" element={<ProtectedRoute moduleName="posting"><PostingModes /></ProtectedRoute>} />
               <Route path="apc/list" element={<ProtectedRoute moduleName="apc"><APCList /></ProtectedRoute>} />
+              <Route path="drivers/apc" element={<ProtectedRoute moduleName="apc"><DriverAPCList /></ProtectedRoute>} />
+              <Route path="typesetting/apc" element={<ProtectedRoute moduleName="apc"><TypesettingAPCList /></ProtectedRoute>} />
               <Route path="apc/custom" element={<ProtectedRoute moduleName="apc"><CustomAPC /></ProtectedRoute>} />
               <Route path="apc/random" element={<ProtectedRoute moduleName="apc"><RandomAPC /></ProtectedRoute>} />
               <Route path="apc/hod" element={<ProtectedRoute moduleName="apc"><HODApcList /></ProtectedRoute>} />
