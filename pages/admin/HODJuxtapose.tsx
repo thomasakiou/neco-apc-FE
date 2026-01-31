@@ -205,7 +205,7 @@ const HODJuxtapose: React.FC = () => {
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                                <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                     {paginatedRecords.length > 0 ? paginatedRecords.map((record) => (
                                         <tr key={record.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                                             <td className="px-6 py-4 font-mono text-xs font-bold text-slate-900 dark:text-slate-200">{record.file_no}</td>

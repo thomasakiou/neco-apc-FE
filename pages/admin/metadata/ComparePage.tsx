@@ -468,7 +468,7 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                             <th className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium">Station</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                    <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                         {paginatedData.map((row) => (
                             <tr key={row.id} className="hover:bg-background-light dark:hover:bg-slate-800/50 transition-colors group">
                                 <td className="px-4 py-3 font-mono font-bold text-slate-600 dark:text-slate-300">{row.fileNo}</td>
@@ -623,7 +623,7 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
                                     <th className="px-4 py-3 text-center">Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                 {paginatedData.map((row) => (
                                     <tr key={row.fileNo} className="hover:bg-rose-50/20 dark:hover:bg-rose-900/5 transition-colors">
                                         <td className="px-4 py-3 font-mono font-bold text-rose-700 dark:text-rose-400">{row.fileNo}</td>

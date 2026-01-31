@@ -478,7 +478,7 @@ const MandateConfig: React.FC = () => {
                                         <th className="px-4 py-3">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                     {paginatedMandates.length === 0 ? (
                                         <tr>
                                             <td colSpan={7} className="p-10 text-center">

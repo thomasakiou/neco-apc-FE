@@ -1301,7 +1301,7 @@ const GeneratePage: React.FC = () => {
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                 {loading ? (
                                     <tr><td colSpan={activeFields.length} className="p-8 text-center text-slate-500 italic">Loading data...</td></tr>
                                 ) : paginatedRows.length === 0 ? (

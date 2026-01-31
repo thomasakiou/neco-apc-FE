@@ -1474,7 +1474,7 @@ const HODPostingsTable: React.FC = () => {
                                 <th className="px-4 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                        <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                             {loading ? (
                                 <tr>
                                     <td colSpan={8} className="p-16 text-center">

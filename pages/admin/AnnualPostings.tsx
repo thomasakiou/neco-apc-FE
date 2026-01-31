@@ -1358,7 +1358,7 @@ const AnnualPostings: React.FC = () => {
                     <th className="p-4 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                   {loading ? (
                     <tr><td colSpan={12} className="p-8 text-center text-slate-500 italic">Loading records...</td></tr>
                   ) : paginatedPostings.length === 0 ? (

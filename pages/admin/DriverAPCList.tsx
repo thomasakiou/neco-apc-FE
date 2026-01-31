@@ -970,7 +970,7 @@ const DriverAPCList: React.FC = () => {
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-200 dark:divide-gray-800 bg-surface-light dark:bg-[#121b25]">
+                                <tbody className="divide-y divide-slate-300 dark:divide-gray-800 bg-surface-light dark:bg-[#121b25]">
                                     {records.length === 0 ? (
                                         <tr>
                                             <td colSpan={8} className="p-10 text-center">

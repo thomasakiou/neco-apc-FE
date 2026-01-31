@@ -849,7 +849,7 @@ const FinalHodPostings: React.FC = () => {
                                     <th className="px-4 py-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">State</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-sm">
+                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800 text-sm">
                                 {paginatedPostings.length === 0 ? (
                                     <tr>
                                         <td colSpan={10} className="p-12 text-center text-slate-400">

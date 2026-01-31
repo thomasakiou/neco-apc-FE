@@ -482,7 +482,7 @@ const AssignmentValidationPage: React.FC = () => {
                                                     <th className="px-6 py-4">Discrepancy Issue</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                                 {paginatedResults.map((result, idx) => (
                                                     <tr key={idx} className="hover:bg-background-light dark:hover:bg-slate-800/30 transition-colors">
                                                         <td className="px-6 py-4">

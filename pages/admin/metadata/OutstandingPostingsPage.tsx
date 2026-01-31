@@ -438,7 +438,7 @@ const OutstandingPostingsPage: React.FC = () => {
                                             <th className="px-6 py-4">Outstanding</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                                    <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                         {paginatedList.map((item, idx) => {
                                             return (
                                                 <tr key={idx} className="hover:bg-background-light dark:hover:bg-slate-800/30 transition-colors">

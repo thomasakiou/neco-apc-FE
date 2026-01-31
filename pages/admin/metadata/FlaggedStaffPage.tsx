@@ -348,7 +348,7 @@ const FlaggedStaffPage: React.FC = () => {
                                     <th className="px-6 py-4 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                 {paginatedData.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="text-center py-20">

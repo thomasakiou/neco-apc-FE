@@ -1130,7 +1130,7 @@ const FinalPostings: React.FC = () => {
                                     <th className="p-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">State</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                            <tbody className="divide-y divide-slate-300 dark:divide-slate-700/50">
                                 {paginatedPostings.length > 0 ? (
                                     paginatedPostings.map((posting) => (
                                         <CollapsibleRow

@@ -154,7 +154,7 @@ const AuditLog: React.FC = () => {
                                  {isSuperAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>}
                               </tr>
                            </thead>
-                           <tbody className="divide-y divide-slate-200/40 dark:divide-white/5">
+                           <tbody className="divide-y divide-slate-300 dark:divide-white/5">
                               {loading ? (
                                  [...Array(8)].map((_, i) => (
                                     <tr key={i} className="animate-pulse">

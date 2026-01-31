@@ -1342,7 +1342,7 @@ const RandomizedPost: React.FC = () => {
                                     <th className="p-3">Description</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-base">
+                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800 text-base">
                                 {paginatedGeneratedPostings.map((p, idx) => (
                                     <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
                                         <td className="p-3 font-mono font-bold text-slate-700 dark:text-slate-300 text-sm">{p.file_no}</td>

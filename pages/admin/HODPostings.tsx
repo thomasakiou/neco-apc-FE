@@ -702,7 +702,7 @@ const HODPostings: React.FC = () => {
                                 <th className="p-3">State</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                        <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                             {generatedPostings.map((p, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
                                     <td className="p-3 font-mono font-bold">{p.file_no}</td>

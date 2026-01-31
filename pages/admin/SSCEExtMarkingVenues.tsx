@@ -357,7 +357,7 @@ const SSCEExtMarkingVenues: React.FC = () => {
                                     <th className="px-4 py-3 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y bg-white dark:bg-[#121b25]">
+                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
                                 {paginatedVenues.map((venue) => (
                                     <tr key={venue.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                         <td className="p-4 text-center"><input type="checkbox" checked={selectedIds.has(venue.id)} onChange={(e) => handleSelectOne(venue.id, e.target.checked)} className="rounded" /></td>

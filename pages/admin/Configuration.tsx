@@ -483,7 +483,7 @@ const Configuration: React.FC = () => {
                                                     {isSuperAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>}
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-200/40 dark:divide-white/5">
+                                            <tbody className="divide-y divide-slate-300 dark:divide-white/5">
                                                 {auditLogs.map(log => (
                                                     <tr key={log.id} className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-all">
                                                         <td className="px-8 py-6">

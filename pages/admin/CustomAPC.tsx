@@ -358,7 +358,7 @@ const CustomAPC: React.FC = () => {
                                         <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Conr</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                                <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                                     {paginatedStaff.length === 0 ? (
                                         <tr>
                                             <td colSpan={4} className="px-4 py-20 text-center text-slate-400 font-bold italic text-sm">
