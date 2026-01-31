@@ -43,6 +43,8 @@ import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import Statistics from './pages/admin/Statistics';
 import HODJuxtapose from './pages/admin/HODJuxtapose';
+import TypesettingJuxtapose from './pages/admin/TypesettingJuxtapose';
+import DriverJuxtapose from './pages/admin/DriverJuxtapose';
 import AdminLayout from './components/AdminLayout';
 
 const ScrollToTop = () => {
@@ -79,7 +81,9 @@ const App: React.FC = () => {
               <Route path="apc/modes" element={<ProtectedRoute moduleName="posting"><PostingModes /></ProtectedRoute>} />
               <Route path="apc/list" element={<ProtectedRoute moduleName="apc"><APCList /></ProtectedRoute>} />
               <Route path="drivers/apc" element={<ProtectedRoute moduleName="apc"><DriverAPCList /></ProtectedRoute>} />
+              <Route path="drivers/compare" element={<ProtectedRoute moduleName="apc"><DriverJuxtapose /></ProtectedRoute>} />
               <Route path="typesetting/apc" element={<ProtectedRoute moduleName="apc"><TypesettingAPCList /></ProtectedRoute>} />
+              <Route path="typesetting/compare" element={<ProtectedRoute moduleName="apc"><TypesettingJuxtapose /></ProtectedRoute>} />
               <Route path="apc/custom" element={<ProtectedRoute moduleName="apc"><CustomAPC /></ProtectedRoute>} />
               <Route path="apc/random" element={<ProtectedRoute moduleName="apc"><RandomAPC /></ProtectedRoute>} />
               <Route path="apc/hod" element={<ProtectedRoute moduleName="apc"><HODApcList /></ProtectedRoute>} />

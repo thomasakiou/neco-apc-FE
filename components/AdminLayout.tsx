@@ -160,15 +160,17 @@ const AdminLayout: React.FC = () => {
 
 
             <CollapsibleNavSection title="DRIVERS MANAGEMENT" icon="directions_car" iconColor="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400" isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
-              isActive('/admin/drivers/apc')
+              isActive('/admin/drivers/apc') || isActive('/admin/drivers/compare')
             }>
               <NavItem to="/admin/drivers/apc" icon="table_view" label="Driver's APC" active={isActive('/admin/drivers/apc')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/drivers/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/drivers/compare')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
             <CollapsibleNavSection title="TYPESETTINGS MANAGEMENT" icon="keyboard" iconColor="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400" isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
-              isActive('/admin/typesetting/apc')
+              isActive('/admin/typesetting/apc') || isActive('/admin/typesetting/compare')
             }>
               <NavItem to="/admin/typesetting/apc" icon="table_view" label="Typesetting's APC" active={isActive('/admin/typesetting/apc')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/typesetting/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/typesetting/compare')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
 

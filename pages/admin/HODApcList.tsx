@@ -32,6 +32,7 @@ const HODApcList: React.FC = () => {
     const [filterConraiss, setFilterConraiss] = useState(cached?.filters?.filterConraiss || '');
     const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
     const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
+    const [viewMode, setViewMode] = useState<'full' | 'unified'>(cached?.viewMode || 'full');
 
     const hasInitialized = useRef(!!cached);
 
@@ -138,9 +139,10 @@ const HODApcList: React.FC = () => {
                 filterStation,
                 filterAssignment
             },
-            assignmentOptions
+            assignmentOptions,
+            viewMode
         });
-    }, [allRecords, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, assignmentOptions]);
+    }, [allRecords, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, assignmentOptions, viewMode]);
 
     const fetchAllRecords = useCallback(async (force: boolean = false) => {
         if (hasInitialized.current && !force) {
@@ -526,18 +528,18 @@ const HODApcList: React.FC = () => {
             // Create a map for code to name lookup
             const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
 
-            // Prepare Data - Sort by Station (ASC) and Conraiss (DESC)
+            // Prepare Data - Sort by Station (ASC) and CONRAISS (DESC) before generating PDF
             const sortedForReport = [...filteredRecords].sort((a, b) => {
-                // First sort by Station (alphabetical)
+                // First by Station (ASC)
                 const stationA = (a.station || '').toLowerCase();
                 const stationB = (b.station || '').toLowerCase();
                 if (stationA < stationB) return -1;
                 if (stationA > stationB) return 1;
 
-                // Then sort by Conraiss (descending)
-                const conA = parseInt(a.conraiss) || 0;
-                const conB = parseInt(b.conraiss) || 0;
-                return conB - conA;
+                // Then by CONRAISS (DESC) within each station
+                const conrA = parseInt((a.conraiss || '0').replace(/\D/g, ''), 10);
+                const conrB = parseInt((b.conraiss || '0').replace(/\D/g, ''), 10);
+                return conrB - conrA;
             });
 
             const tableRows = sortedForReport.map((record, index) => {
@@ -734,6 +736,24 @@ const HODApcList: React.FC = () => {
                                 </select>
                             </div>
                         </div>
+
+                        {/* View Mode Toggle */}
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-gray-700">
+                            <button
+                                onClick={() => setViewMode('full')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'full' ? 'bg-white dark:bg-[#1a242f] text-primary shadow-sm ring-1 ring-slate-200 dark:ring-gray-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            >
+                                <span className="material-symbols-outlined text-lg">vertical_split</span>
+                                Full View
+                            </button>
+                            <button
+                                onClick={() => setViewMode('unified')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'unified' ? 'bg-white dark:bg-[#1a242f] text-primary shadow-sm ring-1 ring-slate-200 dark:ring-gray-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            >
+                                <span className="material-symbols-outlined text-lg">view_agenda</span>
+                                Unified View
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -751,14 +771,16 @@ const HODApcList: React.FC = () => {
                             <table className="w-full text-left text-base text-slate-600 dark:text-slate-400">
                                 <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
                                     <tr>
-                                        <th className="p-4 w-10 text-center">
-                                            <button
-                                                onClick={() => expandedRows.size > 0 ? setExpandedRows(new Set()) : setExpandedRows(new Set(records.map(r => r.id)))}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400"
-                                            >
-                                                <span className="material-symbols-outlined text-lg">{expandedRows.size > 0 ? 'unfold_less' : 'unfold_more'}</span>
-                                            </button>
-                                        </th>
+                                        {viewMode !== 'unified' && (
+                                            <th className="p-4 w-10 text-center">
+                                                <button
+                                                    onClick={() => expandedRows.size > 0 ? setExpandedRows(new Set()) : setExpandedRows(new Set(records.map(r => r.id)))}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">{expandedRows.size > 0 ? 'unfold_less' : 'unfold_more'}</span>
+                                                </button>
+                                            </th>
+                                        )}
                                         <th className="p-4 w-10 text-center">
                                             <input
                                                 type="checkbox"
@@ -771,6 +793,12 @@ const HODApcList: React.FC = () => {
                                         <SortableHeader field="name" label="Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="conraiss" label="CONRAISS" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="station" label="Station" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        {viewMode === 'unified' && (
+                                            <>
+                                                <th className="px-4 py-4 font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300">Count</th>
+                                                <th className="px-4 py-4 font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300">Assignments</th>
+                                            </>
+                                        )}
                                         <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
@@ -789,6 +817,8 @@ const HODApcList: React.FC = () => {
                                                 onDelete={() => handleDelete(record.id)}
                                                 isExpanded={expandedRows.has(record.id)}
                                                 onToggleExpand={() => toggleRow(record.id)}
+                                                viewMode={viewMode}
+                                                assignmentOptions={assignmentOptions}
                                             />
                                         ))
                                     )}
@@ -1010,54 +1040,109 @@ const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any)
     </th>
 );
 
-const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand }: any) => (
-    <React.Fragment>
-        <tr className={`group hover:bg-purple-50/10 dark:hover:bg-slate-800/50 transition-colors duration-150 ${isExpanded ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''}`}>
-            <td className="p-4 text-center">
-                <button onClick={onToggleExpand} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400">
-                    <span className={`material-symbols-outlined transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>chevron_right</span>
-                </button>
-            </td>
-            <td className="p-4 text-center">
-                <input type="checkbox" className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer" checked={isSelected} onChange={(e) => onSelect(e.target.checked)} />
-            </td>
-            <td className="px-4 py-4 font-mono font-black text-slate-700 dark:text-slate-300">{record.file_no}</td>
-            <td className="px-4 py-4">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold text-xs">{record.name.charAt(0)}</div>
-                    <span className="font-bold text-slate-700 dark:text-slate-200">{record.name}</span>
-                </div>
-            </td>
-            <td className="px-4 py-4"><span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold">{record.conraiss || '-'}</span></td>
-            <td className="px-4 py-4 font-medium">{record.station || '-'}</td>
-            <td className="px-4 py-4 text-center">
-                <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${record.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`}>
-                    {record.active ? 'Active' : 'Inactive'}
-                </span>
-            </td>
-            <td className="px-4 py-3">
-                <div className="flex items-center justify-center gap-1">
-                    <ActionBtn icon="edit" onClick={onEdit} tooltip="Edit Record" />
-                    <ActionBtn icon="delete" isDanger onClick={onDelete} tooltip="Delete Record" />
-                </div>
-            </td>
-        </tr>
-        {isExpanded && (
-            <tr className="bg-slate-50/50 dark:bg-slate-800/30">
-                <td colSpan={8} className="p-4 pl-16">
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm text-slate-500 dark:text-slate-400">
-                        {['Qualification', 'Sex', 'TT', 'MAR-ACCR', 'NCEE', 'GIFTED', 'BECEP', 'BECE-MRKP', 'SSCE-INT', 'SWAPPING', 'SSCE-INT-MRK', 'OCT-ACCR', 'SSCE-EXT', 'SSCE-EXT-MRK', 'PUR-SAMP', 'INT-AUDIT', 'STOCK-TK', 'Count', 'Year'].map(label => (
-                            <div key={label}>
-                                <span className="block font-bold text-slate-800 dark:text-slate-200 mb-0.5">{label}</span>
-                                <span className="font-mono">{String(record[label.toLowerCase().replace(/-/g, '_') as keyof HODApcRecord] || '-')}</span>
-                            </div>
-                        ))}
+const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions }: any) => {
+    const assignmentNameMap = useMemo(() => {
+        return new Map(assignmentOptions.map(a => [a.code, a.name]));
+    }, [assignmentOptions]);
+
+    const activeAssignments = useMemo(() => {
+        const canonicalAssignmentMap = {
+            'tt': 'TT',
+            'ssce_int': 'SSCE-INT',
+            'ssce_ext': 'SSCE-EXT',
+            'ssce_int_mrk': 'SSCE-INT-MRK',
+            'ssce_ext_mrk': 'SSCE-EXT-MRK',
+            'ncee': 'NCEE',
+            'becep': 'BECEP',
+            'bece_mrkp': 'BECE-MRKP',
+            'mar_accr': 'MAR-ACCR',
+            'oct_accr': 'OCT-ACCR',
+            'pur_samp': 'PUR-SAMP',
+            'gifted': 'GIFTED',
+            'swapping': 'SWAPPING',
+            'int_audit': 'INT-AUDIT',
+            'stock_tk': 'STOCK-TK'
+        };
+
+        return Object.entries(canonicalAssignmentMap)
+            .filter(([fieldName, _]) => {
+                const val = (record as any)[fieldName];
+                return val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED';
+            })
+            .map(([_, code]) => assignmentNameMap.get(code) || code);
+    }, [record, assignmentNameMap]);
+
+    return (
+        <React.Fragment>
+            <tr className={`group hover:bg-purple-50/10 dark:hover:bg-slate-800/50 transition-colors duration-150 ${(viewMode !== 'unified' && isExpanded) ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''}`}>
+                {viewMode !== 'unified' && (
+                    <td className="p-4 text-center">
+                        <button onClick={onToggleExpand} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400">
+                            <span className={`material-symbols-outlined transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>chevron_right</span>
+                        </button>
+                    </td>
+                )}
+                <td className="p-4 text-center">
+                    <input type="checkbox" className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer" checked={isSelected} onChange={(e) => onSelect(e.target.checked)} />
+                </td>
+                <td className="px-4 py-4 font-mono font-black text-slate-700 dark:text-slate-300">{record.file_no}</td>
+                <td className="px-4 py-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold text-xs">{record.name.charAt(0)}</div>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">{record.name}</span>
                     </div>
                 </td>
-            </tr>
-        )}
-    </React.Fragment>
-);
+                <td className="px-4 py-4"><span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold">{record.conraiss || '-'}</span></td>
+                <td className="px-4 py-4 font-medium">{record.station || '-'}</td>
+                {viewMode === 'unified' && (
+                    <>
+                        <td className="px-4 py-4 font-bold text-purple-600 dark:text-purple-400 font-mono">
+                            {record.count || 0}
+                        </td>
+                        <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1">
+                                {activeAssignments.length > 0 ? (
+                                    activeAssignments.map((name, idx) => (
+                                        <span key={idx} className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 w-fit">
+                                            {name}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-xs font-medium text-slate-400 italic">No active assignments</span>
+                                )}
+                            </div>
+                        </td>
+                    </>
+                )}
+                <td className="px-4 py-4 text-center">
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${record.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`}>
+                        {record.active ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-1">
+                        <ActionBtn icon="edit" onClick={onEdit} tooltip="Edit Record" />
+                        <ActionBtn icon="delete" isDanger onClick={onDelete} tooltip="Delete Record" />
+                    </div>
+                </td>
+            </tr >
+            {isExpanded && (
+                <tr className="bg-slate-50/50 dark:bg-slate-800/30">
+                    <td colSpan={8} className="p-4 pl-16">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm text-slate-500 dark:text-slate-400">
+                            {['Qualification', 'Sex', 'TT', 'MAR-ACCR', 'NCEE', 'GIFTED', 'BECEP', 'BECE-MRKP', 'SSCE-INT', 'SWAPPING', 'SSCE-INT-MRK', 'OCT-ACCR', 'SSCE-EXT', 'SSCE-EXT-MRK', 'PUR-SAMP', 'INT-AUDIT', 'STOCK-TK', 'Count', 'Year'].map(label => (
+                                <div key={label}>
+                                    <span className="block font-bold text-slate-800 dark:text-slate-200 mb-0.5">{label}</span>
+                                    <span className="font-mono">{String(record[label.toLowerCase().replace(/-/g, '_') as keyof HODApcRecord] || '-')}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </td>
+                </tr>
+            )}
+        </React.Fragment >
+    );
+};
 
 const ActionBtn = ({ icon, isDanger, onClick, tooltip }: any) => (
     <button onClick={onClick} title={tooltip} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${isDanger ? 'text-rose-400 hover:bg-rose-50 hover:text-rose-600' : 'text-slate-400 hover:bg-purple-50 hover:text-purple-600'}`}>

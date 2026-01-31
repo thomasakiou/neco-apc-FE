@@ -41,6 +41,7 @@ const DriverAPCList: React.FC = () => {
     const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
     const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>(cached?.filters?.filterStatus || 'all');
+    const [viewMode, setViewMode] = useState<'full' | 'unified'>(cached?.viewMode || 'full');
 
     const hasInitialized = useRef(!!cached);
 
@@ -169,9 +170,10 @@ const DriverAPCList: React.FC = () => {
                 filterAssignment,
                 filterStatus
             },
-            assignmentOptions
+            assignmentOptions,
+            viewMode
         });
-    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions]);
+    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions, viewMode]);
 
     const fetchAllRecords = useCallback(async (force: boolean = false) => {
         if (hasInitialized.current && !force) {
@@ -297,10 +299,11 @@ const DriverAPCList: React.FC = () => {
                 'Name': record.name,
                 'CONRAISS': record.conraiss,
                 'Station': record.station,
+                'Rank': record.rank,
+                'Type of Vehicle': record.type_of_vehicle,
                 'Qualification': record.qualification,
                 'Sex': record.sex,
                 'TT': record.tt,
-                'MAR-ACCR': record.mar_accr,
                 'NCEE': record.ncee,
                 'GIFTED': record.gifted,
                 'BECEP': record.becep,
@@ -308,16 +311,11 @@ const DriverAPCList: React.FC = () => {
                 'SSCE-INT': record.ssce_int,
                 'SWAPPING': record.swapping,
                 'SSCE-INT-MRK': record.ssce_int_mrk,
-                'OCT-ACCR': record.oct_accr,
                 'SSCE-EXT': record.ssce_ext,
                 'SSCE-EXT-MRK': record.ssce_ext_mrk,
-                'PUR-SAMP': record.pur_samp,
-                'INT-AUDIT': record.int_audit,
-                'STOCK-TK': record.stock_tk,
                 'Count': record.count ? Math.floor(record.count) : '',
                 'Year': record.year ? Math.floor(Number(record.year)) : '',
-                'Active': record.active ? 'Yes' : 'No',
-                'Remark': record.remark
+                'Active': record.active ? 'Yes' : 'No'
             }));
 
             const ws = XLSX.utils.json_to_sheet(exportData);
@@ -345,7 +343,7 @@ const DriverAPCList: React.FC = () => {
 
     // Report Modal State for PDF Title
     const [showReportModal, setShowReportModal] = useState(false);
-    const [reportTitle, setReportTitle] = useState('2026 DRIVER APC REPORT');
+    const [reportTitle, setReportTitle] = useState('2026 DRIVER ANNUAL POSTING CALENDAR (APC) REPORT');
 
     const handlePDFExport = async () => {
         try {
@@ -460,23 +458,25 @@ const DriverAPCList: React.FC = () => {
                 doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
             };
 
-            const tableColumn = ["S/N", "FILE NO", "NAME", "CONRAISS", "STATION", "ASSIGNMENT"];
+            const tableColumn = ["S/N", "FILE NO", "NAME", "CONR", "STATION", "ASSIGNMENT"];
 
             // Create a map for code to name lookup
             const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
 
-            // Sort by CONRAISS descending (14, 13, 12...) before generating PDF
+            // Sort by Station (ASC) and then CONRAISS (DESC) before generating PDF
             const sortedRecords = [...filteredRecords].sort((a, b) => {
+                // First by Station (ASC)
+                const stationA = (a.station || '').toLowerCase();
+                const stationB = (b.station || '').toLowerCase();
+                if (stationA < stationB) return -1;
+                if (stationA > stationB) return 1;
+
+                // Then by CONRAISS (DESC) within each station
                 const conrA = parseInt((a.conraiss || '0').replace(/\D/g, ''), 10);
                 const conrB = parseInt((b.conraiss || '0').replace(/\D/g, ''), 10);
-                return conrB - conrA; // Descending
+                return conrB - conrA;
             });
 
-            // Roman numeral helper
-            const toRoman = (num: number): string => {
-                const romanNumerals = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii', 'xiii', 'xiv', 'xv'];
-                return romanNumerals[num - 1] || num.toString();
-            };
 
             // Prepare Data
             const tableRows = sortedRecords.map((record, index) => {
@@ -510,8 +510,8 @@ const DriverAPCList: React.FC = () => {
                     }
                 });
 
-                // Format with Roman numerals
-                const formattedAssignments = assignments.map((a, i) => `${toRoman(i + 1)}. ${a}`).join('\n');
+                // Format with Arabic numerals
+                const formattedAssignments = assignments.map((a, i) => `${i + 1}. ${a}`).join('\n');
 
                 return [
                     index + 1,
@@ -532,9 +532,9 @@ const DriverAPCList: React.FC = () => {
                 startY: 35,
                 margin: { top: 35, bottom: 50 },
                 theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 1.5, minCellHeight: 6 },
+                styles: { fontSize: 12, cellPadding: 1.5, minCellHeight: 6 },
                 bodyStyles: { fontStyle: 'bold' },
-                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green header
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold', fontSize: 12 }, // Green header
                 columnStyles: {
                     0: { cellWidth: 12, halign: 'center' }, // S/N
                     1: { cellWidth: 25 }, // File No
@@ -675,10 +675,10 @@ const DriverAPCList: React.FC = () => {
 
     const downloadCsvTemplate = () => {
         const headers = [
-            'file_no', 'name', 'conraiss', 'station', 'qualification', 'sex',
-            'tt', 'mar_accr', 'ncee', 'gifted', 'becep', 'bece_mrkp',
-            'ssce_int', 'swapping', 'ssce_int_mrk', 'oct_accr', 'ssce_ext',
-            'ssce_ext_mrk', 'pur_samp', 'int_audit', 'stock_tk', 'count', 'year', 'remark'
+            'file_no', 'name', 'conraiss', 'station', 'rank', 'type_of_vehicle', 'qualification', 'sex',
+            'tt', 'ncee', 'gifted', 'becep', 'bece_mrkp',
+            'ssce_int', 'swapping', 'ssce_int_mrk', 'ssce_ext',
+            'ssce_ext_mrk', 'count', 'year'
         ];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
@@ -893,6 +893,24 @@ const DriverAPCList: React.FC = () => {
                                 </select>
                             </div>
                         </div>
+
+                        {/* View Mode Toggle */}
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-gray-700">
+                            <button
+                                onClick={() => setViewMode('full')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'full' ? 'bg-white dark:bg-[#1a242f] text-primary shadow-sm ring-1 ring-slate-200 dark:ring-gray-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            >
+                                <span className="material-symbols-outlined text-lg">vertical_split</span>
+                                Full View
+                            </button>
+                            <button
+                                onClick={() => setViewMode('unified')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'unified' ? 'bg-white dark:bg-[#1a242f] text-primary shadow-sm ring-1 ring-slate-200 dark:ring-gray-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            >
+                                <span className="material-symbols-outlined text-lg">view_agenda</span>
+                                Unified View
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -910,24 +928,26 @@ const DriverAPCList: React.FC = () => {
                             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
                                 <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
                                     <tr>
-                                        <th className="p-4 w-10 text-center">
-                                            <button
-                                                onClick={() => {
-                                                    if (expandedRows.size > 0) {
-                                                        setExpandedRows(new Set());
-                                                    } else {
-                                                        const allIds = new Set(records.map(r => r.id));
-                                                        setExpandedRows(allIds);
-                                                    }
-                                                }}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                                                title={expandedRows.size > 0 ? "Collapse All" : "Expand All"}
-                                            >
-                                                <span className="material-symbols-outlined text-lg">
-                                                    {expandedRows.size > 0 ? 'unfold_less' : 'unfold_more'}
-                                                </span>
-                                            </button>
-                                        </th>
+                                        {viewMode !== 'unified' && (
+                                            <th className="p-4 w-10 text-center">
+                                                <button
+                                                    onClick={() => {
+                                                        if (expandedRows.size > 0) {
+                                                            setExpandedRows(new Set());
+                                                        } else {
+                                                            const allIds = new Set(records.map(r => r.id));
+                                                            setExpandedRows(allIds);
+                                                        }
+                                                    }}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                                    title={expandedRows.size > 0 ? "Collapse All" : "Expand All"}
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">
+                                                        {expandedRows.size > 0 ? 'unfold_less' : 'unfold_more'}
+                                                    </span>
+                                                </button>
+                                            </th>
+                                        )}
                                         <th className="p-4 w-10 text-center">
                                             <input
                                                 type="checkbox"
@@ -940,6 +960,12 @@ const DriverAPCList: React.FC = () => {
                                         <SortableHeader field="name" label="Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="conraiss" label="CONRAISS" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="station" label="Station" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        {viewMode === 'unified' && (
+                                            <>
+                                                <th className="px-4 py-4 font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300">Count</th>
+                                                <th className="px-4 py-4 font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300">Assignments</th>
+                                            </>
+                                        )}
                                         <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
@@ -967,6 +993,8 @@ const DriverAPCList: React.FC = () => {
                                                 onDelete={() => handleDelete(record.id)}
                                                 isExpanded={expandedRows.has(record.id)}
                                                 onToggleExpand={() => toggleRow(record.id)}
+                                                viewMode={viewMode}
+                                                assignmentOptions={assignmentOptions}
                                             />
                                         ))
                                     )}
@@ -1127,20 +1155,55 @@ const APCRow = React.memo<{
     onDelete: () => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
-}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand }) => {
+    viewMode: 'full' | 'unified';
+    assignmentOptions: Assignment[];
+}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions }) => {
+    const assignmentNameMap = useMemo(() => {
+        return new Map(assignmentOptions.map(a => [a.code, a.name]));
+    }, [assignmentOptions]);
+
+    const activeAssignments = useMemo(() => {
+        const canonicalAssignmentMap = {
+            'tt': 'TT',
+            'ssce_int': 'SSCE-INT',
+            'ssce_ext': 'SSCE-EXT',
+            'ssce_int_mrk': 'SSCE-INT-MRK',
+            'ssce_ext_mrk': 'SSCE-EXT-MRK',
+            'ncee': 'NCEE',
+            'becep': 'BECEP',
+            'bece_mrkp': 'BECE-MRKP',
+            'mar_accr': 'MAR-ACCR',
+            'oct_accr': 'OCT-ACCR',
+            'pur_samp': 'PUR-SAMP',
+            'gifted': 'GIFTED',
+            'swapping': 'SWAPPING',
+            'int_audit': 'INT-AUDIT',
+            'stock_tk': 'STOCK-TK'
+        };
+
+        return Object.entries(canonicalAssignmentMap)
+            .filter(([fieldName, _]) => {
+                const val = (record as any)[fieldName];
+                return val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED';
+            })
+            .map(([_, code]) => assignmentNameMap.get(code) || code);
+    }, [record, assignmentNameMap]);
+
     return (
         <React.Fragment>
-            <tr className={`group hover:bg-primary/[0.02] dark:hover:bg-slate-800/50 transition-colors duration-150 ${isExpanded ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}`}>
-                <td className="p-4 text-center">
-                    <button
-                        onClick={onToggleExpand}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    >
-                        <span className={`material-symbols-outlined transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                            chevron_right
-                        </span>
-                    </button>
-                </td>
+            <tr className={`group hover:bg-primary/[0.02] dark:hover:bg-slate-800/50 transition-colors duration-150 ${(viewMode !== 'unified' && isExpanded) ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}`}>
+                {viewMode !== 'unified' && (
+                    <td className="p-4 text-center">
+                        <button
+                            onClick={onToggleExpand}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                        >
+                            <span className={`material-symbols-outlined transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                                chevron_right
+                            </span>
+                        </button>
+                    </td>
+                )}
                 <td className="p-4 text-center">
                     <input
                         type="checkbox"
@@ -1164,6 +1227,26 @@ const APCRow = React.memo<{
                     </span>
                 </td>
                 <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-base">{record.station || '-'}</td>
+                {viewMode === 'unified' && (
+                    <>
+                        <td className="px-4 py-4 font-bold text-primary dark:text-primary-light">
+                            {record.count || 0}
+                        </td>
+                        <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1">
+                                {activeAssignments.length > 0 ? (
+                                    activeAssignments.map((name, idx) => (
+                                        <span key={idx} className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 w-fit">
+                                            {name}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-xs font-medium text-slate-400 italic">No active assignments</span>
+                                )}
+                            </div>
+                        </td>
+                    </>
+                )}
                 <td className="px-4 py-4 text-center">
                     <div className="flex flex-col items-center gap-1">
                         <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${record.active
@@ -1192,6 +1275,14 @@ const APCRow = React.memo<{
                     <td colSpan={8} className="p-4 pl-16">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm text-slate-600 dark:text-slate-400">
                             <div>
+                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">Rank</span>
+                                <span>{record.rank || '-'}</span>
+                            </div>
+                            <div>
+                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">Type of Vehicle</span>
+                                <span>{record.type_of_vehicle || '-'}</span>
+                            </div>
+                            <div>
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">Qualification</span>
                                 <span>{record.qualification || '-'}</span>
                             </div>
@@ -1202,10 +1293,6 @@ const APCRow = React.memo<{
                             <div>
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">TT</span>
                                 <span>{record.tt ? (record.tt.includes('.') ? parseFloat(record.tt).toString() : record.tt) : '-'}</span>
-                            </div>
-                            <div>
-                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">MAR-ACCR</span>
-                                <span>{record.mar_accr ? (record.mar_accr.includes('.') ? parseFloat(record.mar_accr).toString() : record.mar_accr) : '-'}</span>
                             </div>
                             <div>
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">NCEE</span>
@@ -1236,10 +1323,6 @@ const APCRow = React.memo<{
                                 <span>{record.ssce_int_mrk ? (record.ssce_int_mrk.includes('.') ? parseFloat(record.ssce_int_mrk).toString() : record.ssce_int_mrk) : '-'}</span>
                             </div>
                             <div>
-                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">OCT-ACCR</span>
-                                <span>{record.oct_accr ? (record.oct_accr.includes('.') ? parseFloat(record.oct_accr).toString() : record.oct_accr) : '-'}</span>
-                            </div>
-                            <div>
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">SSCE-EXT</span>
                                 <span>{record.ssce_ext ? (record.ssce_ext.includes('.') ? parseFloat(record.ssce_ext).toString() : record.ssce_ext) : '-'}</span>
                             </div>
@@ -1248,28 +1331,12 @@ const APCRow = React.memo<{
                                 <span>{record.ssce_ext_mrk ? (record.ssce_ext_mrk.includes('.') ? parseFloat(record.ssce_ext_mrk).toString() : record.ssce_ext_mrk) : '-'}</span>
                             </div>
                             <div>
-                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">PUR-SAMP</span>
-                                <span>{record.pur_samp ? (record.pur_samp.includes('.') ? parseFloat(record.pur_samp).toString() : record.pur_samp) : '-'}</span>
-                            </div>
-                            <div>
-                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">INT-AUDIT</span>
-                                <span>{record.int_audit ? (record.int_audit.includes('.') ? parseFloat(record.int_audit).toString() : record.int_audit) : '-'}</span>
-                            </div>
-                            <div>
-                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">STOCK-TK</span>
-                                <span>{record.stock_tk ? (record.stock_tk.includes('.') ? parseFloat(record.stock_tk).toString() : record.stock_tk) : '-'}</span>
-                            </div>
-                            <div>
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">Count</span>
                                 <span>{record.count ? Math.floor(record.count) : '-'}</span>
                             </div>
                             <div>
                                 <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">Year</span>
                                 <span>{record.year ? Math.floor(Number(record.year)) : '-'}</span>
-                            </div>
-                            <div className="col-span-2 md:col-span-4">
-                                <span className="block font-bold text-slate-900 dark:text-slate-200 mb-1">Remark</span>
-                                <span>{record.remark || '-'}</span>
                             </div>
                         </div>
                     </td>
@@ -1305,6 +1372,8 @@ const APCModal: React.FC<{
         station: '',
         qualification: '',
         sex: '',
+        rank: '',
+        type_of_vehicle: '',
         count: 1,
         active: true,
         reactivation_date: null
@@ -1320,8 +1389,9 @@ const APCModal: React.FC<{
                 station: initialData.station || '',
                 qualification: initialData.qualification || '',
                 sex: initialData.sex || '',
+                rank: initialData.rank || '',
+                type_of_vehicle: initialData.type_of_vehicle || '',
                 tt: initialData.tt || '',
-                mar_accr: initialData.mar_accr || '',
                 ncee: initialData.ncee || '',
                 gifted: initialData.gifted || '',
                 becep: initialData.becep || '',
@@ -1329,15 +1399,10 @@ const APCModal: React.FC<{
                 ssce_int: initialData.ssce_int || '',
                 swapping: initialData.swapping || '',
                 ssce_int_mrk: initialData.ssce_int_mrk || '',
-                oct_accr: initialData.oct_accr || '',
                 ssce_ext: initialData.ssce_ext || '',
                 ssce_ext_mrk: initialData.ssce_ext_mrk || '',
-                pur_samp: initialData.pur_samp || '',
-                int_audit: initialData.int_audit || '',
-                stock_tk: initialData.stock_tk || '',
                 count: initialData.count || 1,
                 year: initialData.year || '',
-                remark: initialData.remark || '',
                 active: initialData.active ?? true,
                 reactivation_date: initialData.reactivation_date || null
             });
@@ -1349,6 +1414,8 @@ const APCModal: React.FC<{
                 station: '',
                 qualification: '',
                 sex: '',
+                rank: '',
+                type_of_vehicle: '',
                 count: 1,
                 active: true,
                 reactivation_date: null
@@ -1401,7 +1468,6 @@ const APCModal: React.FC<{
 
     const assignmentFields = [
         { key: 'tt', label: 'TT' },
-        { key: 'mar_accr', label: 'MAR ACCR' },
         { key: 'ncee', label: 'NCEE' },
         { key: 'gifted', label: 'GIFTED' },
         { key: 'becep', label: 'BECEP' },
@@ -1409,12 +1475,8 @@ const APCModal: React.FC<{
         { key: 'ssce_int', label: 'SSCE INT' },
         { key: 'swapping', label: 'SWAPPING' },
         { key: 'ssce_int_mrk', label: 'SSCE INT MRK' },
-        { key: 'oct_accr', label: 'OCT ACCR' },
         { key: 'ssce_ext', label: 'SSCE EXT' },
-        { key: 'ssce_ext_mrk', label: 'SSCE EXT MRK' },
-        { key: 'pur_samp', label: 'PUR SAMP' },
-        { key: 'int_audit', label: 'INT AUDIT' },
-        { key: 'stock_tk', label: 'STOCK TK' }
+        { key: 'ssce_ext_mrk', label: 'SSCE EXT MRK' }
     ];
 
     return (
@@ -1447,6 +1509,8 @@ const APCModal: React.FC<{
                             <FloatingInput label="Name" name="name" value={formData.name} onChange={handleChange} required />
                             <FloatingInput label="CONRAISS" name="conraiss" value={formData.conraiss} onChange={handleChange} />
                             <FloatingInput label="Station" name="station" value={formData.station} onChange={handleChange} />
+                            <FloatingInput label="Rank" name="rank" value={formData.rank} onChange={handleChange} />
+                            <FloatingInput label="Type of Vehicle" name="type_of_vehicle" value={formData.type_of_vehicle} onChange={handleChange} />
                             <FloatingInput label="Qualification" name="qualification" value={formData.qualification} onChange={handleChange} />
                             <SelectInput label="Gender" name="sex" value={formData.sex} onChange={handleChange} options={[{ value: 'M', label: 'Male' }, { value: 'F', label: 'Female' }]} />
                             <FloatingInput label="Count" type="number" name="count" value={formData.count} onChange={handleChange} />
@@ -1461,20 +1525,6 @@ const APCModal: React.FC<{
                                 <FloatingInput key={field.key} label={field.label} name={field.key} value={(formData as any)[field.key] || ''} onChange={handleChange} />
                             ))}
 
-                            <div className="md:col-span-2 pb-2 border-b border-slate-100 dark:border-gray-700 mb-2 mt-4 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400">note_alt</span>
-                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Remarks & Status</span>
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <textarea
-                                    name="remark"
-                                    value={formData.remark || ''}
-                                    onChange={handleChange}
-                                    className="w-full min-h-[80px] p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-emerald-500 focus:ring-[3px] focus:ring-emerald-500/10 transition-all font-medium text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm resize-none"
-                                    placeholder="Add any additional remarks or notes here..."
-                                />
-                            </div>
 
                             <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-2">
                                 <input

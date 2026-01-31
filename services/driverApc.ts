@@ -177,9 +177,9 @@ export const getAssignmentLimit = (conraiss: string | number | undefined | null)
 
 export const getAssignmentUsage = (record: DriverAPCRecord): number => {
     const assignmentFields = [
-        'tt', 'mar_accr', 'ncee', 'gifted', 'becep', 'bece_mrkp',
-        'ssce_int', 'swapping', 'ssce_int_mrk', 'oct_accr', 'ssce_ext',
-        'ssce_ext_mrk', 'pur_samp', 'int_audit', 'stock_tk'
+        'tt', 'ncee', 'gifted', 'becep', 'bece_mrkp',
+        'ssce_int', 'swapping', 'ssce_int_mrk', 'ssce_ext',
+        'ssce_ext_mrk'
     ];
 
     return assignmentFields.filter(field => {

@@ -41,6 +41,7 @@ const TypesettingAPCList: React.FC = () => {
     const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
     const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>(cached?.filters?.filterStatus || 'all');
+    const [viewMode, setViewMode] = useState<'full' | 'unified'>(cached?.viewMode || 'full');
 
     const hasInitialized = useRef(!!cached);
 
@@ -169,9 +170,10 @@ const TypesettingAPCList: React.FC = () => {
                 filterAssignment,
                 filterStatus
             },
-            assignmentOptions
+            assignmentOptions,
+            viewMode
         });
-    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions]);
+    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions, viewMode]);
 
     const fetchAllRecords = useCallback(async (force: boolean = false) => {
         if (hasInitialized.current && !force) {
@@ -345,7 +347,7 @@ const TypesettingAPCList: React.FC = () => {
 
     // Report Modal State for PDF Title
     const [showReportModal, setShowReportModal] = useState(false);
-    const [reportTitle, setReportTitle] = useState('2026 TYPESETTING APC REPORT');
+    const [reportTitle, setReportTitle] = useState('2026 TYPESETTING ANNUAL POSTING CALENDAR (APC) REPORT');
 
     const handlePDFExport = async () => {
         try {
@@ -460,23 +462,25 @@ const TypesettingAPCList: React.FC = () => {
                 doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
             };
 
-            const tableColumn = ["S/N", "FILE NO", "NAME", "CONRAISS", "STATION", "ASSIGNMENT"];
+            const tableColumn = ["S/N", "FILE NO", "NAME", "CONR", "STATION", "ASSIGNMENT"];
 
             // Create a map for code to name lookup
             const assignmentNameMap = new Map<string, string>(assignmentOptions.map(a => [a.code, a.name]));
 
-            // Sort by CONRAISS descending (14, 13, 12...) before generating PDF
+            // Sort by Station (ASC) and then CONRAISS (DESC) before generating PDF
             const sortedRecords = [...filteredRecords].sort((a, b) => {
+                // First by Station (ASC)
+                const stationA = (a.station || '').toLowerCase();
+                const stationB = (b.station || '').toLowerCase();
+                if (stationA < stationB) return -1;
+                if (stationA > stationB) return 1;
+
+                // Then by CONRAISS (DESC) within each station
                 const conrA = parseInt((a.conraiss || '0').replace(/\D/g, ''), 10);
                 const conrB = parseInt((b.conraiss || '0').replace(/\D/g, ''), 10);
-                return conrB - conrA; // Descending
+                return conrB - conrA;
             });
 
-            // Roman numeral helper
-            const toRoman = (num: number): string => {
-                const romanNumerals = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii', 'xiii', 'xiv', 'xv'];
-                return romanNumerals[num - 1] || num.toString();
-            };
 
             // Prepare Data
             const tableRows = sortedRecords.map((record, index) => {
@@ -510,8 +514,8 @@ const TypesettingAPCList: React.FC = () => {
                     }
                 });
 
-                // Format with Roman numerals
-                const formattedAssignments = assignments.map((a, i) => `${toRoman(i + 1)}. ${a}`).join('\n');
+                // Format with numerals
+                const formattedAssignments = assignments.map((a, i) => `${i + 1}. ${a}`).join('\n');
 
                 return [
                     index + 1,
@@ -532,9 +536,9 @@ const TypesettingAPCList: React.FC = () => {
                 startY: 35,
                 margin: { top: 35, bottom: 50 },
                 theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 1.5, minCellHeight: 6 },
+                styles: { fontSize: 12, cellPadding: 1.5, minCellHeight: 6 },
                 bodyStyles: { fontStyle: 'bold' },
-                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green header
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold', fontSize: 12 }, // Green header
                 columnStyles: {
                     0: { cellWidth: 12, halign: 'center' }, // S/N
                     1: { cellWidth: 25 }, // File No
@@ -893,6 +897,24 @@ const TypesettingAPCList: React.FC = () => {
                                 </select>
                             </div>
                         </div>
+
+                        {/* View Mode Toggle */}
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-gray-700">
+                            <button
+                                onClick={() => setViewMode('full')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'full' ? 'bg-white dark:bg-[#1a242f] text-primary shadow-sm ring-1 ring-slate-200 dark:ring-gray-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            >
+                                <span className="material-symbols-outlined text-lg">vertical_split</span>
+                                Full View
+                            </button>
+                            <button
+                                onClick={() => setViewMode('unified')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'unified' ? 'bg-white dark:bg-[#1a242f] text-primary shadow-sm ring-1 ring-slate-200 dark:ring-gray-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            >
+                                <span className="material-symbols-outlined text-lg">view_agenda</span>
+                                Unified View
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -910,24 +932,26 @@ const TypesettingAPCList: React.FC = () => {
                             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
                                 <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
                                     <tr>
-                                        <th className="p-4 w-10 text-center">
-                                            <button
-                                                onClick={() => {
-                                                    if (expandedRows.size > 0) {
-                                                        setExpandedRows(new Set());
-                                                    } else {
-                                                        const allIds = new Set(records.map(r => r.id));
-                                                        setExpandedRows(allIds);
-                                                    }
-                                                }}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                                                title={expandedRows.size > 0 ? "Collapse All" : "Expand All"}
-                                            >
-                                                <span className="material-symbols-outlined text-lg">
-                                                    {expandedRows.size > 0 ? 'unfold_less' : 'unfold_more'}
-                                                </span>
-                                            </button>
-                                        </th>
+                                        {viewMode !== 'unified' && (
+                                            <th className="p-4 w-10 text-center">
+                                                <button
+                                                    onClick={() => {
+                                                        if (expandedRows.size > 0) {
+                                                            setExpandedRows(new Set());
+                                                        } else {
+                                                            const allIds = new Set(records.map(r => r.id));
+                                                            setExpandedRows(allIds);
+                                                        }
+                                                    }}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                                    title={expandedRows.size > 0 ? "Collapse All" : "Expand All"}
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">
+                                                        {expandedRows.size > 0 ? 'unfold_less' : 'unfold_more'}
+                                                    </span>
+                                                </button>
+                                            </th>
+                                        )}
                                         <th className="p-4 w-10 text-center">
                                             <input
                                                 type="checkbox"
@@ -940,6 +964,12 @@ const TypesettingAPCList: React.FC = () => {
                                         <SortableHeader field="name" label="Name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="conraiss" label="CONRAISS" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <SortableHeader field="station" label="Station" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                                        {viewMode === 'unified' && (
+                                            <>
+                                                <th className="px-4 py-4 font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300">Count</th>
+                                                <th className="px-4 py-4 font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300">Assignments</th>
+                                            </>
+                                        )}
                                         <SortableHeader field="active" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
@@ -967,6 +997,8 @@ const TypesettingAPCList: React.FC = () => {
                                                 onDelete={() => handleDelete(record.id)}
                                                 isExpanded={expandedRows.has(record.id)}
                                                 onToggleExpand={() => toggleRow(record.id)}
+                                                viewMode={viewMode}
+                                                assignmentOptions={assignmentOptions}
                                             />
                                         ))
                                     )}
@@ -1127,20 +1159,55 @@ const APCRow = React.memo<{
     onDelete: () => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
-}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand }) => {
+    viewMode: 'full' | 'unified';
+    assignmentOptions: Assignment[];
+}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions }) => {
+    const assignmentNameMap = useMemo(() => {
+        return new Map(assignmentOptions.map(a => [a.code, a.name]));
+    }, [assignmentOptions]);
+
+    const activeAssignments = useMemo(() => {
+        const canonicalAssignmentMap = {
+            'tt': 'TT',
+            'ssce_int': 'SSCE-INT',
+            'ssce_ext': 'SSCE-EXT',
+            'ssce_int_mrk': 'SSCE-INT-MRK',
+            'ssce_ext_mrk': 'SSCE-EXT-MRK',
+            'ncee': 'NCEE',
+            'becep': 'BECEP',
+            'bece_mrkp': 'BECE-MRKP',
+            'mar_accr': 'MAR-ACCR',
+            'oct_accr': 'OCT-ACCR',
+            'pur_samp': 'PUR-SAMP',
+            'gifted': 'GIFTED',
+            'swapping': 'SWAPPING',
+            'int_audit': 'INT-AUDIT',
+            'stock_tk': 'STOCK-TK'
+        };
+
+        return Object.entries(canonicalAssignmentMap)
+            .filter(([fieldName, _]) => {
+                const val = (record as any)[fieldName];
+                return val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED';
+            })
+            .map(([_, code]) => assignmentNameMap.get(code) || code);
+    }, [record, assignmentNameMap]);
+
     return (
         <React.Fragment>
-            <tr className={`group hover:bg-primary/[0.02] dark:hover:bg-slate-800/50 transition-colors duration-150 ${isExpanded ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}`}>
-                <td className="p-4 text-center">
-                    <button
-                        onClick={onToggleExpand}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    >
-                        <span className={`material-symbols-outlined transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                            chevron_right
-                        </span>
-                    </button>
-                </td>
+            <tr className={`group hover:bg-primary/[0.02] dark:hover:bg-slate-800/50 transition-colors duration-150 ${(viewMode !== 'unified' && isExpanded) ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}`}>
+                {viewMode !== 'unified' && (
+                    <td className="p-4 text-center">
+                        <button
+                            onClick={onToggleExpand}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                        >
+                            <span className={`material-symbols-outlined transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                                chevron_right
+                            </span>
+                        </button>
+                    </td>
+                )}
                 <td className="p-4 text-center">
                     <input
                         type="checkbox"
@@ -1164,6 +1231,26 @@ const APCRow = React.memo<{
                     </span>
                 </td>
                 <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-300 text-base">{record.station || '-'}</td>
+                {viewMode === 'unified' && (
+                    <>
+                        <td className="px-4 py-4 font-bold text-primary dark:text-primary-light">
+                            {record.count || 0}
+                        </td>
+                        <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1">
+                                {activeAssignments.length > 0 ? (
+                                    activeAssignments.map((name, idx) => (
+                                        <span key={idx} className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 w-fit">
+                                            {name}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-xs font-medium text-slate-400 italic">No active assignments</span>
+                                )}
+                            </div>
+                        </td>
+                    </>
+                )}
                 <td className="px-4 py-4 text-center">
                     <div className="flex flex-col items-center gap-1">
                         <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${record.active
