@@ -320,7 +320,7 @@ const StationManagement: React.FC = () => {
             />
 
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
                         Station Management

@@ -505,7 +505,7 @@ const StateManagement: React.FC = () => {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-                                <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
+                                <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-300 dark:border-gray-700">
                                     <tr>
                                         <th className="p-4 w-10"></th>
                                         <th className="p-4 w-10 text-center">

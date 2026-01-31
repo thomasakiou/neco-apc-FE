@@ -190,8 +190,8 @@ const ComparePage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
-            <div className="flex flex-col gap-2 pb-6 border-b border-slate-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
+            <div className="flex flex-col gap-2 pb-6 border-b border-slate-300">
                 <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-500 tracking-tight">
                     Data Comparison
                 </h1>
@@ -199,7 +199,7 @@ const ComparePage: React.FC = () => {
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Reconcile differences between APC records and Staff Disposition List (SDL).</p>
                     <button
                         onClick={() => fetchData(true)}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                         title="Reload both APC and Staff data from server"
                     >
                         <span className="material-symbols-outlined text-emerald-500 group-hover:rotate-180 transition-transform duration-500 text-lg">refresh</span>
@@ -216,8 +216,8 @@ const ComparePage: React.FC = () => {
                 <StatCard label="Missing in APC" value={stats.missingInAPC} icon="person_off" color="text-rose-600 dark:text-rose-400" bg="bg-rose-50 dark:bg-rose-900/10" />
             </div>
 
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-200 dark:border-gray-700 pr-2">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-300 dark:border-gray-700 pr-2">
                     <div className="flex items-center gap-2 overflow-x-auto">
                         <TabButton
                             active={activeTab === 'compare'}
@@ -251,7 +251,7 @@ const ComparePage: React.FC = () => {
                             placeholder="Search File No or Name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-400"
+                            className="w-full pl-9 pr-4 py-2 bg-background-light dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-400"
                         />
                     </div>
                 </div>
@@ -344,9 +344,9 @@ const ComparePage: React.FC = () => {
     );
 };
 
-const StatCard = ({ label, value, icon, color = 'text-slate-700 dark:text-slate-200', bg = 'bg-white dark:bg-[#1e293b]' }: { label: string; value: number; icon: string; color?: string; bg?: string }) => (
+const StatCard = ({ label, value, icon, color = 'text-slate-700 dark:text-slate-200', bg = 'bg-surface-light dark:bg-[#1e293b]' }: { label: string; value: number; icon: string; color?: string; bg?: string }) => (
     <div className={`p-4 rounded-xl border border-slate-100 dark:border-gray-700 shadow-sm flex items-center gap-4 ${bg}`}>
-        <div className={`w-10 h-10 rounded-lg ${bg.includes('bg-white') || bg.includes('dark:bg-[#1e293b]') ? 'bg-slate-100 dark:bg-slate-800' : 'bg-white/80 dark:bg-black/20'} flex items-center justify-center ${color}`}>
+        <div className={`w-10 h-10 rounded-lg ${bg.includes('bg-surface-light') || bg.includes('dark:bg-[#1e293b]') ? 'bg-background-light dark:bg-slate-800' : 'bg-white/80 dark:bg-black/20'} flex items-center justify-center ${color}`}>
             <span className="material-symbols-outlined text-2xl">{icon}</span>
         </div>
         <div>
@@ -401,7 +401,7 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                                     setStatusFilter(e.target.value as 'All' | 'Match' | 'Mismatch' | 'MissingSDL');
                                     setPage(1);
                                 }}
-                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
+                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
                             >
                                 <option value="All">All</option>
                                 <option value="Match">Match</option>
@@ -419,7 +419,7 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                                     setMismatchTypeFilter(e.target.value as 'All' | 'Name' | 'Grade' | 'Station');
                                     setPage(1);
                                 }}
-                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
+                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
                             >
                                 <option value="All">All types</option>
                                 <option value="Name">Name</option>
@@ -436,7 +436,7 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                                 setLimit(Number(e.target.value));
                                 setPage(1);
                             }}
-                            className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
+                            className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
                         >
                             <option value={10}>10</option>
                             <option value={25}>25</option>
@@ -451,13 +451,13 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
             </div>
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-gray-700">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
+                    <thead className="bg-background-light dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                         <tr>
                             <th className="px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-r border-slate-200 dark:border-gray-700 w-[44%] text-center border-b dark:border-gray-700" colSpan={4}>APC Record</th>
                             <th className="px-4 py-3 w-[12%] text-center border-b dark:border-gray-700">Status</th>
                             <th className="px-4 py-3 bg-blue-50/50 dark:bg-blue-900/10 border-l border-slate-200 dark:border-gray-700 w-[44%] text-center border-b dark:border-gray-700" colSpan={3}>SDL Record</th>
                         </tr>
-                        <tr className="border-b border-slate-200 dark:border-gray-700">
+                        <tr className="border-b border-slate-300 dark:border-gray-700">
                             <th className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium">File No</th>
                             <th className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium">Name</th>
                             <th className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium">Grade/Conraiss</th>
@@ -470,7 +470,7 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                         {paginatedData.map((row) => (
-                            <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                            <tr key={row.id} className="hover:bg-background-light dark:hover:bg-slate-800/50 transition-colors group">
                                 <td className="px-4 py-3 font-mono font-bold text-slate-600 dark:text-slate-300">{row.fileNo}</td>
                                 <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{row.apcName}</td>
                                 <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.apcGrade}</td>
@@ -540,14 +540,14 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                     <button
                         disabled={page === 1}
                         onClick={() => setPage(1)}
-                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                     >
                         First
                     </button>
                     <button
                         disabled={page === 1}
                         onClick={() => setPage(page - 1)}
-                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                     >
                         Previous
                     </button>
@@ -557,14 +557,14 @@ const ComparisonTable = ({ data, page, limit, setPage, setLimit, statusFilter, s
                     <button
                         disabled={page >= totalPages}
                         onClick={() => setPage(page + 1)}
-                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                     >
                         Next
                     </button>
                     <button
                         disabled={page >= totalPages}
                         onClick={() => setPage(totalPages)}
-                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                        className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                     >
                         Last
                     </button>
@@ -599,7 +599,7 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
                                     setLimit(Number(e.target.value));
                                     setPage(1);
                                 }}
-                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
+                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
                             >
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
@@ -625,7 +625,7 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                                 {paginatedData.map((row) => (
-                                    <tr key={row.fileNo} className="hover:bg-rose-50/10 dark:hover:bg-rose-900/5 transition-colors">
+                                    <tr key={row.fileNo} className="hover:bg-rose-50/20 dark:hover:bg-rose-900/5 transition-colors">
                                         <td className="px-4 py-3 font-mono font-bold text-rose-700 dark:text-rose-400">{row.fileNo}</td>
                                         <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">{row.name}</td>
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.grade}</td>
@@ -657,14 +657,14 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
                         <button
                             disabled={page === 1}
                             onClick={() => setPage(1)}
-                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                         >
                             First
                         </button>
                         <button
                             disabled={page === 1}
                             onClick={() => setPage(page - 1)}
-                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                         >
                             Previous
                         </button>
@@ -674,14 +674,14 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
                         <button
                             disabled={page >= totalPages}
                             onClick={() => setPage(page + 1)}
-                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                         >
                             Next
                         </button>
                         <button
                             disabled={page >= totalPages}
                             onClick={() => setPage(totalPages)}
-                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-slate-50"
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
                         >
                             Last
                         </button>
@@ -759,7 +759,7 @@ const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClo
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-[#121b25] rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-surface-light dark:bg-[#121b25] rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Add to APC</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -771,19 +771,19 @@ const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClo
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">File No</label>
-                            <input type="text" value={staff.fileNo} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 font-bold" />
+                            <input type="text" value={staff.fileNo} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-background-light text-slate-500 font-bold" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name</label>
-                            <input type="text" value={staff.name} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 font-bold" />
+                            <input type="text" value={staff.name} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-background-light text-slate-500 font-bold" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Grade</label>
-                            <input type="text" value={staff.grade} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 font-bold" />
+                            <input type="text" value={staff.grade} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-background-light text-slate-500 font-bold" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Station</label>
-                            <input type="text" value={staff.station} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 font-bold" />
+                            <input type="text" value={staff.station} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-background-light text-slate-500 font-bold" />
                         </div>
                     </div>
 

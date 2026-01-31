@@ -143,8 +143,8 @@ const Configuration: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
-            <header className="flex-none flex items-center justify-between px-4 md:px-10 py-4 md:py-5 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
+        <div className="flex flex-col h-full w-full bg-background-light dark:bg-[#0b1015] transition-colors duration-200 overflow-hidden">
+            <header className="flex-none flex items-center justify-between px-4 md:px-10 py-4 md:py-5 bg-surface-light/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-300 dark:border-white/5 z-20">
                 <div>
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
                         System <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Configuration</span>
@@ -174,7 +174,7 @@ const Configuration: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 pb-12">
                 <div className="max-w-[1400px] mx-auto">
-                    <div className="bg-white/70 dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-4 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none min-h-[600px] transition-all relative overflow-hidden">
+                    <div className="bg-surface-light/70 dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-4 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none min-h-[600px] transition-all relative overflow-hidden">
                         <div className="absolute top-0 right-0 size-96 bg-emerald-500/5 blur-[100px] rounded-full -mr-48 -mt-48 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 size-96 bg-blue-500/5 blur-[100px] rounded-full -ml-48 -mb-48 pointer-events-none"></div>
 
@@ -197,7 +197,7 @@ const Configuration: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur-sm shadow-inner">
+                                    <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-surface-light/30 dark:bg-white/5 backdrop-blur-sm shadow-inner">
                                         <table className="w-full text-left border-collapse">
                                             <thead>
                                                 <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200/60 dark:border-white/10">
@@ -402,7 +402,7 @@ const Configuration: React.FC = () => {
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        <div className="bg-white dark:bg-white/5 p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/10 flex flex-col justify-between items-start gap-6 hover:shadow-xl transition-all duration-300">
+                                        <div className="bg-surface-light dark:bg-white/5 p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/10 flex flex-col justify-between items-start gap-6 hover:shadow-xl transition-all duration-300">
                                             <div className="flex flex-col gap-2">
                                                 <div className="size-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-2">
                                                     <span className="material-symbols-outlined text-2xl">download_for_offline</span>
@@ -472,7 +472,7 @@ const Configuration: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur-sm shadow-inner">
+                                    <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-surface-light/30 dark:bg-white/5 backdrop-blur-sm shadow-inner">
                                         <table className="w-full text-left border-collapse">
                                             <thead>
                                                 <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200/60 dark:border-white/10">
@@ -599,7 +599,7 @@ function ModuleToggle({ label, description, isLocked, onToggle, icon, color = 'e
     const activeColorClass = colorClasses[color] || colorClasses.emerald;
 
     return (
-        <div className="group relative flex items-center justify-between p-6 rounded-[2rem] bg-slate-50/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/[0.08] transition-all duration-300">
+        <div className="group relative flex items-center justify-between p-6 rounded-[2rem] bg-slate-100/30 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-surface-light dark:hover:bg-white/[0.08] transition-all duration-300">
             <div className="flex items-center gap-5">
                 <div className={`size-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${isLocked ? 'bg-rose-500/10 text-rose-500 rotate-12' : `${activeColorClass} group-hover:scale-110`}`}>
                     <span className="material-symbols-outlined text-3xl">{isLocked ? 'lock' : icon}</span>

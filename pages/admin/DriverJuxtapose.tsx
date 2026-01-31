@@ -174,7 +174,7 @@ const DriverJuxtapose: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
-            <div className="flex flex-col gap-2 pb-6 border-b border-slate-200 dark:border-gray-800">
+            <div className="flex flex-col gap-2 pb-6 border-b border-slate-300 dark:border-gray-800">
                 <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-900 via-amber-800 to-orange-700 dark:from-orange-400 dark:via-amber-300 dark:to-orange-500 tracking-tight">
                     Driver Juxtapose
                 </h1>

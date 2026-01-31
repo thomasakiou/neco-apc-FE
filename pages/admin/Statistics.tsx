@@ -311,7 +311,7 @@ const Statistics: React.FC = () => {
     }
 
     return (
-        <div className="p-6 space-y-8 min-h-screen bg-slate-50 dark:bg-[#0b1116] text-slate-900 dark:text-slate-100 font-sans pb-20">
+        <div className="p-6 space-y-8 min-h-screen bg-background-light dark:bg-[#0b1116] text-slate-900 dark:text-slate-100 font-sans pb-20">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Statistics Dashboard</h1>
@@ -330,7 +330,7 @@ const Statistics: React.FC = () => {
             </div>
 
             {/* Filters */}
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">filter_alt</span>
                     Filter Criteria
@@ -402,7 +402,7 @@ const Statistics: React.FC = () => {
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+                <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4">
                     <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
                         <span className="material-symbols-outlined text-3xl">group</span>
                     </div>
@@ -411,7 +411,7 @@ const Statistics: React.FC = () => {
                         <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalStaff}</h3>
                     </div>
                 </div>
-                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+                <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4">
                     <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400">
                         <span className="material-symbols-outlined text-3xl">badge</span>
                     </div>
@@ -420,7 +420,7 @@ const Statistics: React.FC = () => {
                         <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalAPC}</h3>
                     </div>
                 </div>
-                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+                <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4">
                     <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400">
                         <span className="material-symbols-outlined text-3xl">assignment_ind</span>
                     </div>
@@ -433,7 +433,7 @@ const Statistics: React.FC = () => {
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                     <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">Staff Distribution by State of Origin (Top 15)</h3>
                     <div className="h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -460,7 +460,7 @@ const Statistics: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                     <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">Gender Distribution</h3>
                     <div className="h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -486,7 +486,7 @@ const Statistics: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                     <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">Posting Status</h3>
                     <div className="h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -512,7 +512,7 @@ const Statistics: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                     <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">Staff by CONRAISS Level</h3>
                     <div className="h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -538,7 +538,7 @@ const Statistics: React.FC = () => {
             </div>
 
             {/* Staff Details Table */}
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Staff Details</h3>
                     <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -576,7 +576,7 @@ const Statistics: React.FC = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-slate-200 dark:border-slate-700">
+                            <tr className="border-b border-slate-300 dark:border-slate-700">
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">File No</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">Full Name</th>
                                 <th className="p-3 font-semibold text-slate-600 dark:text-slate-400 text-sm">Station</th>
@@ -597,7 +597,7 @@ const Statistics: React.FC = () => {
                                     const isPosted = p && p.mandates && p.mandates.length > 0;
                                     const hasAPC = apcFileNoSet.has(staff.fileno);
                                     return (
-                                        <tr key={staff.fileno || staff.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <tr key={staff.fileno || staff.id} className="border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="p-3 text-sm text-slate-700 dark:text-slate-300 font-medium flex items-center gap-2">
                                                 {staff.fileno}
                                                 {!hasAPC && (

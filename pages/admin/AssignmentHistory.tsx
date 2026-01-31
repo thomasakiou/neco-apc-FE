@@ -872,7 +872,7 @@ const GeneratePage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-4 md:p-8 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+        <div className="flex-1 flex flex-col min-h-full bg-background-light dark:bg-[#0b1015] p-4 md:p-8 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
 
             {/* Export Loading Overlay */}
             {exportType && (

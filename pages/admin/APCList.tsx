@@ -693,9 +693,9 @@ const APCList: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
                         Annual Posting Calendar (APC)
@@ -789,7 +789,7 @@ const APCList: React.FC = () => {
             </div>
 
 
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-200 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
                 {/* Filters */}
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                     <div className="flex flex-col gap-4 w-full">
@@ -801,7 +801,7 @@ const APCList: React.FC = () => {
                                     <span className="material-symbols-outlined text-slate-400 text-lg">tag</span>
                                 </div>
                                 <input
-                                    className="w-full pl-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-sm text-slate-700 dark:text-slate-200"
+                                    className="w-full pl-10 h-10 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-sm text-slate-700 dark:text-slate-200"
                                     placeholder="Search by File No..."
                                     value={searchFileNo}
                                     onChange={(e) => setSearchFileNo(e.target.value)}
@@ -814,7 +814,7 @@ const APCList: React.FC = () => {
                                     <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
                                 </div>
                                 <input
-                                    className="w-full pl-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-sm text-slate-700 dark:text-slate-200"
+                                    className="w-full pl-10 h-10 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-sm text-slate-700 dark:text-slate-200"
                                     placeholder="Search by Name..."
                                     value={searchName}
                                     onChange={(e) => setSearchName(e.target.value)}
@@ -829,7 +829,7 @@ const APCList: React.FC = () => {
                                 <select
                                     value={filterConraiss}
                                     onChange={(e) => setFilterConraiss(e.target.value)}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                                 >
                                     <option value="">All CONRAISS</option>
                                     {conraissOptions.map(opt => (
@@ -853,7 +853,7 @@ const APCList: React.FC = () => {
                                 <select
                                     value={filterAssignment}
                                     onChange={(e) => setFilterAssignment(e.target.value)}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-black dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-black dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                                 >
                                     <option value="">All Assignments</option>
                                     {assignmentOptions.map(opt => (
@@ -867,7 +867,7 @@ const APCList: React.FC = () => {
                                 <select
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
-                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-slate-700 dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-slate-700 dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                                 >
                                     <option value="all">All Status</option>
                                     <option value="active">Active</option>
@@ -886,7 +886,7 @@ const APCList: React.FC = () => {
                                         setLimit(Number(e.target.value));
                                         setPage(1);
                                     }}
-                                    className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
+                                    className="h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
                                 >
                                     <option value={10}>10</option>
                                     <option value={25}>25</option>
@@ -897,7 +897,7 @@ const APCList: React.FC = () => {
                         </div>
 
                         {/* View Mode Toggle */}
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-gray-700">
+                        <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl border border-slate-300 dark:border-gray-700">
                             <button
                                 onClick={() => setViewMode('full')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'full' ? 'bg-white dark:bg-[#1a242f] text-primary shadow-sm ring-1 ring-slate-200 dark:ring-gray-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
@@ -917,7 +917,7 @@ const APCList: React.FC = () => {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-xl border border-slate-200/60 dark:border-gray-800 bg-slate-50/50 dark:bg-[#121b25]">
+                <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-[#121b25]">
                     {loading ? (
                         <div className="flex h-80 items-center justify-center">
                             <div className="flex flex-col items-center gap-3">
@@ -928,7 +928,7 @@ const APCList: React.FC = () => {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-                                <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
+                                <thead className="bg-slate-200/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-300 dark:border-gray-700">
                                     <tr>
                                         {viewMode !== 'unified' && (
                                             <th className="p-4 w-10 text-center">
@@ -972,7 +972,7 @@ const APCList: React.FC = () => {
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
+                                <tbody className="divide-y divide-slate-200 dark:divide-gray-800 bg-surface-light dark:bg-[#121b25]">
                                     {records.length === 0 ? (
                                         <tr>
                                             <td colSpan={8} className="p-10 text-center">

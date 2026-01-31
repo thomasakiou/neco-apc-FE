@@ -38,7 +38,7 @@ const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 bg-slate-50 dark:bg-[#0b1015]">
+      <div className="flex flex-col items-center justify-center h-full gap-4 bg-background-light dark:bg-[#0b1015]">
         <div className="relative">
           <div className="size-16 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin"></div>
           <div className="absolute inset-0 flex items-center justify-center">
@@ -74,7 +74,7 @@ const AdminDashboard: React.FC = () => {
   const { counts, charts, staffRoles } = safeStats;
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-background-light dark:bg-[#101922] transition-colors duration-200 overflow-hidden">
       {/* Header Actions Portal */}
       {document.getElementById('header-actions') && createPortal(
         <div className="flex items-center gap-3">
@@ -88,7 +88,7 @@ const AdminDashboard: React.FC = () => {
 
           <button
             onClick={() => fetchStats(true)}
-            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-[10px] md:text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-surface-light dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-[10px] md:text-xs hover:bg-slate-100 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}
           >
             <span className={`material-symbols-outlined text-base md:text-lg ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
             {isRefreshing ? 'Refreshing...' : 'Live Data'}
@@ -169,7 +169,7 @@ const AdminDashboard: React.FC = () => {
           </section>
 
           {/* Staff Composition Stats */}
-          <section className="bg-white dark:bg-[#121b25] rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200 dark:border-white/5">
+          <section className="bg-surface-light dark:bg-[#121b25] rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-300 dark:border-white/5">
             <div className="flex items-center gap-3 mb-6">
               <div className="size-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                 <span className="material-symbols-outlined text-xl">badge</span>
@@ -183,7 +183,7 @@ const AdminDashboard: React.FC = () => {
               <RoleStatCard title="Coordinators" count={staffRoles.stateCoordinators} icon="map" color="text-emerald-600" bg="bg-emerald-50 dark:bg-emerald-900/20" />
               <RoleStatCard title="Directors" count={staffRoles.directors} icon="admin_panel_settings" color="text-amber-600" bg="bg-amber-50 dark:bg-amber-900/20" />
               <RoleStatCard title="Secretaries" count={staffRoles.secretaries} icon="assignment" color="text-rose-600" bg="bg-rose-50 dark:bg-rose-900/20" />
-              <RoleStatCard title="Others" count={staffRoles.others} icon="more_horiz" color="text-slate-600" bg="bg-slate-50 dark:bg-slate-800" />
+              <RoleStatCard title="Others" count={staffRoles.others} icon="more_horiz" color="text-slate-600" bg="bg-background-light dark:bg-slate-800" />
             </div>
           </section>
 
@@ -192,7 +192,7 @@ const AdminDashboard: React.FC = () => {
 
             {/* Staff Geographical Distribution */}
             <div className="lg:col-span-8 group">
-              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-6 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-emerald-500/20">
+              <div className="h-full bg-surface-light dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border border-slate-300 dark:border-white/5 p-6 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-emerald-500/20">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                   <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
                     <span className="size-8 md:size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-emerald-500 transition-colors">
@@ -257,7 +257,7 @@ const AdminDashboard: React.FC = () => {
 
             {/* Posting Integrity Overview */}
             <div className="lg:col-span-4 group">
-              <div className="h-full bg-white dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-6 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-teal-500/20 flex flex-col">
+              <div className="h-full bg-surface-light dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-6 md:p-8 shadow-xl shadow-slate-200/20 dark:shadow-none transition-all hover:border-teal-500/20 flex flex-col">
                 <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white mb-8 flex items-center gap-3">
                   <span className="size-8 md:size-10 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-teal-500 transition-colors">
                     <span className="material-symbols-outlined text-xl md:text-2xl">donut_large</span>
@@ -348,7 +348,7 @@ const AdminDashboard: React.FC = () => {
 const GlassCard = ({ title, value, icon, gradient, trend }: any) => (
   <div className="group relative">
     <div className={`absolute -inset-0.5 bg-gradient-to-br ${gradient} rounded-3xl blur opacity-0 group-hover:opacity-20 transition duration-500`}></div>
-    <div className="relative bg-white dark:bg-[#121b25] border border-slate-200/60 dark:border-white/5 rounded-3xl p-6 shadow-xl shadow-slate-200/10 dark:shadow-none transition-all duration-300 group-hover:-translate-y-1">
+    <div className="relative bg-surface-light dark:bg-[#121b25] border border-slate-200/60 dark:border-white/5 rounded-3xl p-6 shadow-xl shadow-slate-200/10 dark:shadow-none transition-all duration-300 group-hover:-translate-y-1">
       <div className="flex items-start justify-between mb-6">
         <div className={`size-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white shadow-lg shadow-current/20`}>
           <span className="material-symbols-outlined text-2xl">{icon}</span>

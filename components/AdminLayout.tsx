@@ -44,7 +44,7 @@ const AdminLayout: React.FC = () => {
 
       {/* SideNavBar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 ${isSidebarCollapsed ? 'w-20' : 'w-64'} flex flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121b25] 
+        fixed inset-y-0 left-0 z-50 ${isSidebarCollapsed ? 'w-20' : 'w-64'} flex flex-col border-r border-slate-300 dark:border-gray-800 bg-surface-light dark:bg-[#121b25] 
         transition-all duration-300 ease-in-out h-full overflow-y-auto overflow-x-hidden
         lg:translate-x-0 lg:static lg:h-screen
         ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
@@ -218,7 +218,7 @@ const AdminLayout: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden w-full relative">
         {/* Desktop Global Header */}
-        <header className="hidden lg:flex h-16 flex-shrink-0 items-center justify-between px-8 bg-white dark:bg-[#121b25] border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 transition-colors">
+        <header className="hidden lg:flex h-16 flex-shrink-0 items-center justify-between px-8 bg-surface-light dark:bg-[#121b25] border-b border-slate-300 dark:border-gray-800 sticky top-0 z-40 transition-colors">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -232,7 +232,7 @@ const AdminLayout: React.FC = () => {
           <div className="flex items-center gap-6">
             <div id="header-actions" className="flex items-center gap-3"></div>
 
-            <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-800"></div>
+            <div className="h-8 w-[1px] bg-slate-300 dark:bg-gray-800"></div>
 
             <div className="relative" ref={menuRef}>
               <button
@@ -251,8 +251,8 @@ const AdminLayout: React.FC = () => {
 
               {/* User Dropdown Menu */}
               {isUserMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#1a242f] rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 py-2 z-50 animate-in fade-in zoom-in duration-200 origin-top-right">
-                  <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 mb-1">
+                <div className="absolute top-full right-0 mt-2 w-56 bg-surface-light dark:bg-[#1a242f] rounded-xl shadow-xl border border-slate-200 dark:border-gray-800 py-2 z-50 animate-in fade-in zoom-in duration-200 origin-top-right">
+                  <div className="px-4 py-2 border-b border-slate-300 dark:border-gray-800 mb-1">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Account</p>
                   </div>
 
@@ -325,7 +325,7 @@ const AdminLayout: React.FC = () => {
         </header>
 
         {/* Mobile Header Bar */}
-        <div className="lg:hidden h-16 flex-shrink-0 flex items-center justify-between px-4 bg-white dark:bg-[#121b25] border-b border-gray-200 dark:border-gray-800 z-30">
+        <div className="lg:hidden h-16 flex-shrink-0 flex items-center justify-between px-4 bg-surface-light dark:bg-[#121b25] border-b border-gray-200 dark:border-gray-800 z-30">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 rounded bg-primary text-white">
               <span className="material-symbols-outlined text-sm">local_library</span>

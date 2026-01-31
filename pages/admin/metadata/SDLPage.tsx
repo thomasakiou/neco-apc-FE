@@ -797,7 +797,7 @@ const SDLPage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
             <StaffModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -818,7 +818,7 @@ const SDLPage: React.FC = () => {
             {/* Promotion Date Modal */}
             {isPromoteModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-gray-800">
+                    <div className="bg-surface-light dark:bg-[#121b25] rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-gray-800">
                         <div className="p-6 border-b border-slate-100 dark:border-gray-800">
                             <h2 className="text-2xl font-black text-slate-900 dark:text-slate-200">Confirm Promotion</h2>
                         </div>
@@ -834,7 +834,7 @@ const SDLPage: React.FC = () => {
                                     type="date"
                                     value={promotionDate}
                                     onChange={(e) => setPromotionDate(e.target.value)}
-                                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-bold text-slate-700 dark:text-slate-200"
+                                    className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-bold text-slate-700 dark:text-slate-200"
                                 />
                             </div>
                             <p className="text-xs text-amber-600 dark:text-amber-500 font-medium bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg flex items-start gap-2">
@@ -842,10 +842,10 @@ const SDLPage: React.FC = () => {
                                 This will update Rank, CONRAISS, and DOPA for all matched staff.
                             </p>
                         </div>
-                        <div className="p-6 border-t border-slate-100 dark:border-gray-800 bg-slate-50 dark:bg-[#0b1015] rounded-b-2xl flex justify-end gap-3">
+                        <div className="p-6 border-t border-slate-100 dark:border-gray-800 bg-background-light dark:bg-[#0b1015] rounded-b-2xl flex justify-end gap-3">
                             <button
                                 onClick={() => setIsPromoteModalOpen(false)}
-                                className="px-6 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                className="px-6 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-300 bg-surface-light dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-background-light dark:hover:bg-slate-800 transition-all"
                             >
                                 Cancel
                             </button>
@@ -861,7 +861,7 @@ const SDLPage: React.FC = () => {
             )}
 
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
                         Staff Disposition List (SDL)
@@ -872,7 +872,7 @@ const SDLPage: React.FC = () => {
                     <button
                         onClick={() => { fetchData(true); fetchAllStaffData(true); }}
                         disabled={loading}
-                        className={`group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         <span className={`material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-indigo-600 dark:from-indigo-300 dark:to-indigo-500 group-hover:scale-110 transition-transform text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
                         Refresh
@@ -888,21 +888,21 @@ const SDLPage: React.FC = () => {
                     )}
                     <button
                         onClick={handleExportPdf}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200"
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-rose-400 to-rose-600 dark:from-rose-300 dark:to-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
                         Export PDF
                     </button>
                     <button
                         onClick={handleExport}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-indigo-600 dark:from-indigo-300 dark:to-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
                         Export List
                     </button>
                     <button
                         onClick={downloadCsvTemplate}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-500 dark:text-slate-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-500 dark:text-slate-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-slate-400 to-slate-600 dark:from-slate-300 dark:to-slate-500 group-hover:scale-110 transition-transform text-lg">download</span>
                         Template
@@ -925,7 +925,7 @@ const SDLPage: React.FC = () => {
                     />
                     <button
                         onClick={() => promoteFileInputRef.current?.click()}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200"
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-blue-600 dark:from-indigo-400 dark:to-blue-500 group-hover:scale-110 transition-transform text-lg">trending_up</span>
                         Promote Staff
@@ -933,7 +933,7 @@ const SDLPage: React.FC = () => {
 
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-emerald-600 dark:text-emerald-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-emerald-600 dark:text-emerald-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200"
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-400 dark:to-teal-500 group-hover:scale-110 transition-transform text-lg">upload_file</span>
                         Import
@@ -948,7 +948,7 @@ const SDLPage: React.FC = () => {
                     />
                     <button
                         onClick={() => appendFileInputRef.current?.click()}
-                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-teal-600 dark:text-teal-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-all duration-200"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-teal-600 dark:text-teal-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-all duration-200"
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-teal-500 to-emerald-600 dark:from-teal-400 dark:to-emerald-500 group-hover:scale-110 transition-transform text-lg">library_add</span>
                         Append New Staff
@@ -963,7 +963,7 @@ const SDLPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
                 {/* Filters */}
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                     <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
@@ -972,7 +972,7 @@ const SDLPage: React.FC = () => {
                                 <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
                             </div>
                             <input
-                                className="w-full pl-10 h-10 rounded-lg border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-primary focus:ring-[3px] focus:ring-primary/20 transition-all duration-200 text-slate-700 dark:text-slate-200 font-medium text-sm placeholder:text-slate-400"
+                                className="w-full pl-10 h-10 rounded-lg border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-primary focus:ring-[3px] focus:ring-primary/20 transition-all duration-200 text-slate-700 dark:text-slate-200 font-medium text-sm placeholder:text-slate-400"
                                 placeholder="Search..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -986,7 +986,7 @@ const SDLPage: React.FC = () => {
                                     setLimit(Number(e.target.value));
                                     setPage(1);
                                 }}
-                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
+                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
                             >
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
@@ -1001,7 +1001,7 @@ const SDLPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => setShowStationDropdown(!showStationDropdown)}
-                                className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
+                                className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
                             >
                                 <span className="truncate">
                                     {selectedStation === 'All' ? 'Department: All' : selectedStation}
@@ -1012,9 +1012,9 @@ const SDLPage: React.FC = () => {
                             </button>
 
                             {showStationDropdown && (
-                                <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-surface-light dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
                                     {/* Search Input */}
-                                    <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
+                                    <div className="sticky top-0 bg-surface-light dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
                                         <div className="relative">
                                             <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
                                             <input
@@ -1022,7 +1022,7 @@ const SDLPage: React.FC = () => {
                                                 placeholder="Search department..."
                                                 value={stationSearchText}
                                                 onChange={(e) => setStationSearchText(e.target.value)}
-                                                className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
                                                 autoFocus
                                             />
                                             {stationSearchText && (
@@ -1044,7 +1044,7 @@ const SDLPage: React.FC = () => {
                                             setShowStationDropdown(false);
                                             setStationSearchText('');
                                         }}
-                                        className={`px-3 py-2 cursor-pointer transition-colors ${selectedStation === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                        className={`px-3 py-2 cursor-pointer transition-colors ${selectedStation === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-background-light dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                                     >
                                         Department: All
                                     </div>
@@ -1357,7 +1357,7 @@ const SDLPage: React.FC = () => {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-                                <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-gray-700">
+                                <thead className="bg-slate-100/80 dark:bg-slate-800/50 text-slate-900 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-300 dark:border-gray-700">
                                     <tr>
                                         <th className="p-4 w-10 text-center">
                                             <button

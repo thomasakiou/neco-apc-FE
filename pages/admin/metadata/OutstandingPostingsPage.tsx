@@ -290,9 +290,9 @@ const OutstandingPostingsPage: React.FC = () => {
     }, [filteredList, currentPage, rowsPerPage]);
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
             {/* Header */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-200">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-600 via-orange-600 to-rose-600 dark:from-rose-400 dark:via-orange-400 dark:to-rose-400 tracking-tight">
                         Outstanding Postings
@@ -306,7 +306,7 @@ const OutstandingPostingsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => fetchData(true)}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                             title="Reload data from server"
                         >
                             <span className="material-symbols-outlined text-emerald-500 group-hover:rotate-180 transition-transform duration-500 text-lg">refresh</span>
@@ -314,14 +314,14 @@ const OutstandingPostingsPage: React.FC = () => {
                         </button>
                         <button
                             onClick={handleExportPDF}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                         >
                             <span className="material-symbols-outlined text-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
                             Export PDF
                         </button>
                         <button
                             onClick={handleExportCSV}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                         >
                             <span className="material-symbols-outlined text-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
                             Export CSV
@@ -330,10 +330,10 @@ const OutstandingPostingsPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
 
                 {/* Search Controls */}
-                <div className="flex flex-wrap gap-4 items-end p-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-800/50">
+                <div className="flex flex-wrap gap-4 items-end p-4 bg-background-light dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-800/50">
                     {/* Text Filters */}
                     <div className="relative flex-1 min-w-[150px]">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
@@ -342,7 +342,7 @@ const OutstandingPostingsPage: React.FC = () => {
                             placeholder="Filter by Name..."
                             value={searchName}
                             onChange={(e) => setSearchName(e.target.value)}
-                            className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-rose-500/20 outline-none"
+                            className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-rose-500/20 outline-none"
                         />
                     </div>
                     <div className="relative flex-1 min-w-[120px]">
@@ -352,7 +352,7 @@ const OutstandingPostingsPage: React.FC = () => {
                             placeholder="File No..."
                             value={searchFileNo}
                             onChange={(e) => setSearchFileNo(e.target.value)}
-                            className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-rose-500/20 outline-none"
+                            className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-rose-500/20 outline-none"
                         />
                     </div>
                     <div className="relative flex-1 min-w-[120px]">
@@ -362,7 +362,7 @@ const OutstandingPostingsPage: React.FC = () => {
                             placeholder="Station..."
                             value={searchStation}
                             onChange={(e) => setSearchStation(e.target.value)}
-                            className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-rose-500/20 outline-none"
+                            className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-rose-500/20 outline-none"
                         />
                     </div>
 
@@ -373,7 +373,7 @@ const OutstandingPostingsPage: React.FC = () => {
                             <select
                                 value={countRatioFilter}
                                 onChange={(e) => setCountRatioFilter(e.target.value as any)}
-                                className="h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-bold px-2 outline-none focus:ring-2 focus:ring-rose-500/20"
+                                className="h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-bold px-2 outline-none focus:ring-2 focus:ring-rose-500/20"
                             >
                                 <option value="all">All</option>
                                 <option value="none">Not Posted (0/X)</option>
@@ -386,7 +386,7 @@ const OutstandingPostingsPage: React.FC = () => {
                             <select
                                 value={rowsPerPage}
                                 onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                                className="h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-bold px-2 outline-none focus:ring-2 focus:ring-rose-500/20"
+                                className="h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-bold px-2 outline-none focus:ring-2 focus:ring-rose-500/20"
                             >
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
@@ -408,7 +408,7 @@ const OutstandingPostingsPage: React.FC = () => {
                             </div>
                         </div>
                     ) : filteredList.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 bg-emerald-50/50 dark:bg-emerald-900/5 rounded-xl border border-emerald-100 dark:border-emerald-900/20 gap-4">
+                        <div className="flex flex-col items-center justify-center py-20 bg-background-light dark:bg-emerald-900/5 rounded-xl border border-emerald-100 dark:border-emerald-900/20 gap-4">
                             <span className="material-symbols-outlined text-6xl text-emerald-500/50">verified</span>
                             <div className="text-center">
                                 <h3 className="text-lg font-black text-emerald-700 dark:text-emerald-400">All Caught Up!</h3>
@@ -422,14 +422,14 @@ const OutstandingPostingsPage: React.FC = () => {
                     ) : (
                         <div className="flex flex-col gap-4">
                             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-gray-700">
-                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-gray-700 flex justify-between items-center">
+                                <div className="p-3 bg-background-light dark:bg-slate-800/50 border-b border-slate-300 dark:border-gray-700 flex justify-between items-center">
                                     <span className="text-xs font-black uppercase text-slate-500">Staff with Pending Items</span>
                                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
                                         {filteredList.length} Found
                                     </span>
                                 </div>
                                 <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
+                                    <thead className="bg-background-light dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                                         <tr>
                                             <th className="px-6 py-4">Staff Details</th>
                                             <th className="px-6 py-4">Conr</th>
@@ -441,7 +441,7 @@ const OutstandingPostingsPage: React.FC = () => {
                                     <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                                         {paginatedList.map((item, idx) => {
                                             return (
-                                                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                                <tr key={idx} className="hover:bg-background-light dark:hover:bg-slate-800/30 transition-colors">
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col gap-1">
                                                             <span className="font-bold text-slate-900 dark:text-white text-base">{item.name}</span>
@@ -461,7 +461,7 @@ const OutstandingPostingsPage: React.FC = () => {
                                                             </span>
                                                             <div className="flex flex-wrap gap-1">
                                                                 {item.scheduled.map(code => (
-                                                                    <span key={code} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-bold">
+                                                                    <span key={code} className="px-1.5 py-0.5 rounded bg-background-light dark:bg-slate-800 text-slate-500 text-[10px] font-bold">
                                                                         {code}
                                                                     </span>
                                                                 ))}
@@ -512,14 +512,14 @@ const OutstandingPostingsPage: React.FC = () => {
                                         <button
                                             disabled={currentPage === 1}
                                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-background-light dark:hover:bg-slate-800 transition-colors"
                                         >
                                             Previous
                                         </button>
                                         <button
                                             disabled={currentPage === totalPages}
                                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-background-light dark:hover:bg-slate-800 transition-colors"
                                         >
                                             Next
                                         </button>

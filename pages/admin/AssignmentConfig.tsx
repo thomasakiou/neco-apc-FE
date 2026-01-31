@@ -309,9 +309,9 @@ const AssignmentConfig: React.FC = () => {
     };
 
     return (
-        <div className="p-4 md:p-8 max-w-[1800px] mx-auto bg-slate-50 dark:bg-[#101922] transition-colors duration-200 min-h-screen">
+        <div className="p-4 md:p-8 max-w-[1800px] mx-auto bg-background-light dark:bg-[#101922] transition-colors duration-200 min-h-screen">
             <div className="flex flex-col gap-4 md:gap-6">
-                <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-gray-800">
+                <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-300 dark:border-gray-800">
                     <div className="flex flex-col gap-2">
                         <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 dark:from-emerald-400 dark:via-teal-300 dark:to-emerald-500 tracking-tight">
                             Assignment Configuration

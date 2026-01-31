@@ -636,9 +636,9 @@ const HODApcList: React.FC = () => {
     }, [fetchAllRecords]);
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-gray-800">
+            <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-slate-300 dark:border-gray-800">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight flex items-center gap-2">
                         HOD's APC Table
@@ -706,7 +706,7 @@ const HODApcList: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-200 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
                 {/* Filters */}
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                     <div className="flex flex-col gap-4 w-full">
@@ -803,7 +803,7 @@ const HODApcList: React.FC = () => {
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800 bg-white dark:bg-[#121b25]">
+                                <tbody className="divide-y divide-slate-200 dark:divide-gray-800 bg-surface-light dark:bg-[#121b25]">
                                     {records.length === 0 ? (
                                         <tr><td colSpan={8} className="p-10 text-center text-slate-400">No records found</td></tr>
                                     ) : (
@@ -829,7 +829,7 @@ const HODApcList: React.FC = () => {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-2 border-t border-slate-100 dark:border-gray-800">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-slate-200 dark:border-gray-800">
                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                         Showing <span className="text-slate-900 dark:text-white font-bold">{total === 0 ? 0 : (page - 1) * limit + 1}</span> to <span className="text-slate-900 dark:text-white font-bold">{total === 0 ? 0 : Math.min(page * limit, total)}</span> of <span className="text-slate-900 dark:text-white font-bold">{total}</span> results
                     </p>
@@ -857,7 +857,7 @@ const HODApcList: React.FC = () => {
 
             {showReportModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200 dark:border-gray-800 animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-[#121b25] rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-300 dark:border-gray-800 animate-in zoom-in-95 duration-200">
                         <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Report Configuration</h3>
 
                         <div className="mb-6">
@@ -868,7 +868,7 @@ const HODApcList: React.FC = () => {
                                 type="text"
                                 value={reportTitle}
                                 onChange={(e) => setReportTitle(e.target.value)}
-                                className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                                 placeholder="e.g. 2025 APC FOR HODS"
                             />
                             <p className="text-xs text-slate-400 mt-2">This title will appear at the top of the generated PDF report.</p>
@@ -995,7 +995,7 @@ const FilterInput = ({ icon, placeholder, value, onChange }: any) => (
             <span className="material-symbols-outlined text-slate-400 text-lg">{icon}</span>
         </div>
         <input
-            className="w-full pl-10 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all text-sm text-slate-700 dark:text-slate-200"
+            className="w-full pl-10 h-10 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all text-sm text-slate-700 dark:text-slate-200"
             placeholder={placeholder}
             value={value}
             onChange={(e) => onChange(e.target.value)}

@@ -45,14 +45,14 @@ const FlaggedStaffPage: React.FC = () => {
     };
 
     const handleIgnoreStaff = (staffId: string) => {
-        const newIgnored = new Set(ignoredStaff);
+        const newIgnored = new Set<string>(ignoredStaff);
         newIgnored.add(staffId);
         setIgnoredStaff(newIgnored);
         saveIgnoredStaff(newIgnored);
     };
 
     const handleUnignoreStaff = (staffId: string) => {
-        const newIgnored = new Set(ignoredStaff);
+        const newIgnored = new Set<string>(ignoredStaff);
         newIgnored.delete(staffId);
         setIgnoredStaff(newIgnored);
         saveIgnoredStaff(newIgnored);
@@ -242,8 +242,8 @@ const FlaggedStaffPage: React.FC = () => {
     const totalPages = Math.ceil(filteredData.length / limit);
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-900 via-red-800 to-rose-700 dark:from-rose-400 dark:via-red-300 dark:to-rose-500 tracking-tight">
                         Flagged Staff Records
@@ -255,14 +255,14 @@ const FlaggedStaffPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={handleExportPDF}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                         >
                             <span className="material-symbols-outlined text-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
                             Export PDF
                         </button>
                         <button
                             onClick={handleExportCSV}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                         >
                             <span className="material-symbols-outlined text-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
                             Export CSV
@@ -271,7 +271,7 @@ const FlaggedStaffPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col">
@@ -287,10 +287,10 @@ const FlaggedStaffPage: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={() => {
-                                        setIgnoredStaff(new Set());
-                                        saveIgnoredStaff(new Set());
+                                        setIgnoredStaff(new Set<string>());
+                                        saveIgnoredStaff(new Set<string>());
                                     }}
-                                    className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-colors"
+                                    className="px-2 py-1 rounded-lg bg-background-light hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-colors"
                                     title="Clear all ignored staff"
                                 >
                                     Clear Ignored
@@ -306,7 +306,7 @@ const FlaggedStaffPage: React.FC = () => {
                                     setLimit(Number(e.target.value));
                                     setPage(1);
                                 }}
-                                className="h-9 px-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm font-bold"
+                                className="h-9 px-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm font-bold"
                             >
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
@@ -323,7 +323,7 @@ const FlaggedStaffPage: React.FC = () => {
                             placeholder="Search by File No or Name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                            className="w-full pl-9 pr-4 py-2 bg-background-light dark:bg-slate-800/50 border border-slate-200 dark:border-gray-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                         />
                     </div>
                 </div>
@@ -338,7 +338,7 @@ const FlaggedStaffPage: React.FC = () => {
                 ) : (
                     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-gray-700">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
+                            <thead className="bg-background-light dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                                 <tr>
                                     <th className="px-6 py-4">Staff Details</th>
                                     <th className="px-6 py-4">CONRAISS</th>
@@ -360,7 +360,7 @@ const FlaggedStaffPage: React.FC = () => {
                                     </tr>
                                 ) : (
                                     paginatedData.map((staff) => (
-                                        <tr key={staff.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                                        <tr key={staff.id} className="hover:bg-background-light dark:hover:bg-slate-800/30 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-black text-slate-900 dark:text-white">{staff.name}</span>
@@ -369,7 +369,7 @@ const FlaggedStaffPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 font-bold text-slate-600 dark:text-slate-400">{staff.conraiss}</td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 font-black text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-gray-700">{staff.expectedCount}</span>
+                                                <span className="px-2 py-1 rounded bg-background-light dark:bg-slate-800 font-black text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-gray-700">{staff.expectedCount}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`px-2 py-1 rounded font-black ${staff.apcCount === staff.expectedCount ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20'}`}>
@@ -389,7 +389,7 @@ const FlaggedStaffPage: React.FC = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <button
                                                     onClick={() => handleIgnoreStaff(staff.id)}
-                                                    className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-colors"
+                                                    className="px-3 py-1 rounded-lg bg-background-light hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-colors"
                                                     title="Ignore this flagged staff"
                                                 >
                                                     <span className="material-symbols-outlined text-sm">visibility_off</span>
@@ -413,31 +413,31 @@ const FlaggedStaffPage: React.FC = () => {
                             <button
                                 disabled={page === 1}
                                 onClick={() => setPage(1)}
-                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
+                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-background-light dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
                             >
                                 <span className="material-symbols-outlined">first_page</span>
                             </button>
                             <button
                                 disabled={page === 1}
                                 onClick={() => setPage(p => p - 1)}
-                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
+                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-background-light dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
                             >
                                 <span className="material-symbols-outlined">chevron_left</span>
                             </button>
-                            <div className="px-4 flex items-center font-black text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-gray-700">
+                            <div className="px-4 flex items-center font-black text-sm text-slate-700 dark:text-slate-300 bg-background-light dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-gray-700">
                                 {page}
                             </div>
                             <button
                                 disabled={page >= totalPages}
                                 onClick={() => setPage(p => p + 1)}
-                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
+                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-background-light dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
                             >
                                 <span className="material-symbols-outlined">chevron_right</span>
                             </button>
                             <button
                                 disabled={page >= totalPages}
                                 onClick={() => setPage(totalPages)}
-                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
+                                className="size-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-background-light dark:hover:bg-slate-800 disabled:opacity-30 transition-all font-black text-rose-500"
                             >
                                 <span className="material-symbols-outlined">last_page</span>
                             </button>

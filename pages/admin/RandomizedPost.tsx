@@ -1575,7 +1575,7 @@ const RandomizedPost: React.FC = () => {
                                                                         <div key={state}>
                                                                             {/* State Header with Select All for State */}
                                                                             <div
-                                                                                className="sticky top-[45px] px-3 py-2 bg-slate-100 dark:bg-[#0f161d] border-b border-slate-200 dark:border-gray-700 flex items-center gap-2 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800"
+                                                                                className="sticky top-[45px] px-3 py-2 bg-slate-100 dark:bg-[#0f161d] border-b border-slate-300 dark:border-gray-700 flex items-center gap-2 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800"
                                                                                 onClick={() => {
                                                                                     if (allStateSelected) {
                                                                                         setSelectedVenues(prev => prev.filter(id => !stateVenues.some(v => v.id === id)));

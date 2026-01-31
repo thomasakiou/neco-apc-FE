@@ -1134,7 +1134,7 @@ const AnnualPostings: React.FC = () => {
             )}
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-300 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
             >
               <span className="material-symbols-outlined text-lg">download</span>
               Export List
@@ -1142,7 +1142,7 @@ const AnnualPostings: React.FC = () => {
             <button
               onClick={handleArchive}
               disabled={isArchiving || loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-300 dark:border-gray-700 text-rose-600 dark:text-rose-400 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50"
               title="Archive to Final Posting"
             >
               <span className={`material-symbols-outlined text-lg ${isArchiving ? 'animate-spin' : ''}`}>archive</span>
@@ -1150,7 +1150,7 @@ const AnnualPostings: React.FC = () => {
             </button>
             <button
               onClick={downloadCsvTemplate}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#121b25] border border-slate-300 dark:border-gray-700 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
             >
               <span className="material-symbols-outlined text-lg">download</span>
               Template
@@ -1337,11 +1337,11 @@ const AnnualPostings: React.FC = () => {
           </div>
 
           {/* Table Container */}
-          <div className="overflow-hidden rounded-xl border border-slate-200/60 dark:border-gray-800 bg-white dark:bg-[#121b25] mt-4 shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-300 dark:border-gray-800 bg-white dark:bg-[#121b25] mt-4 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gradient-to-r from-slate-50 to-white dark:from-[#0f161d] dark:to-[#121b25] border-b border-slate-200 dark:border-gray-800">
+                  <tr className="bg-gradient-to-r from-slate-50 to-white dark:from-[#0f161d] dark:to-[#121b25] border-b border-slate-300 dark:border-gray-800">
                     <th className="p-4 w-10"><input type="checkbox" className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer w-4 h-4" checked={filteredPostings.length > 0 && filteredPostings.every(p => selectedIds.has(p.id))} onChange={(e) => handleSelectAll(e.target.checked)} /></th>
                     <th className="p-4 w-10 text-center">
                       <span className="material-symbols-outlined text-slate-400 text-sm">unfold_more</span>
@@ -1418,7 +1418,7 @@ const AnnualPostings: React.FC = () => {
             </div>
 
             {/* Pagination Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-[#0f161d] flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="p-4 border-t border-slate-300 dark:border-gray-800 bg-background-light dark:bg-[#0f161d] flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 Showing <span className="font-bold text-slate-700 dark:text-slate-200">{(page - 1) * limit + 1}</span> to <span className="font-bold text-slate-700 dark:text-slate-200">{Math.min(page * limit, total)}</span> of <span className="font-bold text-slate-700 dark:text-slate-200">{total}</span> results
               </div>
@@ -1488,7 +1488,7 @@ const AnnualPostings: React.FC = () => {
                 </button>
               </div>
 
-              <div className="px-6 py-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/50 dark:bg-slate-900/10 flex flex-col gap-4">
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-gray-800 bg-background-light/50 dark:bg-slate-900/10 flex flex-col gap-4">
                 {/* Filter Toggle */}
                 <div className="flex bg-slate-200 dark:bg-slate-800/50 p-1 rounded-xl w-fit">
                   <button

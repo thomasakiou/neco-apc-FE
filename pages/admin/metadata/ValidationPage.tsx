@@ -299,9 +299,9 @@ const AssignmentValidationPage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
             {/* Header */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-200">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400 tracking-tight">
                         Assignment Validation
@@ -315,7 +315,7 @@ const AssignmentValidationPage: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
                         <button
                             onClick={() => handleRunCheck(true)}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                             title="Rerun validation check with fresh data from server"
                         >
                             <span className="material-symbols-outlined text-emerald-500 group-hover:rotate-180 transition-transform duration-500 text-lg">refresh</span>
@@ -325,14 +325,14 @@ const AssignmentValidationPage: React.FC = () => {
                             <>
                                 <button
                                     onClick={handleExportPDF}
-                                    className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                                    className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                                 >
                                     <span className="material-symbols-outlined text-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
                                     Export PDF
                                 </button>
                                 <button
                                     onClick={handleExportCSV}
-                                    className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200"
+                                    className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
                                 >
                                     <span className="material-symbols-outlined text-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
                                     Export CSV
@@ -343,16 +343,16 @@ const AssignmentValidationPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="bg-white dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
 
                 {/* Controls */}
-                <div className="flex flex-wrap items-end gap-4 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-800/50">
+                <div className="flex flex-wrap items-end gap-4 p-4 bg-background-light dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-800/50">
                     <div className="flex flex-col gap-2 w-full md:w-80">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Select Assignment</label>
                         <select
                             value={selectedAssignment}
                             onChange={(e) => setSelectedAssignment(e.target.value)}
-                            className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-bold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-bold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                         >
                             <option value="">-- Choose Assignment to Validate --</option>
                             {assignmentOptions.map(opt => (
@@ -384,7 +384,7 @@ const AssignmentValidationPage: React.FC = () => {
                                     placeholder="Filter by File No..."
                                     value={searchFileNo}
                                     onChange={(e) => setSearchFileNo(e.target.value)}
-                                    className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                    className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none"
                                 />
                             </div>
                             <div className="flex-1 relative">
@@ -394,7 +394,7 @@ const AssignmentValidationPage: React.FC = () => {
                                     placeholder="Filter by Name..."
                                     value={searchName}
                                     onChange={(e) => setSearchName(e.target.value)}
-                                    className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                    className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none"
                                 />
                             </div>
                             <div className="flex-1 relative">
@@ -404,7 +404,7 @@ const AssignmentValidationPage: React.FC = () => {
                                     placeholder="Filter by Station..."
                                     value={searchStation}
                                     onChange={(e) => setSearchStation(e.target.value)}
-                                    className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                    className="w-full pl-9 h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none"
                                 />
                             </div>
                             <div className="flex items-center gap-2">
@@ -412,7 +412,7 @@ const AssignmentValidationPage: React.FC = () => {
                                 <select
                                     value={rowsPerPage}
                                     onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                                    className="h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-bold px-2 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    className="h-10 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 text-sm font-bold px-2 outline-none focus:ring-2 focus:ring-indigo-500/20"
                                 >
                                     <option value={10}>10</option>
                                     <option value={25}>25</option>
@@ -459,7 +459,7 @@ const AssignmentValidationPage: React.FC = () => {
                             </div>
 
                             {filteredResults.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-20 bg-emerald-50/50 dark:bg-emerald-900/5 rounded-xl border border-emerald-100 dark:border-emerald-900/20 gap-4">
+                                <div className="flex flex-col items-center justify-center py-20 bg-background-light dark:bg-emerald-900/5 rounded-xl border border-emerald-100 dark:border-emerald-900/20 gap-4">
                                     <span className="material-symbols-outlined text-6xl text-emerald-500/50">verified</span>
                                     <div className="text-center">
                                         <h3 className="text-lg font-black text-emerald-700 dark:text-emerald-400">All Clear!</h3>
@@ -475,7 +475,7 @@ const AssignmentValidationPage: React.FC = () => {
                                 <>
                                     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-gray-700">
                                         <table className="w-full text-left text-sm">
-                                            <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
+                                            <thead className="bg-background-light dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider">
                                                 <tr>
                                                     <th className="px-6 py-4">Staff Details</th>
                                                     <th className="px-6 py-4">Station</th>
@@ -484,7 +484,7 @@ const AssignmentValidationPage: React.FC = () => {
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                                                 {paginatedResults.map((result, idx) => (
-                                                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    <tr key={idx} className="hover:bg-background-light dark:hover:bg-slate-800/30 transition-colors">
                                                         <td className="px-6 py-4">
                                                             <div className="flex flex-col">
                                                                 <span className="font-bold text-slate-900 dark:text-white">{result.name}</span>
@@ -507,7 +507,7 @@ const AssignmentValidationPage: React.FC = () => {
                                     </div>
                                     {/* Pagination Controls */}
                                     {totalPages > 1 && (
-                                        <div className="flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-gray-700 rounded-xl">
+                                        <div className="flex justify-between items-center px-4 py-3 bg-background-light dark:bg-slate-800/30 border border-slate-200 dark:border-gray-700 rounded-xl">
                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-2">
                                                 Page {currentPage} of {totalPages}
                                             </span>
@@ -515,7 +515,7 @@ const AssignmentValidationPage: React.FC = () => {
                                                 <button
                                                     disabled={currentPage === 1}
                                                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                                                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-background-light dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
                                                 >
                                                     <span className="material-symbols-outlined text-sm">chevron_left</span>
                                                     Previous
@@ -523,7 +523,7 @@ const AssignmentValidationPage: React.FC = () => {
                                                 <button
                                                     disabled={currentPage === totalPages}
                                                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                                                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-background-light dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
                                                 >
                                                     Next
                                                     <span className="material-symbols-outlined text-sm">chevron_right</span>

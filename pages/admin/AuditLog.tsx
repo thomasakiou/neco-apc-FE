@@ -89,9 +89,9 @@ const AuditLog: React.FC = () => {
    };
 
    return (
-      <div className="flex flex-col h-full w-full bg-[#f8fafc] dark:bg-[#0b1015] transition-colors duration-300 overflow-hidden">
+      <div className="flex flex-col h-full w-full bg-background-light dark:bg-[#0b1015] transition-colors duration-200 overflow-hidden">
          {/* Premium Header */}
-         <header className="flex-none flex items-center justify-between px-4 md:px-10 py-4 md:py-6 bg-white/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 z-20">
+         <header className="flex-none flex items-center justify-between px-4 md:px-10 py-4 md:py-6 bg-surface-light/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-300 dark:border-white/5 z-20">
             <div>
                <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
                   Audit <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Intelligence</span>
@@ -139,14 +139,14 @@ const AuditLog: React.FC = () => {
                </div>
 
                {/* Table Container */}
-               <div className="bg-white/70 dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-8 shadow-xl shadow-slate-200/20 dark:shadow-none min-h-[500px] relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <div className="bg-surface-light/70 dark:bg-[#121b25]/60 dark:backdrop-blur-md rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 p-8 shadow-xl shadow-slate-200/20 dark:shadow-none min-h-[500px] relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
                   <div className="absolute top-0 right-0 size-96 bg-indigo-500/5 blur-[100px] rounded-full -mr-48 -mt-48 pointer-events-none"></div>
 
                   <div className="relative z-10 flex flex-col h-full">
-                     <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur-sm shadow-inner flex-1">
+                     <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-surface-light/30 dark:bg-white/5 backdrop-blur-sm shadow-inner flex-1">
                         <table className="w-full text-left border-collapse">
                            <thead>
-                              <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200/60 dark:border-white/10">
+                              <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-300 dark:border-white/10">
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Temporal / identity</th>
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Transaction Type</th>
                                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Operational Details</th>
@@ -310,7 +310,7 @@ const MetricCard = ({ label, value, icon, color }: { label: string, value: strin
    };
 
    return (
-      <div className="bg-white dark:bg-[#121b25] p-6 rounded-[2rem] border border-slate-200/50 dark:border-white/5 flex items-center gap-6 shadow-sm">
+      <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-[2rem] border border-slate-200/50 dark:border-white/5 flex items-center gap-6 shadow-sm">
          <div className={`size-14 rounded-2xl bg-${color}-500/10 flex items-center justify-center ${colors[color].split(' ').pop()}`}>
             <span className="material-symbols-outlined text-3xl font-bold">{icon}</span>
          </div>
@@ -353,7 +353,7 @@ const ConfirmationModal = ({
 
    return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-         <div className="bg-white dark:bg-[#1e293b] rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/10">
+         <div className="bg-surface-light dark:bg-[#1e293b] rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/10">
             <div className="p-8 flex flex-col items-center text-center">
                <div className={`size-16 rounded-2xl flex items-center justify-center mb-6 ${isDanger ? 'bg-rose-500/10 text-rose-500' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
                   <span className="material-symbols-outlined text-3xl">
