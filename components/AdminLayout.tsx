@@ -160,17 +160,29 @@ const AdminLayout: React.FC = () => {
 
 
             <CollapsibleNavSection title="DRIVERS MANAGEMENT" icon="directions_car" iconColor="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400" isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
-              isActive('/admin/drivers/apc') || isActive('/admin/drivers/compare')
+              isActive('/admin/drivers/apc') || isActive('/admin/drivers/compare') || isActive('/admin/assignments/drivers')
             }>
               <NavItem to="/admin/drivers/apc" icon="table_view" label="Driver's APC" active={isActive('/admin/drivers/apc')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/drivers/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/drivers/compare')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
+              <NavItem to="/admin/assignments/drivers" icon="shuffle" label="Driver Posting" active={location.pathname === '/admin/assignments/drivers'} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/assignments/drivers/reports" icon="table_view" label="Posting Reports" active={isActive('/admin/assignments/drivers/reports')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/assignments/drivers/final" icon="verified" label="Final Driver Post Table" active={isActive('/admin/assignments/drivers/final')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
             <CollapsibleNavSection title="TYPESETTINGS MANAGEMENT" icon="keyboard" iconColor="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400" isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
-              isActive('/admin/typesetting/apc') || isActive('/admin/typesetting/compare')
+              isActive('/admin/typesetting/apc') || isActive('/admin/typesetting/compare') || isActive('/admin/assignments/typesetting')
             }>
               <NavItem to="/admin/typesetting/apc" icon="table_view" label="Typesetting's APC" active={isActive('/admin/typesetting/apc')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/typesetting/compare" icon="compare_arrows" label="Juxtapose" active={isActive('/admin/typesetting/compare')} isLocked={isModuleLocked('apc') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+
+              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
+
+              <NavItem to="/admin/assignments/typesetting" icon="shuffle" label="Typesetting Posting" active={location.pathname === '/admin/assignments/typesetting'} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/assignments/typesetting/reports" icon="table_view" label="Posting Reports" active={isActive('/admin/assignments/typesetting/reports')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/assignments/typesetting/final" icon="verified" label="Final Typesetting Post" active={isActive('/admin/assignments/typesetting/final')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
 

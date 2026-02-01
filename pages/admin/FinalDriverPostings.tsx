@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { getAllHODFinalPostings, deleteAllHODFinalPostings, bulkDeleteHODFinalPostings } from '../../services/hodFinalPosting';
-import { bulkCreateHODPostings } from '../../services/hodPosting';
+import { getAllDriverFinalPostings, deleteAllDriverFinalPostings, bulkDeleteDriverFinalPostings } from '../../services/driverFinalPosting';
+import { bulkCreateDriverPostings } from '../../services/driverPosting';
 import { getAllAssignments } from '../../services/assignment';
-import { HODFinalPostingResponse as FinalPostingResponse } from '../../types/hodFinalPosting';
+import { getAllMarkingVenues } from '../../services/markingVenue';
+import { DriverFinalPostingResponse as FinalPostingResponse } from '../../types/driverFinalPosting';
 import { Assignment } from '../../types/assignment';
+import { MarkingVenue } from '../../types/markingVenue';
 import { useNotification } from '../../context/NotificationContext';
 import { useDebounce } from '../../hooks/useDebounce';
 
@@ -166,7 +168,6 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                     <td colSpan={10} className="p-0">
                         <div className="px-16 py-8 animate-in slide-in-from-top-2 duration-200">
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-sm">
-                                {/* Statistics */}
                                 <div>
                                     <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2.5">Record Stats</span>
                                     <div className="flex flex-col gap-2">
@@ -180,7 +181,6 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                                         </div>
                                     </div>
                                 </div>
-                                {/* Description */}
                                 <div className="col-span-2">
                                     <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2.5">Description</span>
                                     <p className="text-sm font-bold text-slate-600 dark:text-slate-300 italic p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 min-h-[40px] shadow-sm">
@@ -196,7 +196,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
     );
 });
 
-const FinalHodPostings: React.FC = () => {
+const FinalDriverPostings: React.FC = () => {
     const [postings, setPostings] = useState<FinalPostingResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [restoring, setRestoring] = useState(false);
@@ -289,7 +289,7 @@ const FinalHodPostings: React.FC = () => {
         try {
             setLoading(true);
             const [finalPostingsData, assignmentsData] = await Promise.all([
-                getAllHODFinalPostings(),
+                getAllDriverFinalPostings(),
                 getAllAssignments()
             ]);
             const rawItems = finalPostingsData.items || [];
@@ -389,8 +389,9 @@ const FinalHodPostings: React.FC = () => {
         try {
             setDeleting(true);
             setDeletionProgress({ current: 0, total: recordsToProcess.length });
+            // Processing chunks...
             const idsToDelete = recordsToProcess.map(r => r.id);
-            await bulkDeleteHODFinalPostings(idsToDelete);
+            await bulkDeleteDriverFinalPostings(idsToDelete);
             success("Deleted successfully.");
             setSelectedIds(new Set());
             fetchInitialData();
@@ -406,7 +407,7 @@ const FinalHodPostings: React.FC = () => {
         if (!window.confirm("CRITICAL: Delete ALL records?")) return;
         try {
             setDeleting(true);
-            await deleteAllHODFinalPostings();
+            await deleteAllDriverFinalPostings();
             success("All records deleted.");
             fetchInitialData();
         } catch (err: any) {
@@ -425,9 +426,9 @@ const FinalHodPostings: React.FC = () => {
         if (!window.confirm(`Restore ${recordsToProcess.length} records to staging?`)) return;
         try {
             setRestoring(true);
-            const items = recordsToProcess.map(({ id, created_at, updated_at, created_by, updated_by, ...rest }: any) => rest);
-            await bulkCreateHODPostings({ items });
-            await bulkDeleteHODFinalPostings(recordsToProcess.map(r => r.id));
+            const items = recordsToProcess.map(({ id, created_at, updated_at, created_by, updated_by, ...rest }) => rest);
+            await bulkCreateDriverPostings({ items });
+            await bulkDeleteDriverFinalPostings(recordsToProcess.map(r => r.id));
             success("Restored to staging.");
             setSelectedIds(new Set());
             fetchInitialData();
@@ -444,7 +445,7 @@ const FinalHodPostings: React.FC = () => {
             'Name': p.name,
             'Station': p.station,
             'CONRAISS': p.conraiss,
-            'Assignments': p.assignments?.map(val => assignmentMap.get(val as string) || val).join(', '),
+            'Assignments': p.assignments?.map(val => assignmentMap.get(val) || val).join(', '),
             'Mandates': p.mandates?.join(', '),
             'Venues': p.assignment_venue?.join(', '),
             'Year': p.year
@@ -452,7 +453,7 @@ const FinalHodPostings: React.FC = () => {
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Final Postings");
-        XLSX.writeFile(wb, "Final_HOD_Postings.xlsx");
+        XLSX.writeFile(wb, "Final_Driver_Postings.xlsx");
     };
 
     return (
@@ -461,8 +462,8 @@ const FinalHodPostings: React.FC = () => {
             <div className="flex flex-col gap-8">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight mb-2">Final HOD Posting</h1>
-                        <p className="text-slate-500 dark:text-slate-400 font-medium">Archived view of consolidated HOD postings.</p>
+                        <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight mb-2">Final Driver Posting</h1>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium">Archived view of consolidated driver postings.</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <button onClick={handleRestore} disabled={restoring || selectedIds.size === 0} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl shadow-lg font-bold text-sm hover:bg-indigo-700 disabled:opacity-50">
@@ -471,10 +472,10 @@ const FinalHodPostings: React.FC = () => {
                         <button onClick={handleExportExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg font-bold text-sm hover:bg-emerald-700">
                             <span className="material-symbols-outlined text-[20px]">download</span> Export Excel
                         </button>
-                        <button onClick={handleDeleteSelected} disabled={deleting || selectedIds.size === 0} className={`flex items-center gap-2 px-4 py-2 text-white rounded-xl shadow-lg transition-all font-bold text-sm ${selectedIds.size > 0 ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'}`}>
+                        <button onClick={handleDeleteSelected} disabled={deleting || selectedIds.size === 0} className={`flex items-center gap-2 px-4 py-2 text-white rounded-xl shadow-lg transition-all font-bold text-sm ${selectedIds.size > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'}`}>
                             <span className="material-symbols-outlined text-[20px]">delete</span> Delete
                         </button>
-                        <button onClick={handleDeleteAll} disabled={deleting || postings.length === 0} className="flex items-center gap-2 px-4 py-2 text-white bg-rose-700 hover:bg-rose-800 rounded-xl shadow-lg font-bold text-sm shadow-rose-500/20">
+                        <button onClick={handleDeleteAll} disabled={deleting || postings.length === 0} className="flex items-center gap-2 px-4 py-2 text-white bg-rose-700 hover:bg-rose-800 rounded-xl shadow-lg font-bold text-sm">
                             <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
                         </button>
                     </div>
@@ -482,14 +483,14 @@ const FinalHodPostings: React.FC = () => {
 
                 <div className="bg-white dark:bg-[#121b25] p-5 rounded-2xl border border-slate-200 dark:border-gray-800 shadow-xl flex flex-col gap-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="relative"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span><input placeholder="File No..." value={searchFileNo} onChange={e => setSearchFileNo(e.target.value)} className="w-full pl-10 h-10 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" /></div>
-                        <div className="relative"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">person_search</span><input placeholder="Name..." value={searchName} onChange={e => setSearchName(e.target.value)} className="w-full pl-10 h-10 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" /></div>
-                        <div className="relative"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">location_on</span><input placeholder="Station..." value={searchStation} onChange={e => setSearchStation(e.target.value)} className="w-full pl-10 h-10 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" /></div>
+                        <div className="relative"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span><input placeholder="File No..." value={searchFileNo} onChange={e => setSearchFileNo(e.target.value)} className="w-full pl-10 h-10 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-sm" /></div>
+                        <div className="relative"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">person_search</span><input placeholder="Name..." value={searchName} onChange={e => setSearchName(e.target.value)} className="w-full pl-10 h-10 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-sm" /></div>
+                        <div className="relative"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">location_on</span><input placeholder="Station..." value={searchStation} onChange={e => setSearchStation(e.target.value)} className="w-full pl-10 h-10 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-sm" /></div>
                     </div>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <select value={filterAssignment} onChange={e => setFilterAssignment(e.target.value)} className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"><option value="">All Assignments</option>{uniqueAssignments.map(a => <option key={a} value={a}>{a}</option>)}</select>
-                        <select value={filterMandate} onChange={e => setFilterMandate(e.target.value)} className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"><option value="">All Mandates</option>{uniqueMandates.map(m => <option key={m} value={m}>{m}</option>)}</select>
-                        <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"><option value="">All Years</option>{uniqueYears.map(y => <option key={y} value={y}>{y}</option>)}</select>
+                        <select value={filterAssignment} onChange={e => setFilterAssignment(e.target.value)} className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300"><option value="">All Assignments</option>{uniqueAssignments.map(a => <option key={a} value={a}>{a}</option>)}</select>
+                        <select value={filterMandate} onChange={e => setFilterMandate(e.target.value)} className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300"><option value="">All Mandates</option>{uniqueMandates.map(m => <option key={m} value={m}>{m}</option>)}</select>
+                        <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-600 dark:text-slate-300"><option value="">All Years</option>{uniqueYears.map(y => <option key={y} value={y}>{y}</option>)}</select>
                     </div>
                 </div>
 
@@ -538,4 +539,4 @@ const FinalHodPostings: React.FC = () => {
     );
 };
 
-export default FinalHodPostings;
+export default FinalDriverPostings;

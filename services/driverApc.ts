@@ -4,6 +4,19 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const REQUEST_URL = `${API_BASE_URL}/drivers-apc`;
 
+export const assignmentFieldMap: { [key: string]: string } = {
+    'TT': 'tt',
+    'SSCE-INT': 'ssce_int',
+    'SSCE-EXT': 'ssce_ext',
+    'SSCE-INT-MRK': 'ssce_int_mrk',
+    'SSCE-EXT-MRK': 'ssce_ext_mrk',
+    'NCEE': 'ncee',
+    'BECEP': 'becep',
+    'BECE-MRKP': 'bece_mrkp',
+    'GIFTED': 'gifted',
+    'SWAPPING': 'swapping'
+};
+
 export const getAllDriverAPC = async (
     skip: number = 0,
     limit: number = 100,

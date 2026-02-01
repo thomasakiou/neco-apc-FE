@@ -39,6 +39,14 @@ import HODPostingsTable from './pages/admin/HODPostingsTable';
 import TTCenters from './pages/admin/TTCenters';
 import PrintingPoints from './pages/admin/PrintingPoints';
 import FinalHodPostings from './pages/admin/FinalHodPostings';
+import DriverPostings from './pages/admin/DriverPostings';
+import FinalDriverPostings from './pages/admin/FinalDriverPostings';
+import TypesettingPostings from './pages/admin/TypesettingPostings';
+import FinalTypesettingPostings from './pages/admin/FinalTypesettingPostings';
+import DriverPostingReports from './pages/admin/DriverPostingReports';
+import DriverPostingsTable from './pages/admin/DriverPostingsTable';
+import TypesettingPostingReports from './pages/admin/TypesettingPostingReports';
+import TypesettingPostingsTable from './pages/admin/TypesettingPostingsTable';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import MyPostingDetails from './pages/staff/MyPostingDetails';
 import Statistics from './pages/admin/Statistics';
@@ -119,6 +127,14 @@ const App: React.FC = () => {
               <Route path="assignments/hod/table" element={<ProtectedRoute moduleName="posting"><HODPostingsTable /></ProtectedRoute>} />
               <Route path="assignments/hod/final" element={<ProtectedRoute moduleName="posting"><FinalHodPostings /></ProtectedRoute>} />
               <Route path="assignments/hod/compare" element={<ProtectedRoute moduleName="hod"><HODJuxtapose /></ProtectedRoute>} />
+              <Route path="assignments/drivers" element={<ProtectedRoute moduleName="posting"><DriverPostings /></ProtectedRoute>} />
+              <Route path="assignments/drivers/final" element={<ProtectedRoute moduleName="posting"><FinalDriverPostings /></ProtectedRoute>} />
+              <Route path="assignments/drivers/table" element={<ProtectedRoute moduleName="posting"><DriverPostingsTable /></ProtectedRoute>} />
+              <Route path="assignments/typesetting" element={<ProtectedRoute moduleName="posting"><TypesettingPostings /></ProtectedRoute>} />
+              <Route path="assignments/typesetting/final" element={<ProtectedRoute moduleName="posting"><FinalTypesettingPostings /></ProtectedRoute>} />
+              <Route path="assignments/typesetting/table" element={<ProtectedRoute moduleName="posting"><TypesettingPostingsTable /></ProtectedRoute>} />
+              <Route path="assignments/drivers/reports" element={<ProtectedRoute moduleName="reports"><DriverPostingReports /></ProtectedRoute>} />
+              <Route path="assignments/typesetting/reports" element={<ProtectedRoute moduleName="reports"><TypesettingPostingReports /></ProtectedRoute>} />
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
               <Route path="statistics" element={<ProtectedRoute moduleName="reports"><Statistics /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />

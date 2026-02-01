@@ -4,6 +4,24 @@ import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const REQUEST_URL = `${API_BASE_URL}/typsetting-apc`;
 
+export const assignmentFieldMap: { [key: string]: string } = {
+    'TT': 'tt',
+    'SSCE-INT': 'ssce_int',
+    'SSCE-EXT': 'ssce_ext',
+    'SSCE-INT-MRK': 'ssce_int_mrk',
+    'SSCE-EXT-MRK': 'ssce_ext_mrk',
+    'NCEE': 'ncee',
+    'BECEP': 'becep',
+    'BECE-MRKP': 'bece_mrkp',
+    'GIFTED': 'gifted',
+    'SWAPPING': 'swapping',
+    'MAR-ACCR': 'mar_accr',
+    'OCT-ACCR': 'oct_accr',
+    'PUR-SAMP': 'pur_samp',
+    'INT-AUDIT': 'int_audit',
+    'STOCK-TK': 'stock_tk'
+};
+
 export const getAllTypesettingAPC = async (
     skip: number = 0,
     limit: number = 100,

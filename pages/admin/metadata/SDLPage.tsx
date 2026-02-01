@@ -34,6 +34,8 @@ const SDLPage: React.FC = () => {
     const [selectedEducation, setSelectedEducation] = useState(cachedData?.filters?.selectedEducation || 'All');
     const [selectedSecretary, setSelectedSecretary] = useState(cachedData?.filters?.selectedSecretary || 'All');
     const [selectedOthers, setSelectedOthers] = useState(cachedData?.filters?.selectedOthers || 'All');
+    const [selectedDriver, setSelectedDriver] = useState(cachedData?.filters?.selectedDriver || 'All');
+    const [selectedTypesetting, setSelectedTypesetting] = useState(cachedData?.filters?.selectedTypesetting || 'All');
     const [selectedPromotionDate, setSelectedPromotionDate] = useState(cachedData?.filters?.selectedPromotionDate || 'All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -71,7 +73,7 @@ const SDLPage: React.FC = () => {
 
     const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
         selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' ||
-        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedPromotionDate !== 'All';
+        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedDriver !== 'All' || selectedTypesetting !== 'All' || selectedPromotionDate !== 'All';
 
     const filteredStaff = staffList.filter(staff => {
         const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
@@ -89,9 +91,11 @@ const SDLPage: React.FC = () => {
         const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
         const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
         const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
+        const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
+        const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
         const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesPromotionDate;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate;
     });
 
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -128,9 +132,11 @@ const SDLPage: React.FC = () => {
         const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
         const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
         const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
+        const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
+        const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
         const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesPromotionDate;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate;
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -285,7 +291,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
+    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate]);
 
     // Update Cache whenever relevant state changes
     useEffect(() => {
@@ -309,10 +315,12 @@ const SDLPage: React.FC = () => {
                 selectedEducation,
                 selectedSecretary,
                 selectedOthers,
+                selectedDriver,
+                selectedTypesetting,
                 selectedPromotionDate,
             }
         });
-    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate]);
+    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate]);
 
     const fetchData = useCallback(async (force: boolean = false) => {
         // Skip fetch if we have cached data and it's the initial mount
@@ -343,9 +351,11 @@ const SDLPage: React.FC = () => {
                     const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
                     const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
                     const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
+                    const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
+                    const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
                     const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesPromotionDate;
+                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate;
                 });
 
                 const startIndex = (page - 1) * limit;
@@ -362,7 +372,7 @@ const SDLPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedPromotionDate, hasActiveFilters]);
+    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, hasActiveFilters]);
 
     const fetchAllStaffData = useCallback(async (force: boolean = false) => {
         try {
@@ -590,8 +600,10 @@ const SDLPage: React.FC = () => {
                 const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
                 const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
                 const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
+                const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
+                const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
 
-                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers;
+                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting;
             });
 
             doc.text(`Total Records: ${exportStaff.length}`, 14, 33);
@@ -699,7 +711,7 @@ const SDLPage: React.FC = () => {
         const headers = [
             'fileno', 'full_name', 'station', 'qualification', 'sex',
             'dob', 'dofa', 'doan', 'dopa', 'rank', 'conr', 'state', 'lga', 'email', 'phone', 'remark',
-            'is_hod', 'is_state_coordinator', 'is_director', 'is_education', 'is_secretary', 'others'
+            'is_hod', 'is_state_coordinator', 'is_director', 'is_education', 'is_secretary', 'is_driver', 'is_typesetting', 'others'
         ];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
@@ -738,6 +750,8 @@ const SDLPage: React.FC = () => {
                 'Director': staff.is_director ? 'Yes' : 'No',
                 'Education': staff.is_education ? 'Yes' : 'No',
                 'Secretary': staff.is_secretary ? 'Yes' : 'No',
+                'Driver': staff.is_driver ? 'Yes' : 'No',
+                'Typesetting': staff.is_typesetting ? 'Yes' : 'No',
                 'Others': staff.others ? 'Yes' : 'No',
                 'Remark': staff.remark
             }));
@@ -769,6 +783,8 @@ const SDLPage: React.FC = () => {
                 { wch: 8 },  // Director
                 { wch: 8 },  // Education
                 { wch: 8 },  // Secretary
+                { wch: 8 },  // Driver
+                { wch: 8 },  // Typesetting
                 { wch: 8 },  // Others
                 { wch: 30 }  // Remark
             ];
@@ -1266,6 +1282,18 @@ const SDLPage: React.FC = () => {
                             options={['Yes', 'No']}
                             onChange={setSelectedOthers}
                         />
+                        <FilterSelect
+                            label="Driver"
+                            value={selectedDriver}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedDriver}
+                        />
+                        <FilterSelect
+                            label="Typesetting"
+                            value={selectedTypesetting}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedTypesetting}
+                        />
                         {/* Searchable DOPA Dropdown */}
                         <div ref={dopaDropdownRef} className="relative min-w-[200px]">
                             <button
@@ -1565,6 +1593,8 @@ const StaffRow: React.FC<{
                             {!!staff.is_education && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase" title="Education">EDU</span>}
                             {!!staff.is_secretary && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 uppercase" title="Secretary">SEC</span>}
                             {!!staff.others && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300 border border-slate-200 dark:border-slate-800 uppercase" title="Others">OTH</span>}
+                            {!!staff.is_driver && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800 uppercase" title="Driver">DRV</span>}
+                            {!!staff.is_typesetting && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300 border border-pink-200 dark:border-pink-800 uppercase" title="Typesetting">TYP</span>}
                         </div>
                     </div>
                 </td>
@@ -1639,6 +1669,8 @@ const StaffRow: React.FC<{
                                     <RoleIndicator label="Director" active={staff.is_director} icon="grade" color="blue" />
                                     <RoleIndicator label="Education" active={staff.is_education} icon="school" color="indigo" />
                                     <RoleIndicator label="Secretary" active={staff.is_secretary} icon="person_apron" color="cyan" />
+                                    <RoleIndicator label="Driver" active={staff.is_driver} icon="directions_car" color="orange" />
+                                    <RoleIndicator label="Typesetting" active={staff.is_typesetting} icon="keyboard" color="pink" />
                                     <RoleIndicator label="Others" active={staff.others} icon="more_horiz" color="slate" />
                                 </div>
                             </div>

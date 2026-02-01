@@ -31,6 +31,8 @@ const initialFormState: StaffCreate = {
     others: false,
     is_director: false,
     is_education: false,
+    is_driver: false,
+    is_typesetting: false,
     active: true,
 };
 
@@ -63,6 +65,8 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                 others: initialData.others ?? false,
                 is_director: initialData.is_director ?? false,
                 is_education: initialData.is_education ?? false,
+                is_driver: initialData.is_driver ?? false,
+                is_typesetting: initialData.is_typesetting ?? false,
                 active: initialData.active ?? true,
             });
         } else {
@@ -152,7 +156,7 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                             {/* Additional */}
                             <div className="md:col-span-2 pb-2 border-b border-slate-100 dark:border-gray-700 mb-2 mt-4 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400">note_alt</span>
-                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Remarks & Status</span>
+                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Remarks</span>
                             </div>
 
                             <div className="md:col-span-2">
@@ -163,6 +167,11 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                                     className="w-full min-h-[80px] p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-emerald-500 focus:ring-[3px] focus:ring-emerald-500/10 transition-all font-medium text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm resize-none"
                                     placeholder="Add any additional remarks or notes here..."
                                 />
+                            </div>
+
+                            <div className="md:col-span-2 pb-2 border-b border-slate-100 dark:border-gray-700 mb-2 mt-4 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">verified</span>
+                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Quick Roles & Designation</span>
                             </div>
 
                             <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-1">
@@ -229,6 +238,28 @@ const StaffModal: React.FC<StaffModalProps> = ({ isOpen, onClose, onSubmit, init
                                     className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                 />
                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Education?</span>
+                            </label>
+
+                            <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-1">
+                                <input
+                                    type="checkbox"
+                                    name="is_driver"
+                                    checked={!!formData.is_driver}
+                                    onChange={handleCheckboxChange}
+                                    className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Is Driver?</span>
+                            </label>
+
+                            <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-1">
+                                <input
+                                    type="checkbox"
+                                    name="is_typesetting"
+                                    checked={!!formData.is_typesetting}
+                                    onChange={handleCheckboxChange}
+                                    className="w-5 h-5 rounded border-slate-300 dark:border-gray-600 dark:bg-gray-700 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Is Typesetting?</span>
                             </label>
 
                             <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0b1015] cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-gray-600 transition-all md:col-span-2">

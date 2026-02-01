@@ -22,6 +22,8 @@ export interface Staff {
     others: boolean;
     is_director: boolean;
     is_education: boolean;
+    is_driver?: boolean;
+    is_typesetting?: boolean;
     active: boolean;
     id: string;
     created_at?: string | null;
@@ -61,6 +63,8 @@ export interface StaffCreate {
     others?: boolean;
     is_director?: boolean;
     is_education?: boolean;
+    is_driver?: boolean;
+    is_typesetting?: boolean;
     active?: boolean;
 }
 
