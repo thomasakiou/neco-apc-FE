@@ -13,7 +13,21 @@ export const getHODAssignmentBoardData = async (assignment: Assignment): Promise
         getAllHODPostings(true)
     ]);
 
-    const fieldName = assignmentFieldMap[assignment.code];
+    const getField = (code?: string, name?: string) => {
+        const keys = [code, name].filter(Boolean) as string[];
+        for (const k of keys) {
+            const upper = k.toUpperCase().trim();
+            const withHyphen = upper.replace(/\s+/g, '-');
+            const withoutHyphen = upper.replace(/-/g, ' ');
+
+            if (assignmentFieldMap[upper]) return assignmentFieldMap[upper];
+            if (assignmentFieldMap[withHyphen]) return assignmentFieldMap[withHyphen];
+            if (assignmentFieldMap[withoutHyphen]) return assignmentFieldMap[withoutHyphen];
+        }
+        return null;
+    };
+
+    const fieldName = getField(assignment.code, assignment.name);
 
     // 2. Map mandates to columns
     const mandateColumns: MandateColumn[] = mandates.map(mandate => ({
@@ -120,7 +134,21 @@ export const bulkSaveHODAssignments = async (
     const hodApcMap = new Map<string, any>(allHODApc.map(a => [String(a.file_no).padStart(4, '0'), a]));
     const mandateLookup = new Map<string, any>(mandates.map(m => [m.id, m]));
     const modifiedStaffNos = new Set<string>();
-    const fieldName = assignmentFieldMap[assignment.code];
+    const getField = (code?: string, name?: string) => {
+        const keys = [code, name].filter(Boolean) as string[];
+        for (const k of keys) {
+            const upper = k.toUpperCase().trim();
+            const withHyphen = upper.replace(/\s+/g, '-');
+            const withoutHyphen = upper.replace(/-/g, ' ');
+
+            if (assignmentFieldMap[upper]) return assignmentFieldMap[upper];
+            if (assignmentFieldMap[withHyphen]) return assignmentFieldMap[withHyphen];
+            if (assignmentFieldMap[withoutHyphen]) return assignmentFieldMap[withoutHyphen];
+        }
+        return null;
+    };
+
+    const fieldName = getField(assignment.code, assignment.name);
 
     for (const change of changes) {
         const normalizedStaffNo = change.staff.staff_no.toString().padStart(4, '0');

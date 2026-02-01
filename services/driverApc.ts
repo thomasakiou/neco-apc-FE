@@ -13,12 +13,23 @@ export const assignmentFieldMap: { [key: string]: string } = {
     'SSCE-EXT': 'ssce_ext',
     'SSCE EXT': 'ssce_ext',
     'SSCE-INT-MRK': 'ssce_int_mrk',
+    'SSCE INT MRK': 'ssce_int_mrk',
+    'SSCE INT MARKING': 'ssce_int_mrk',
+    'SSCE INTERNAL MARKING': 'ssce_int_mrk',
     'SSCE-EXT-MRK': 'ssce_ext_mrk',
+    'SSCE EXT MRK': 'ssce_ext_mrk',
+    'SSCE EXT MARKING': 'ssce_ext_mrk',
+    'SSCE EXTERNAL MARKING': 'ssce_ext_mrk',
     'NCEE': 'ncee',
     'BECEP': 'becep',
     'BECE-MRKP': 'bece_mrkp',
     'GIFTED': 'gifted',
-    'SWAPPING': 'swapping'
+    'SWAPPING': 'swapping',
+    'MAR-ACCR': 'mar_accr',
+    'OCT-ACCR': 'oct_accr',
+    'PUR-SAMP': 'pur_samp',
+    'INT-AUDIT': 'int_audit',
+    'STOCK-TK': 'stock_tk'
 };
 
 export const getAllDriverAPC = async (

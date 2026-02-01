@@ -112,9 +112,28 @@ export const getAllHODApcRecords = async (onlyActive: boolean = false, force: bo
 
 // Assignment field mapping for HOD APC records
 export const assignmentFieldMap: Record<string, string> = {
-    'TT': 'tt', 'MAR-ACCR': 'mar_accr', 'NCEE': 'ncee', 'GIFTED': 'gifted',
-    'BECEP': 'becep', 'BECE-MRKP': 'bece_mrkp', 'SSCE-INT': 'ssce_int',
-    'SWAPPING': 'swapping', 'SSCE-INT-MRK': 'ssce_int_mrk', 'OCT-ACCR': 'oct_accr',
-    'SSCE-EXT': 'ssce_ext', 'SSCE-EXT-MRK': 'ssce_ext_mrk', 'PUR-SAMP': 'pur_samp',
-    'INT-AUDIT': 'int_audit', 'STOCK-TK': 'stock_tk'
+    'TT': 'tt',
+    'SSCE-INT': 'ssce_int',
+    'SSCE INT': 'ssce_int',
+    'SSCE INTERNAL EXAMINATION': 'ssce_int',
+    'SSCE-EXT': 'ssce_ext',
+    'SSCE EXT': 'ssce_ext',
+    'SSCE-INT-MRK': 'ssce_int_mrk',
+    'SSCE INT MRK': 'ssce_int_mrk',
+    'SSCE INT MARKING': 'ssce_int_mrk',
+    'SSCE INTERNAL MARKING': 'ssce_int_mrk',
+    'SSCE-EXT-MRK': 'ssce_ext_mrk',
+    'SSCE EXT MRK': 'ssce_ext_mrk',
+    'SSCE EXT MARKING': 'ssce_ext_mrk',
+    'SSCE EXTERNAL MARKING': 'ssce_ext_mrk',
+    'NCEE': 'ncee',
+    'BECEP': 'becep',
+    'BECE-MRKP': 'bece_mrkp',
+    'GIFTED': 'gifted',
+    'SWAPPING': 'swapping',
+    'MAR-ACCR': 'mar_accr',
+    'OCT-ACCR': 'oct_accr',
+    'PUR-SAMP': 'pur_samp',
+    'INT-AUDIT': 'int_audit',
+    'STOCK-TK': 'stock_tk'
 };

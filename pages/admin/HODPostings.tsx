@@ -403,37 +403,51 @@ const HODPostings: React.FC = () => {
         if (!assignmentRecord) {
             return [];
         }
-        const apcField = hodApcFieldMap[assignmentRecord.code] || hodApcFieldMap[assignmentRecord.name];
+        const getField = (code?: string, name?: string) => {
+            const keys = [code, name].filter(Boolean) as string[];
+            for (const k of keys) {
+                const upper = k.toUpperCase().trim();
+                const withHyphen = upper.replace(/\s+/g, '-');
+                const withoutHyphen = upper.replace(/-/g, ' ');
+
+                if (hodApcFieldMap[upper]) return hodApcFieldMap[upper];
+                if (hodApcFieldMap[withHyphen]) return hodApcFieldMap[withHyphen];
+                if (hodApcFieldMap[withoutHyphen]) return hodApcFieldMap[withoutHyphen];
+            }
+            return null;
+        };
+
+        const apcField = getField(assignmentRecord.code, assignmentRecord.name);
         if (!apcField) {
             return [];
         }
 
-        // Pre-calculate posted counts and existence
-        const alreadyPostedFileNos = new Set<string>();
+        const alreadyPostedForThisSet = new Set<string>();
+        const staffAssignmentsCount = new Map<string, number>();
 
-        // Check existing postings
-        existingPostings.forEach(p => {
-            if (p.file_no) {
-                alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0'));
-            }
-        });
+        [...existingPostings, ...finalPostings].forEach(p => {
+            const fno = String(p.file_no).padStart(4, '0');
+            const arr = Array.isArray(p.assignments) ? p.assignments : [];
+            if (arr.includes(assignmentRecord.code)) alreadyPostedForThisSet.add(fno);
 
-        // Check final postings
-        finalPostings.forEach(p => {
-            if (p.file_no) {
-                alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0'));
-            }
+            staffAssignmentsCount.set(fno, (staffAssignmentsCount.get(fno) || 0) + arr.length);
         });
 
         const filtered = allHODs.filter(hod => {
             if (!hod.active) return false;
-
-            // Exclude if already in any posting table (not posted yet)
             const normalizedFileNo = String(hod.file_no).padStart(4, '0');
-            if (alreadyPostedFileNos.has(normalizedFileNo)) return false;
 
+            // 1. Skip if already posted for THIS specific assignment
+            if (alreadyPostedForThisSet.has(normalizedFileNo)) return false;
+
+            // 2. Skip if they don't have the required qualification/field in APC
             const val = hod[apcField as keyof HODApcRecord];
-            if (!val || val.toString().trim() === '') return false;
+            if (!val || val.toString().trim() === '' || val.toString().toUpperCase() === 'RETURNED') return false;
+
+            // 3. Skip if they reached their total assignment limit
+            const assignmentsDone = staffAssignmentsCount.get(normalizedFileNo) || 0;
+            const limit = hod.count || 1;
+            if (assignmentsDone >= limit) return false;
 
             return true;
         });
@@ -467,30 +481,45 @@ const HODPostings: React.FC = () => {
             const assignmentName = assignmentRecord?.name || '';
             const targetMandate = mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate;
 
-            // 1. Existing Assignments Lookup (duplicate prevention)
-            const alreadyPostedFileNos = new Set<string>();
-            existingPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
-            finalPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
+            const alreadyPostedForThisSet = new Set<string>();
+            const staffAssignmentsCount = new Map<string, number>();
 
-            // 2. Filter Eligible HODs
-            let skippedAlreadyPosted = 0;
-            const apcField = hodApcFieldMap[assignmentCode] || hodApcFieldMap[assignmentName];
+            [...existingPostings, ...finalPostings].forEach(p => {
+                const fno = String(p.file_no).padStart(4, '0');
+                const arr = Array.isArray(p.assignments) ? p.assignments : [];
+                if (arr.includes(assignmentCode)) alreadyPostedForThisSet.add(fno);
+
+                staffAssignmentsCount.set(fno, (staffAssignmentsCount.get(fno) || 0) + arr.length);
+            });
+
+            const getField = (code?: string, name?: string) => {
+                const keys = [code, name].filter(Boolean) as string[];
+                for (const k of keys) {
+                    const upper = k.toUpperCase().trim();
+                    const withHyphen = upper.replace(/\s+/g, '-');
+                    const withoutHyphen = upper.replace(/-/g, ' ');
+
+                    if (hodApcFieldMap[upper]) return hodApcFieldMap[upper];
+                    if (hodApcFieldMap[withHyphen]) return hodApcFieldMap[withHyphen];
+                    if (hodApcFieldMap[withoutHyphen]) return hodApcFieldMap[withoutHyphen];
+                }
+                return null;
+            };
+
+            const apcField = getField(assignmentCode, assignmentName);
 
             const eligibleHODs = allHODs.filter(hod => {
                 const normalizedFileNo = String(hod.file_no).padStart(4, '0');
-                if (alreadyPostedFileNos.has(normalizedFileNo)) {
-                    skippedAlreadyPosted++;
-                    return false;
-                }
-                // Basic capacity check
-                const totalPosted = (hod.posted_for || 0); // Assuming hod.posted_for tracks count
-                if (totalPosted >= (hod.count || 0)) return false;
+                if (alreadyPostedForThisSet.has(normalizedFileNo)) return false;
 
-                // --- NEW: Assignment-specific filtering
                 if (apcField) {
                     const val = hod[apcField as keyof HODApcRecord];
-                    if (!val || val.toString().trim() === '') return false;
+                    if (!val || val.toString().trim() === '' || val.toString().toUpperCase() === 'RETURNED') return false;
                 }
+
+                const assignmentsDone = staffAssignmentsCount.get(normalizedFileNo) || 0;
+                const limit = hod.count || 1;
+                if (assignmentsDone >= limit) return false;
 
                 return true;
             });
@@ -633,9 +662,6 @@ const HODPostings: React.FC = () => {
                 setPreviewMode(true);
             } else {
                 info('No HODs matched criteria or quotas already met.');
-            }
-            if (skippedAlreadyPosted > 0) {
-                warning(`${skippedAlreadyPosted} HOD(s) were skipped because they already have existing postings in either the Posting or Final Posting tables.`);
             }
         } catch (err) {
             console.error("Error generating postings", err);

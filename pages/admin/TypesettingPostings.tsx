@@ -436,16 +436,30 @@ const TypesettingPostings: React.FC = () => {
             return [];
         }
 
-        const alreadyPostedFileNos = new Set<string>();
-        existingPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
-        finalPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
+        const alreadyPostedForThisSet = new Set<string>();
+        const staffAssignmentsCount = new Map<string, number>();
+
+        [...existingPostings, ...finalPostings].forEach(p => {
+            const fno = String(p.file_no).padStart(4, '0');
+            const arr = Array.isArray(p.assignments) ? p.assignments : [];
+            if (arr.includes(assignmentRecord.code)) alreadyPostedForThisSet.add(fno);
+
+            staffAssignmentsCount.set(fno, (staffAssignmentsCount.get(fno) || 0) + arr.length);
+        });
 
         const filtered = allTypesetters.filter(t => {
             const normalizedFileNo = String(t.file_no).padStart(4, '0');
-            if (alreadyPostedFileNos.has(normalizedFileNo)) return false;
+            // 1. Skip if already posted for THIS specific assignment
+            if (alreadyPostedForThisSet.has(normalizedFileNo)) return false;
 
+            // 2. Skip if they don't have the required qualification/field in APC
             const val = (t as any)[apcField];
-            if (!val || val.toString().trim() === '') return false;
+            if (!val || val.toString().trim() === '' || val.toString().toUpperCase() === 'RETURNED') return false;
+
+            // 3. Skip if they reached their total assignment limit
+            const assignmentsDone = staffAssignmentsCount.get(normalizedFileNo) || 0;
+            const limit = t.count || 1;
+            if (assignmentsDone >= limit) return false;
 
             return true;
         });
@@ -476,19 +490,48 @@ const TypesettingPostings: React.FC = () => {
             const assignmentCode = assignmentRecord?.code || selectedAssignment;
             const targetMandate = mandates.find(m => m.id === selectedMandate)?.mandate || selectedMandate;
 
-            const alreadyPostedFileNos = new Set<string>();
-            existingPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
-            finalPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
+            const alreadyPostedForThisSet = new Set<string>();
+            const staffAssignmentsCount = new Map<string, number>();
+            const staffToExistingPosting = new Map<string, any>();
 
-            const apcField = typesettingApcFieldMap[assignmentCode];
+            [...existingPostings, ...finalPostings].forEach(p => {
+                const fno = String(p.file_no).padStart(4, '0');
+                const arr = Array.isArray(p.assignments) ? p.assignments : [];
+                if (arr.includes(assignmentCode)) alreadyPostedForThisSet.add(fno);
+
+                staffAssignmentsCount.set(fno, (staffAssignmentsCount.get(fno) || 0) + arr.length);
+                staffToExistingPosting.set(fno, p);
+            });
+
+            const getField = (code?: string, name?: string) => {
+                const keys = [code, name].filter(Boolean) as string[];
+                for (const k of keys) {
+                    const upper = k.toUpperCase().trim();
+                    const withHyphen = upper.replace(/\s+/g, '-');
+                    const withoutHyphen = upper.replace(/-/g, ' ');
+
+                    if (typesettingApcFieldMap[upper]) return typesettingApcFieldMap[upper];
+                    if (typesettingApcFieldMap[withHyphen]) return typesettingApcFieldMap[withHyphen];
+                    if (typesettingApcFieldMap[withoutHyphen]) return typesettingApcFieldMap[withoutHyphen];
+                }
+                return null;
+            };
+
+            const apcField = getField(assignmentRecord?.code, assignmentRecord?.name);
+
             const eligibleTypesettersList = allTypesetters.filter(t => {
                 const normalizedFileNo = String(t.file_no).padStart(4, '0');
-                if (alreadyPostedFileNos.has(normalizedFileNo)) return false;
+                if (alreadyPostedForThisSet.has(normalizedFileNo)) return false;
 
                 if (apcField) {
                     const val = (t as any)[apcField];
-                    if (!val || val.toString().trim() === '') return false;
+                    if (!val || val.toString().trim() === '' || val.toString().toUpperCase() === 'RETURNED') return false;
                 }
+
+                const assignmentsDone = staffAssignmentsCount.get(normalizedFileNo) || 0;
+                const limit = t.count || 1;
+                if (assignmentsDone >= limit) return false;
+
                 return true;
             });
 
@@ -552,6 +595,18 @@ const TypesettingPostings: React.FC = () => {
                                 ? `${baseVenueName} | ${vStateVal}`
                                 : baseVenueName;
 
+                            const existingDraft = existingPostings.find(ep => String(ep.file_no).padStart(4, '0') === String(pickedTypesetter.file_no).padStart(4, '0'));
+                            const existingFinal = finalPostings.find(fp => String(fp.file_no).padStart(4, '0') === String(pickedTypesetter.file_no).padStart(4, '0'));
+                            const baseRecord = existingDraft || existingFinal;
+
+                            const prevAssignments = baseRecord?.assignments ? (Array.isArray(baseRecord.assignments) ? baseRecord.assignments : []) : [];
+                            const prevMandates = baseRecord?.mandates ? (Array.isArray(baseRecord.mandates) ? baseRecord.mandates : []) : [];
+                            const prevVenues = baseRecord?.assignment_venue ? (Array.isArray(baseRecord.assignment_venue) ? baseRecord.assignment_venue : []) : [];
+                            const prevVenueCodes = (baseRecord as any)?.venue_code ? (Array.isArray((baseRecord as any).venue_code) ? (baseRecord as any).venue_code : []) : prevVenues.map(() => '');
+                            const prevStates = baseRecord?.state
+                                ? (Array.isArray(baseRecord.state) ? baseRecord.state : [baseRecord.state])
+                                : prevVenues.map(() => '');
+
                             const staffDetail = allStaff.find(s => String(s.fileno).padStart(4, '0') === String(pickedTypesetter.file_no).padStart(4, '0'));
                             const sexVal = pickedTypesetter.sex || staffDetail?.sex || null;
                             const qualificationVal = pickedTypesetter.qualification || staffDetail?.qualification || null;
@@ -559,18 +614,18 @@ const TypesettingPostings: React.FC = () => {
                             newPostings.push({
                                 file_no: pickedTypesetter.file_no,
                                 name: pickedTypesetter.name,
-                                station: pickedTypesetter.station || staffDetail?.station || '',
-                                conraiss: pickedTypesetter.conraiss || staffDetail?.conr || '',
+                                station: pickedTypesetter.station || baseRecord?.station || staffDetail?.station || '',
+                                conraiss: pickedTypesetter.conraiss || baseRecord?.conraiss || staffDetail?.conr || '',
                                 sex: sexVal,
                                 qualification: qualificationVal,
                                 year: new Date().getFullYear().toString(),
-                                assignments: [assignmentCode],
-                                mandates: [targetMandate],
-                                assignment_venue: [finalVenue],
-                                venue_code: [vNeed.venue.code || ''],
-                                state: [vNeed.venue.state_name || ''],
+                                assignments: [...prevAssignments, assignmentCode],
+                                mandates: [...prevMandates, targetMandate],
+                                assignment_venue: [...prevVenues, finalVenue],
+                                venue_code: [...prevVenueCodes, vNeed.venue.code || ''],
+                                state: [...prevStates, vNeed.venue.state_name || ''],
                                 numb_of__nites: numberOfNights,
-                                description: description || null
+                                description: description || baseRecord?.description || null
                             } as any);
 
                             vNeed.remaining--;
