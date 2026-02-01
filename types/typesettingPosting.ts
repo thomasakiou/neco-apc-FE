@@ -5,6 +5,7 @@ export interface TypesettingPostingResponse {
     station?: string | null;
     conraiss?: string | null;
     sex?: string | null;
+    qualification?: string | null;
     year?: string | null;
     assignment_venue?: any[] | null;
     assignments?: any[] | null;
@@ -35,6 +36,7 @@ export interface TypesettingPostingCreate {
     station?: string | null;
     conraiss?: string | null;
     sex?: string | null;
+    qualification?: string | null;
     year?: string | null;
     assignment_venue?: any[] | null;
     assignments?: any[] | null;

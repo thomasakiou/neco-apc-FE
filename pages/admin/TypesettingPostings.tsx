@@ -8,7 +8,7 @@ import { TypesettingAPCRecord } from '../../types/typesettingApc';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
 import { TypesettingPostingCreate as PostingCreate, TypesettingPostingResponse as PostingResponse } from '../../types/typesettingPosting';
-import { TypesettingFinalPostingResponse } from '../../types/typesettingFinalPosting';
+import { TypesettingFinalPostingResponse } from '@/types/typesettingFinalPosting';
 import { getAllTypesettingFinalPostings } from '../../services/typesettingFinalPosting';
 import { useNotification } from '../../context/NotificationContext';
 import AlertModal from '../../components/AlertModal';
@@ -30,6 +30,8 @@ import SearchableSelect from '../../components/SearchableSelect';
 import CsvUploadModal from '../../components/CsvUploadModal';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
+import { getAllStaff } from '../../services/staff';
+import { Staff } from '../../types/staff';
 
 const TypesettingPostings: React.FC = () => {
     const { success, error, warning, info } = useNotification();
@@ -45,6 +47,7 @@ const TypesettingPostings: React.FC = () => {
     const [finalPostings, setFinalPostings] = useState<TypesettingFinalPostingResponse[]>([]);
     const [allStates, setAllStates] = useState<State[]>([]);
     const [allStations, setAllStations] = useState<Station[]>([]);
+    const [allStaff, setAllStaff] = useState<Staff[]>([]);
     const [venues, setVenues] = useState<{ id: string; name: string; display_name?: string; type: string; state_name?: string; zone?: string; code?: string }[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -118,7 +121,7 @@ const TypesettingPostings: React.FC = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [typesettersData, assignmentsData, mandatesData, venuesData, postingsData, finalPostingsData, statesData, stationsData] = await Promise.all([
+            const [typesetters, assignmentsData, mandatesData, venuesData, postingsData, finalsData, statesData, stationsData, staffData] = await Promise.all([
                 getAllTypesettingAPCRecords(true),
                 getAllAssignments(true),
                 getAllMandates(true),
@@ -126,16 +129,18 @@ const TypesettingPostings: React.FC = () => {
                 getAllTypesettingPostings(),
                 getAllTypesettingFinalPostings(),
                 getAllStates(),
-                getAllStations(true)
+                getAllStations(true),
+                getAllStaff(true)
             ]);
 
-            setAllTypesetters(typesettersData);
+            setAllTypesetters(typesetters);
             setAssignments(assignmentsData);
             setMandates(mandatesData);
             setExistingPostings(postingsData || []);
-            setFinalPostings(finalPostingsData?.items || []);
+            setFinalPostings(finalsData?.items || []);
             setAllStates(statesData);
             setAllStations(stationsData);
+            setAllStaff(staffData);
 
             const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
             setVenues(venuesData.map(v => {
@@ -144,7 +149,7 @@ const TypesettingPostings: React.FC = () => {
                     id: v.id,
                     name: v.name,
                     display_name: v.name,
-                    code: v.code,
+                    code: v.code || '',
                     type: 'marking_venue',
                     state_name: state?.name || v.state,
                     zone: state?.zone || undefined
@@ -164,7 +169,15 @@ const TypesettingPostings: React.FC = () => {
             let options: any[] = [];
             if (type === 'state') {
                 const states = await getAllStates();
-                options = states.map(s => ({ id: s.id, name: s.name, type: 'state', state_name: s.name, zone: s.zone || undefined }));
+                options = states.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    type: 'state',
+                    state_name: s.name,
+                    zone: s.zone || undefined,
+                    code: s.state_code,
+                    display_name: s.name
+                }));
             } else {
                 const [statesData, specificData] = await Promise.all([
                     getAllStates(),
@@ -184,23 +197,25 @@ const TypesettingPostings: React.FC = () => {
                     if (s.state_id) stateObj = statesData.find(st => st.id === s.state_id);
                     else if (s.state) stateObj = stateNameMap.get(s.state.toLowerCase());
                     const stateName = stateObj?.name || s.state || '';
-                    const code = s.code || s.state_code || s.sch_no || '';
-                    const displayName = `${s.name || s.sch_name}${code ? ` (${code})` : ''}`;
+                    const nameVal = s.name || s.sch_name || '';
+                    const codeVal = s.code || s.state_code || s.sch_no || '';
+                    const displayName = `${nameVal}${codeVal ? ` (${codeVal})` : ''}`;
 
                     return {
                         id: s.id,
-                        name: displayName,
+                        name: nameVal,
                         display_name: displayName,
                         type: type,
                         state_name: stateName,
-                        zone: stateObj?.zone || undefined
+                        zone: stateObj?.zone || undefined,
+                        code: codeVal
                     };
                 });
             }
             setVenues(options);
             setStationOptions(options.map(s => {
                 const stateVal = type === 'state' ? s.name : (s.state_name || s.state || null);
-                const baseName = s.display_name || s.name;
+                const baseName = s.name; // Use clean name
                 const finalName = (type !== 'state' && stateVal && !baseName.toLowerCase().includes(stateVal.toLowerCase()))
                     ? `${baseName} | ${stateVal}`
                     : baseName;
@@ -210,6 +225,7 @@ const TypesettingPostings: React.FC = () => {
                     name: finalName,
                     type,
                     state: stateVal,
+                    code: s.code || '',
                     group: type === 'state' ? 'All States' : (stateVal || 'Others')
                 };
             }));
@@ -333,7 +349,8 @@ const TypesettingPostings: React.FC = () => {
                     id: selectedStationIdsPersonalized.join(','),
                     name: combinedStationName,
                     type: primaryStation.type,
-                    state: primaryStation.state
+                    state: primaryStation.state,
+                    code: primaryStation.code || ''
                 },
                 changes: pendingChanges,
                 numberOfNights: numberOfNights,
@@ -399,8 +416,23 @@ const TypesettingPostings: React.FC = () => {
         if (!assignmentRecord) {
             return [];
         }
-        const apcField = typesettingApcFieldMap[assignmentRecord.code] || typesettingApcFieldMap[assignmentRecord.name];
+        const getField = (code?: string, name?: string) => {
+            const keys = [code, name].filter(Boolean) as string[];
+            for (const k of keys) {
+                const upper = k.toUpperCase().trim();
+                const withHyphen = upper.replace(/\s+/g, '-');
+                const withoutHyphen = upper.replace(/-/g, ' ');
+
+                if (typesettingApcFieldMap[upper]) return typesettingApcFieldMap[upper];
+                if (typesettingApcFieldMap[withHyphen]) return typesettingApcFieldMap[withHyphen];
+                if (typesettingApcFieldMap[withoutHyphen]) return typesettingApcFieldMap[withoutHyphen];
+            }
+            return null;
+        };
+
+        const apcField = getField(assignmentRecord.code, assignmentRecord.name);
         if (!apcField) {
+            console.warn('No field found for assignment:', assignmentRecord);
             return [];
         }
 
@@ -514,21 +546,28 @@ const TypesettingPostings: React.FC = () => {
                             const pickedTypesetter = shuffle(compatibleTypesetters)[0] as TypesettingAPCRecord;
                             usedTypesetterIds.add(pickedTypesetter.id);
 
-                            const baseVenueName = `${vNeed.venue.code ? `(${vNeed.venue.code}) ` : ''}${vNeed.venue.name}`;
+                            const baseVenueName = vNeed.venue.name;
                             const vStateVal = (vNeed.venue.state_name || vNeed.venue.state || '').trim();
                             const finalVenue = (vStateVal && !baseVenueName.toLowerCase().includes(vStateVal.toLowerCase()))
                                 ? `${baseVenueName} | ${vStateVal}`
                                 : baseVenueName;
 
+                            const staffDetail = allStaff.find(s => String(s.fileno).padStart(4, '0') === String(pickedTypesetter.file_no).padStart(4, '0'));
+                            const sexVal = pickedTypesetter.sex || staffDetail?.sex || null;
+                            const qualificationVal = pickedTypesetter.qualification || staffDetail?.qualification || null;
+
                             newPostings.push({
                                 file_no: pickedTypesetter.file_no,
                                 name: pickedTypesetter.name,
-                                station: pickedTypesetter.station || '',
-                                conraiss: pickedTypesetter.conraiss || '',
+                                station: pickedTypesetter.station || staffDetail?.station || '',
+                                conraiss: pickedTypesetter.conraiss || staffDetail?.conr || '',
+                                sex: sexVal,
+                                qualification: qualificationVal,
                                 year: new Date().getFullYear().toString(),
                                 assignments: [assignmentCode],
                                 mandates: [targetMandate],
                                 assignment_venue: [finalVenue],
+                                venue_code: [vNeed.venue.code || ''],
                                 state: [vNeed.venue.state_name || ''],
                                 numb_of__nites: numberOfNights,
                                 description: description || null
@@ -598,23 +637,29 @@ const TypesettingPostings: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50 dark:bg-[#0f161d] text-sm uppercase font-bold text-slate-500 sticky top-0">
                             <tr>
+                                <th className="p-3 text-xs">Sex</th>
+                                <th className="p-3 text-xs">Qual</th>
                                 <th className="p-3">File No</th>
                                 <th className="p-3">Name</th>
                                 <th className="p-3">Station</th>
-                                <th className="p-3">CON</th>
+                                <th className="p-3 text-xs">CON</th>
                                 <th className="p-3">Venue</th>
+                                <th className="p-3 text-xs">V. Code</th>
                                 <th className="p-3">State</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
                             {generatedPostings.map((p, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
-                                    <td className="p-3 font-mono font-bold">{p.file_no}</td>
-                                    <td className="p-3 font-medium">{p.name}</td>
-                                    <td className="p-3 font-bold text-xs text-slate-500">{p.station || '-'}</td>
-                                    <td className="p-3 font-bold">{p.conraiss}</td>
-                                    <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">{p.assignment_venue?.[0]}</td>
-                                    <td className="p-3">{p.state?.[0] || '-'}</td>
+                                    <td className="p-3 text-xs">{p.sex || '-'}</td>
+                                    <td className="p-3 text-xs truncate max-w-[100px]" title={p.qualification || ''}>{p.qualification || '-'}</td>
+                                    <td className="p-3 font-mono font-bold text-sm">{p.file_no}</td>
+                                    <td className="p-3 font-medium text-sm">{p.name}</td>
+                                    <td className="p-3 font-bold text-[10px] text-slate-500">{p.station || '-'}</td>
+                                    <td className="p-3 font-bold text-xs">{p.conraiss}</td>
+                                    <td className="p-3 text-purple-600 dark:text-purple-400 font-bold text-sm">{(Array.isArray(p.assignment_venue) ? p.assignment_venue[0] : p.assignment_venue) || '-'}</td>
+                                    <td className="p-3 font-mono text-xs text-indigo-500 font-bold">{(Array.isArray(p.venue_code) ? p.venue_code[0] : p.venue_code) || '-'}</td>
+                                    <td className="p-3 text-xs">{(Array.isArray(p.state) ? p.state[0] : p.state) || '-'}</td>
                                 </tr>
                             ))}
                         </tbody>

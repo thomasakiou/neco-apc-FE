@@ -23,31 +23,15 @@ interface ReportField {
 const REPORT_FIELDS: ReportField[] = [
     { id: 'file_no', label: 'FILE NO', accessor: r => r.file_no, default: true, pdfWidth: 25 },
     { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 50 },
+    { id: 'sex', label: 'SEX', accessor: r => r.sex || '-', default: false, pdfWidth: 15 },
     { id: 'station', label: 'STATION', accessor: r => r.station || '-', default: true, pdfWidth: 35 },
     { id: 'conraiss', label: 'CONR', accessor: r => r.conraiss || '-', default: true, pdfWidth: 20 },
-    { id: 'state', label: 'STATE', accessor: r => (r.state || []).join(', ') || '-', default: true, pdfWidth: 30 },
-    {
-        id: 'code', label: 'CODE', accessor: r => (r.assignment_venue || []).map((v: any) => {
-            if (!v || typeof v !== 'string') return '';
-            const m = v.match(/\((\d+)\)/);
-            return m ? m[1] : '';
-        }).join(', ') || '-', default: true, pdfWidth: 20
-    },
+    { id: 'qualification', label: 'QUAL', accessor: r => r.qualification || '-', default: false, pdfWidth: 30 },
+    { id: 'state', label: 'STATE', accessor: r => (Array.isArray(r.state) ? r.state.join(', ') : r.state) || '-', default: true, pdfWidth: 30 },
+    { id: 'code', label: 'CODE', accessor: r => (Array.isArray(r.venue_code) ? r.venue_code.join(', ') : r.venue_code) || '-', default: true, pdfWidth: 20 },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => (r.assignments || []).map((a: any) => typeof a === 'string' ? a : a.name || a.code).join(', ') || '-', default: true, pdfWidth: 45 },
     { id: 'mandate', label: 'MANDATE', accessor: r => (r.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate || m.code).join(', ') || '-', default: true, pdfWidth: 40 },
-    {
-        id: 'venue', label: 'VENUE', accessor: r => (r.assignment_venue || []).map((v: any) => {
-            if (!v || typeof v !== 'string') return v;
-            const parts = v.split('|').map(p => p.trim()).filter(Boolean);
-            const uniqueParts: string[] = [];
-            const seen = new Set<string>();
-            for (const p of parts) {
-                const lower = p.toLowerCase();
-                if (!seen.has(lower)) { seen.add(lower); uniqueParts.push(p); }
-            }
-            return uniqueParts.join(' | ');
-        }).join(', ') || '-', default: true, pdfWidth: 60
-    },
+    { id: 'venue', label: 'VENUE', accessor: r => (Array.isArray(r.assignment_venue) ? r.assignment_venue.join(' | ') : r.assignment_venue) || '-', default: true, pdfWidth: 60 },
     { id: 'count', label: 'NO. OF NIGHTS', accessor: r => r.numb_of__nites || 0, default: false, pdfWidth: 20 },
     { id: 'description', label: 'DESCRIPTION', accessor: r => r.description || '-', default: false, pdfWidth: 50 },
     { id: 'year', label: 'YEAR', accessor: r => r.year || '-', default: false, pdfWidth: 20 },
@@ -123,8 +107,16 @@ const TypesettingPostingsTable: React.FC = () => {
                 throw new Error(`Staff members must have the same number of assignments to swap venues.`);
             }
             await Promise.all([
-                updateTypesettingPosting(swapSource.id, { assignment_venue: [...target.assignment_venue] }),
-                updateTypesettingPosting(target.id, { assignment_venue: [...swapSource.assignment_venue] })
+                updateTypesettingPosting(swapSource.id, {
+                    assignment_venue: [...target.assignment_venue],
+                    venue_code: [...(target.venue_code || [])],
+                    state: [...(target.state || [])]
+                }),
+                updateTypesettingPosting(target.id, {
+                    assignment_venue: [...swapSource.assignment_venue],
+                    venue_code: [...(swapSource.venue_code || [])],
+                    state: [...(swapSource.state || [])]
+                })
             ]);
             setSwapSource(null);
             await fetchData(true);
@@ -149,11 +141,14 @@ const TypesettingPostingsTable: React.FC = () => {
                 name: targetAPC.name,
                 station: targetAPC.station,
                 conraiss: targetAPC.conraiss,
+                sex: targetAPC.sex,
+                qualification: targetAPC.qualification,
                 year: replacementSource.year,
                 numb_of__nites: replacementSource.numb_of__nites,
                 assignments: replacementSource.assignments,
                 mandates: replacementSource.mandates,
                 assignment_venue: replacementSource.assignment_venue,
+                venue_code: replacementSource.venue_code,
                 description: replacementSource.description,
                 state: replacementSource.state
             };
@@ -328,7 +323,7 @@ const TypesettingPostingsTable: React.FC = () => {
             {/* Header */}
             <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-600 via-purple-500 to-fuchsia-600 dark:from-violet-400 dark:via-purple-400 dark:to-fuchsia-400 drop-shadow-sm">
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm tracking-tight">
                         Typesetting Postings Table
                     </h1>
                     <p className="mt-1 text-slate-500 dark:text-slate-400 font-medium">

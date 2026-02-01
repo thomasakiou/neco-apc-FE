@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { getAllTypesettingFinalPostings, deleteAllTypesettingFinalPostings, bulkDeleteTypesettingFinalPostings } from '../../services/typesettingFinalPosting';
 import { bulkCreateTypesettingPostings } from '../../services/typesettingPosting';
 import { getAllAssignments } from '../../services/assignment';
-import { TypesettingFinalPostingResponse as FinalPostingResponse } from '../../types/typesettingFinalPosting';
+import { TypesettingFinalPostingResponse as FinalPostingResponse } from '@/types/typesettingFinalPosting';
 import { Assignment } from '../../types/assignment';
 import { useNotification } from '../../context/NotificationContext';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -148,7 +148,8 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                 <td className="px-4 py-4">
                     <div className="flex flex-col gap-2.5">
                         {record.assignment_venue?.map((_, idx) => {
-                            const s = record.state || '-';
+                            const stateValue = record.state;
+                            const s = Array.isArray(stateValue) ? (stateValue[idx] || stateValue[0] || '-') : (stateValue || '-');
                             const scheme = schemes[idx] || getColorScheme(s, idx);
                             return (
                                 <div key={idx}>
@@ -359,6 +360,14 @@ const FinalTypesettingPostings: React.FC = () => {
             if (!match) return false;
         }
         if (filterYear && p.year !== filterYear) return false;
+
+        // Handle state filtering
+        if (p.state) {
+            const stateValues = Array.isArray(p.state) ? p.state : [p.state];
+            // If you need specific state filtering logic, add it here.
+            // For now just returning true if state exists.
+        }
+
         return true;
     }, [debouncedFileNo, debouncedName, debouncedStation, filterAssignment, filterMandate, filterVenue, filterYear, assignmentMap]);
 
@@ -459,7 +468,7 @@ const FinalTypesettingPostings: React.FC = () => {
             <div className="flex flex-col gap-8">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight mb-2">Final Typesetting Posting</h1>
+                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm tracking-tight mb-2">Final Typesetting Posting</h1>
                         <p className="text-slate-500 dark:text-slate-400 font-medium">Archived view of consolidated typesetting postings.</p>
                     </div>
                     <div className="flex items-center gap-3">

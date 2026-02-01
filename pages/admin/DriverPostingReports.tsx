@@ -142,14 +142,15 @@ const DriverPostingReports: React.FC = () => {
         postings.forEach(p => {
             const mandates = p.mandates || [];
             const assignments = p.assignments || [];
-            const venues = p.venue_code || [];
+            const venues = p.assignment_venue || [];
+            const venue_codes = p.venue_code || [];
 
             const maxLen = Math.max(mandates.length, assignments.length, venues.length, 1);
             for (let i = 0; i < maxLen; i++) {
                 const mName = mandates[i] || '';
                 const aName = assignments[i] || '';
                 const vName = venues[i] || '';
-                const vCode = extractCode(vName);
+                const vCode = venue_codes[i] || '';
 
                 let state = (p.state && p.state[i]) || '';
                 if (!state && vName.includes('|')) {

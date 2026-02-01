@@ -314,7 +314,7 @@ const Statistics: React.FC = () => {
         <div className="p-6 space-y-8 min-h-screen bg-background-light dark:bg-[#0b1116] text-slate-900 dark:text-slate-100 font-sans pb-20">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Statistics Dashboard</h1>
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">Statistics Dashboard</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">Dynamic analysis of Staff, APC, and Postings</p>
                 </div>
                 <div className="flex gap-3">

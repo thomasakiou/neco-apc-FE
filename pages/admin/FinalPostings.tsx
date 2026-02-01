@@ -998,7 +998,7 @@ const FinalPostings: React.FC = () => {
                 {/* Header */}
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight mb-2">
+                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight mb-2">
                             Final Posting
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 font-medium max-w-2xl">

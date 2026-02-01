@@ -28,12 +28,13 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'name', label: 'NAME', accessor: r => r.name, default: true, pdfWidth: 45 },
     { id: 'sex', label: 'SEX', accessor: r => r.sex || '-', default: false, pdfWidth: 15 },
     { id: 'station', label: 'STATION', accessor: r => r.station || '-', default: true, pdfWidth: 30 },
-    { id: 'state', label: 'STATE', accessor: r => r.state || '-', default: true, pdfWidth: 30 },
+    { id: 'state', label: 'STATE', accessor: r => (Array.isArray(r.state) ? r.state.join(', ') : r.state) || '-', default: true, pdfWidth: 30 },
     { id: 'conraiss', label: 'CONRAISS', accessor: r => r.conraiss || '-', default: true, pdfWidth: 25 },
-    { id: 'code', label: 'CODE', accessor: r => (r.venue_code || []).map((v: any) => v?.match?.(/\((\d+)\)/)?.[1] || '-').join(', ') || '-', default: true, pdfWidth: 25 },
+    { id: 'qualification', label: 'QUALIFICATION', accessor: r => r.qualification || '-', default: false, pdfWidth: 30 },
+    { id: 'code', label: 'CODE', accessor: r => (Array.isArray(r.venue_code) ? r.venue_code.join(', ') : r.venue_code) || '-', default: true, pdfWidth: 25 },
     { id: 'assignment', label: 'ASSIGNMENT', accessor: r => (r.assignments || []).join(', ') || '-', default: true, pdfWidth: 45 },
     { id: 'mandate', label: 'MANDATE', accessor: r => (r.mandates || []).join(', ') || '-', default: true, pdfWidth: 40 },
-    { id: 'venue', label: 'VENUE', accessor: r => (r.venue_code || []).join(', ') || '-', default: true, pdfWidth: 60 },
+    { id: 'venue', label: 'VENUE', accessor: r => (Array.isArray(r.assignment_venue) ? r.assignment_venue.join(' | ') : r.assignment_venue) || '-', default: true, pdfWidth: 60 },
     { id: 'count', label: 'NO. OF NIGHTS', accessor: r => r.numb_of__nites || 0, default: false, pdfWidth: 20 },
     { id: 'description', label: 'DESCRIPTION', accessor: r => r.description || '-', default: false, pdfWidth: 50 },
     { id: 'year', label: 'YEAR', accessor: r => r.year || '-', default: false, pdfWidth: 20 },
@@ -59,6 +60,13 @@ const TypesettingPostingReports: React.FC = () => {
     const [reportTitle2, setReportTitle2] = useState('');
     const [reportTemplate, setReportTemplate] = useState('SSCE');
     const [exportType, setExportType] = useState<'pdf' | 'csv' | 'xlsx' | null>(null);
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+        const widths: Record<string, number> = {};
+        REPORT_FIELDS.forEach(f => {
+            widths[f.id] = f.pdfWidth || 30;
+        });
+        return widths;
+    });
     const [showHelp, setShowHelp] = useState(false);
 
     // Swap and Replace State
@@ -114,10 +122,17 @@ const TypesettingPostingReports: React.FC = () => {
                 throw new Error(`Staff members must have the same number of assignments to swap venues.`);
             }
 
-            // In Typesetting, venue_code is the field for venues (similar to assignment_venue in HOD)
             await Promise.all([
-                updateTypesettingPosting(swapSource.id, { venue_code: [...(target.venue_code || [])] }),
-                updateTypesettingPosting(target.id, { venue_code: [...(swapSource.venue_code || [])] })
+                updateTypesettingPosting(swapSource.id, {
+                    assignment_venue: [...(target.assignment_venue || [])],
+                    venue_code: [...(target.venue_code || [])],
+                    state: [...(target.state || [])]
+                }),
+                updateTypesettingPosting(target.id, {
+                    assignment_venue: [...(swapSource.assignment_venue || [])],
+                    venue_code: [...(swapSource.venue_code || [])],
+                    state: [...(swapSource.state || [])]
+                })
             ]);
 
             setSwapSource(null);
@@ -156,10 +171,12 @@ const TypesettingPostingReports: React.FC = () => {
                 to_be_posted: getAssignmentLimit(targetAPC.conraiss) - numberOfAssignments,
                 assignments: replacementSource.assignments || [],
                 mandates: replacementSource.mandates || [],
+                assignment_venue: replacementSource.assignment_venue || [],
                 venue_code: replacementSource.venue_code || [],
                 description: replacementSource.description || '',
-                state: (targetAPC as any).state || null,
+                state: replacementSource.state,
                 sex: targetAPC.sex || 'M',
+                qualification: targetAPC.qualification || null,
             };
 
             // Update Source APC (Return to Pool)
@@ -348,9 +365,11 @@ const TypesettingPostingReports: React.FC = () => {
 
             const headers = activeFields.map(f => f.label);
             const tableData = filteredPostings.map(p => activeFields.map(f => f.accessor(p)));
-            const totalRefWidth = activeFields.reduce((sum, f) => sum + (f.pdfWidth || 20), 0);
+
             const columnStyles: any = {};
-            activeFields.forEach((f, idx) => { columnStyles[idx] = { cellWidth: ((f.pdfWidth || 20) / totalRefWidth) * (pageWidth - 30) }; });
+            activeFields.forEach((field, idx) => {
+                columnStyles[idx] = { cellWidth: columnWidths[field.id] || 'auto' };
+            });
 
             autoTable(doc, {
                 head: [headers], body: tableData, startY: 40, theme: 'grid',
@@ -370,7 +389,9 @@ const TypesettingPostingReports: React.FC = () => {
             {/* Header */}
             <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 drop-shadow-sm">Typesetting Postings Table</h1>
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm tracking-tight">
+                        Typesetting Postings Table
+                    </h1>
                     <p className="mt-1 text-slate-500 dark:text-slate-400 font-medium">View and manage all generated Typesetting postings.</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -410,7 +431,40 @@ const TypesettingPostingReports: React.FC = () => {
                         <div><label className="block text-[10px] font-black text-indigo-400 uppercase mb-2 tracking-widest">Sub Title</label><input type="text" value={reportTitle2} onChange={(e) => setReportTitle2(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#0f161d] text-sm font-medium" placeholder="Optional" /></div>
                     </div>
                     <div className="space-y-4">
-                        <div><label className="text-[10px] font-black text-indigo-400 uppercase mb-3 block tracking-widest">Active Columns ({activeFields.length})</label><div className="flex flex-wrap gap-2">{activeFields.map((field, idx) => (<div key={field.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50 dark:border-indigo-900/50 dark:bg-indigo-900/20 shadow-sm"><button onClick={() => { if (orderedFieldIds.length > 1) setOrderedFieldIds(prev => prev.filter(id => id !== field.id)); }} className="w-6 h-6 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600"><span className="material-symbols-outlined text-sm font-bold">check</span></button><span className="text-xs font-bold text-indigo-900 dark:text-indigo-100">{field.label}</span><div className="flex gap-0.5 ml-1 border-l border-indigo-200 dark:border-indigo-900/50 pl-1"><button onClick={() => { if (idx > 0) { const n = [...orderedFieldIds];[n[idx], n[idx - 1]] = [n[idx - 1], n[idx]]; setOrderedFieldIds(n); } }} disabled={idx === 0} className="w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center hover:bg-indigo-200 disabled:opacity-30"><span className="material-symbols-outlined text-xs">chevron_left</span></button><button onClick={() => { if (idx < orderedFieldIds.length - 1) { const n = [...orderedFieldIds];[n[idx], n[idx + 1]] = [n[idx + 1], n[idx]]; setOrderedFieldIds(n); } }} disabled={idx === orderedFieldIds.length - 1} className="w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center hover:bg-indigo-200 disabled:opacity-30"><span className="material-symbols-outlined text-xs">chevron_right</span></button></div></div>))}</div></div>
+                        <div>
+                            <label className="text-[10px] font-black text-indigo-400 uppercase mb-3 block tracking-widest">Active Columns ({activeFields.length})</label>
+                            <div className="flex flex-wrap gap-2">
+                                {activeFields.map((field, idx) => (
+                                    <div key={field.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50 dark:border-indigo-900/50 dark:bg-indigo-900/20 shadow-sm">
+                                        <button onClick={() => { if (orderedFieldIds.length > 1) setOrderedFieldIds(prev => prev.filter(id => id !== field.id)); }} className="w-6 h-6 rounded-lg bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600">
+                                            <span className="material-symbols-outlined text-sm font-bold">check</span>
+                                        </button>
+                                        <span className="text-xs font-bold text-indigo-900 dark:text-indigo-100">{field.label}</span>
+                                        <div className="flex gap-0.5 ml-1 border-l border-indigo-200 dark:border-indigo-900/50 pl-1">
+                                            <button onClick={() => { if (idx > 0) { const n = [...orderedFieldIds];[n[idx], n[idx - 1]] = [n[idx - 1], n[idx]]; setOrderedFieldIds(n); } }} disabled={idx === 0} className="w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center hover:bg-indigo-200 disabled:opacity-30">
+                                                <span className="material-symbols-outlined text-xs">chevron_left</span>
+                                            </button>
+                                            <button onClick={() => { if (idx < orderedFieldIds.length - 1) { const n = [...orderedFieldIds];[n[idx], n[idx + 1]] = [n[idx + 1], n[idx]]; setOrderedFieldIds(n); } }} disabled={idx === orderedFieldIds.length - 1} className="w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center hover:bg-indigo-200 disabled:opacity-30">
+                                                <span className="material-symbols-outlined text-xs">chevron_right</span>
+                                            </button>
+                                        </div>
+                                        {/* Width Input */}
+                                        <div className="border-l border-indigo-200 dark:border-indigo-900/50 pl-2 ml-1 flex items-center gap-1">
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase">W:</span>
+                                            <input
+                                                type="number"
+                                                value={columnWidths[field.id] || 0}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value) || 0;
+                                                    setColumnWidths(prev => ({ ...prev, [field.id]: val }));
+                                                }}
+                                                className="w-10 h-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-[10px] text-center font-bold outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                         {REPORT_FIELDS.filter(f => !orderedFieldIds.includes(f.id)).length > 0 && (<div><label className="text-[10px] font-black text-slate-400 uppercase mb-3 block tracking-widest">Available Columns</label><div className="flex flex-wrap gap-2">{REPORT_FIELDS.filter(f => !orderedFieldIds.includes(f.id)).map(field => (<button key={field.id} onClick={() => setOrderedFieldIds(prev => [...prev, field.id])} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 dark:border-gray-700 dark:bg-gray-800 hover:border-indigo-300 hover:bg-indigo-50"><span className="w-6 h-6 rounded-lg border-2 border-dashed border-slate-300 dark:border-gray-600 flex items-center justify-center"><span className="material-symbols-outlined text-sm text-slate-400">add</span></span><span className="text-xs font-bold text-slate-600 dark:text-slate-300">{field.label}</span></button>))}</div></div>)}
                     </div>
                 </div>
@@ -455,7 +509,7 @@ const TypesettingPostingReports: React.FC = () => {
                                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.state?.join(', ') || '-'}</td>
                                     <td className="px-4 py-3"><span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">{p.conraiss || '-'}</span></td>
                                     <td className="px-4 py-3"><div className="flex flex-wrap gap-1">{p.assignments?.map((a: string, idx: number) => (<span key={idx} className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 uppercase">{a}</span>))}</div></td>
-                                    <td className="px-4 py-3 text-sm font-bold text-teal-600 dark:text-teal-400">{p.venue_code?.join(', ') || '-'}</td>
+                                    <td className="px-4 py-3 text-sm font-bold text-teal-600 dark:text-teal-400">{p.assignment_venue?.join(' | ') || '-'}</td>
                                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.mandates?.join(', ') || '-'}</td>
                                     <td className="px-4 py-3 text-center">
                                         <div className="flex items-center justify-center gap-1">

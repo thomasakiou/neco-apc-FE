@@ -1394,7 +1394,7 @@ const RandomizedPost: React.FC = () => {
             {/* Header */}
             <div className="mb-8 flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm">
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
                         Randomized Post Generator
                     </h1>
                     <p className="mt-2 text-slate-500 dark:text-slate-400 font-medium">

@@ -93,8 +93,8 @@ const AuditLog: React.FC = () => {
          {/* Premium Header */}
          <header className="flex-none flex items-center justify-between px-4 md:px-10 py-4 md:py-6 bg-surface-light/40 dark:bg-[#121b25]/40 backdrop-blur-xl border-b border-slate-300 dark:border-white/5 z-20">
             <div>
-               <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                  Audit <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">Intelligence</span>
+               <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
+                  Audit Intelligence
                </h1>
                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-70">Security & Operational Traceability</p>
             </div>

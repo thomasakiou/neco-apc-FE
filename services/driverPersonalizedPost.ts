@@ -165,7 +165,7 @@ export const bulkSaveDriverAssignments = async (
             const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : [];
             const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : [];
             const newStates = postingRecord?.state
-                ? (typeof postingRecord.state === 'string' ? postingRecord.state.split(' | ') : [...postingRecord.state])
+                ? (Array.isArray(postingRecord.state) ? [...postingRecord.state] : String(postingRecord.state).split(' | '))
                 : (postingRecord?.assignment_venue?.map(_ => '') || []);
 
             const existingIdx = newAssignments.indexOf(assignment.code);
@@ -190,7 +190,7 @@ export const bulkSaveDriverAssignments = async (
                 station: change.staff.current_station,
                 conraiss: change.staff.conr,
                 year: new Date().getFullYear().toString(),
-                state: newStates.join(' | '),
+                state: newStates,
                 assignments: newAssignments,
                 mandates: newMandates,
                 assignment_venue: newVenues,
@@ -214,13 +214,11 @@ export const bulkSaveDriverAssignments = async (
                     postingRecord.mandates.splice(idx, 1);
                     postingRecord.assignment_venue.splice(idx, 1);
 
-                    const states = typeof postingRecord.state === 'string'
-                        ? postingRecord.state.split(' | ')
-                        : (postingRecord.state || []);
+                    const states = Array.isArray(postingRecord.state) ? [...postingRecord.state] : (postingRecord.state ? String(postingRecord.state).split(' | ') : []);
                     if (states.length > idx) {
                         states.splice(idx, 1);
                     }
-                    postingRecord.state = states.join(' | ');
+                    postingRecord.state = states;
 
                     postingRecord.posted_for = postingRecord.assignments.length;
                     postingRecord.to_be_posted = allottedCount - postingRecord.posted_for;

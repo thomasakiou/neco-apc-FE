@@ -101,7 +101,7 @@ export const bulkSaveTypesettingAssignments = async (
     payload: {
         assignment: Assignment;
         mandate?: MandateColumn;
-        station?: { id: string; name: string; type: string; state?: string | null };
+        station?: { id: string; name: string; type: string; state?: string | null; code?: string };
         changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[];
         numberOfNights?: number;
         description?: string;
@@ -162,23 +162,32 @@ export const bulkSaveTypesettingAssignments = async (
             }
 
             const newAssignments = postingRecord?.assignments ? [...postingRecord.assignments] : [];
-            const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : [];
-            const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : [];
+            const newMandates = postingRecord?.mandates ? [...postingRecord.mandates] : newAssignments.map(_ => '');
+            const newVenues = postingRecord?.assignment_venue ? [...postingRecord.assignment_venue] : newAssignments.map(_ => '');
+            const newVenueCodes = postingRecord?.venue_code ? [...postingRecord.venue_code] : newAssignments.map(_ => '');
             const newStates = postingRecord?.state
                 ? (typeof postingRecord.state === 'string' ? postingRecord.state.split(' | ') : [...postingRecord.state])
-                : (postingRecord?.assignment_venue?.map(_ => '') || []);
+                : newAssignments.map(_ => '');
+
+            // Synchronize arrays if they are out of sync
+            while (newMandates.length < newAssignments.length) newMandates.push('');
+            while (newVenues.length < newAssignments.length) newVenues.push('');
+            while (newVenueCodes.length < newAssignments.length) newVenueCodes.push('');
+            while (newStates.length < newAssignments.length) newStates.push('');
 
             const existingIdx = newAssignments.indexOf(assignment.code);
             if (existingIdx !== -1) {
                 newAssignments.splice(existingIdx, 1);
                 newMandates.splice(existingIdx, 1);
                 newVenues.splice(existingIdx, 1);
+                newVenueCodes.splice(existingIdx, 1);
                 newStates.splice(existingIdx, 1);
             }
 
             newAssignments.push(assignment.code);
             newMandates.push(mandateName.substring(0, 50));
             newVenues.push(venue);
+            newVenueCodes.push(station?.code || '');
             newStates.push(station?.state || '');
 
             const postedFor = newAssignments.length;
@@ -189,11 +198,14 @@ export const bulkSaveTypesettingAssignments = async (
                 name: change.staff.staff_name,
                 station: change.staff.current_station,
                 conraiss: change.staff.conr,
+                sex: typesettingApcRecord?.sex || null,
+                qualification: typesettingApcRecord?.qualification || null,
                 year: new Date().getFullYear().toString(),
-                state: newStates.join(' | '),
+                state: newStates,
                 assignments: newAssignments,
                 mandates: newMandates,
                 assignment_venue: newVenues,
+                venue_code: newVenueCodes,
                 posted_for: postedFor,
                 to_be_posted: Math.max(0, apcLimit - postedFor),
                 numb_of__nites: allottedCount,
@@ -217,10 +229,16 @@ export const bulkSaveTypesettingAssignments = async (
                     const states = typeof postingRecord.state === 'string'
                         ? postingRecord.state.split(' | ')
                         : (postingRecord.state || []);
-                    if (states.length > idx) {
-                        states.splice(idx, 1);
-                    }
-                    postingRecord.state = states.join(' | ');
+
+                    const venueCodes = typeof postingRecord.venue_code === 'string'
+                        ? [postingRecord.venue_code]
+                        : (postingRecord.venue_code || []);
+
+                    if (states.length > idx) states.splice(idx, 1);
+                    if (venueCodes.length > idx) venueCodes.splice(idx, 1);
+
+                    postingRecord.state = states;
+                    postingRecord.venue_code = venueCodes;
 
                     postingRecord.posted_for = postingRecord.assignments.length;
                     postingRecord.to_be_posted = allottedCount - postingRecord.posted_for;

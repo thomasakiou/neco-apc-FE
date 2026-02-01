@@ -1,10 +1,10 @@
-import { TypesettingPostingResponse, TypesettingPostingListResponse } from '../types/typesettingPosting';
+import { TypesettingFinalPostingResponse, TypesettingFinalPostingListResponse } from '../types/typesettingFinalPosting';
 import { API_BASE_URL } from '../src/config';
 import { getAuthHeaders } from './apiUtils';
 
 const REQUEST_URL = `${API_BASE_URL}/final-typsetting-posting`;
 
-export const getAllTypesettingFinalPostings = async (skip: number = 0, limit: number = 100): Promise<TypesettingPostingListResponse> => {
+export const getAllTypesettingFinalPostings = async (skip: number = 0, limit: number = 100): Promise<TypesettingFinalPostingListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
         limit: limit.toString(),

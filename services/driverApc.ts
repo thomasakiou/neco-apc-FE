@@ -7,7 +7,11 @@ const REQUEST_URL = `${API_BASE_URL}/drivers-apc`;
 export const assignmentFieldMap: { [key: string]: string } = {
     'TT': 'tt',
     'SSCE-INT': 'ssce_int',
+    'SSCE INT': 'ssce_int',
+    'SSCE INT EXAM': 'ssce_int',
+    'SSCE INTERNAL EXAMINATION': 'ssce_int',
     'SSCE-EXT': 'ssce_ext',
+    'SSCE EXT': 'ssce_ext',
     'SSCE-INT-MRK': 'ssce_int_mrk',
     'SSCE-EXT-MRK': 'ssce_ext_mrk',
     'NCEE': 'ncee',

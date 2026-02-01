@@ -399,21 +399,54 @@ const DriverPostings: React.FC = () => {
         if (!assignmentRecord) {
             return [];
         }
-        const apcField = driverApcFieldMap[assignmentRecord.code] || driverApcFieldMap[assignmentRecord.name];
+        const getField = (code?: string, name?: string) => {
+            const keys = [code, name].filter(Boolean) as string[];
+            for (const k of keys) {
+                const upper = k.toUpperCase().trim();
+                const withHyphen = upper.replace(/\s+/g, '-');
+                const withoutHyphen = upper.replace(/-/g, ' ');
+
+                if (driverApcFieldMap[upper]) return driverApcFieldMap[upper];
+                if (driverApcFieldMap[withHyphen]) return driverApcFieldMap[withHyphen];
+                if (driverApcFieldMap[withoutHyphen]) return driverApcFieldMap[withoutHyphen];
+            }
+            return null;
+        };
+
+        const apcField = getField(assignmentRecord.code, assignmentRecord.name);
         if (!apcField) {
+            console.warn('No field found for assignment:', assignmentRecord);
             return [];
         }
 
-        const alreadyPostedFileNos = new Set<string>();
-        existingPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
-        finalPostings.forEach(p => alreadyPostedFileNos.add(String(p.file_no).padStart(4, '0')));
+        const assignmentCode = assignmentRecord.code;
+
+        const alreadyPostedForThisSet = new Set<string>();
+        const staffAssignmentsCount = new Map<string, number>();
+        const driverToExistingPosting = new Map<string, PostingResponse | DriverFinalPostingResponse>();
+
+        [...existingPostings, ...finalPostings].forEach(p => {
+            const fno = String(p.file_no).padStart(4, '0');
+            const arr = Array.isArray(p.assignments) ? p.assignments : [];
+            if (arr.includes(assignmentCode)) alreadyPostedForThisSet.add(fno);
+
+            staffAssignmentsCount.set(fno, (staffAssignmentsCount.get(fno) || 0) + arr.length);
+            driverToExistingPosting.set(fno, p);
+        });
 
         const filtered = allDrivers.filter(d => {
             const normalizedFileNo = String(d.file_no).padStart(4, '0');
-            if (alreadyPostedFileNos.has(normalizedFileNo)) return false;
+            // 1. Skip if already posted for THIS specific assignment
+            if (alreadyPostedForThisSet.has(normalizedFileNo)) return false;
 
+            // 2. Skip if they don't have the required qualification/field in APC
             const val = (d as any)[apcField];
-            if (!val || val.toString().trim() === '') return false;
+            if (!val || val.toString().trim() === '' || val.toString().toUpperCase() === 'RETURNED') return false;
+
+            // 3. Skip if they reached their total assignment limit
+            const assignmentsDone = staffAssignmentsCount.get(normalizedFileNo) || 0;
+            const limit = d.count || 1;
+            if (assignmentsDone >= limit) return false;
 
             return true;
         });
@@ -520,19 +553,31 @@ const DriverPostings: React.FC = () => {
                                 ? `${baseVenueName} | ${vStateVal}`
                                 : baseVenueName;
 
+                            const existingDraft = existingPostings.find(ep => String(ep.file_no).padStart(4, '0') === pickedDriver.file_no.padStart(4, '0'));
+                            const existingFinal = finalPostings.find(fp => String(fp.file_no).padStart(4, '0') === pickedDriver.file_no.padStart(4, '0'));
+                            const baseRecord = existingDraft || existingFinal;
+
+                            const prevAssignments = baseRecord?.assignments ? (Array.isArray(baseRecord.assignments) ? baseRecord.assignments : []) : [];
+                            const prevMandates = baseRecord?.mandates ? (Array.isArray(baseRecord.mandates) ? baseRecord.mandates : []) : [];
+                            const prevVenues = baseRecord?.assignment_venue ? (Array.isArray(baseRecord.assignment_venue) ? baseRecord.assignment_venue : []) : [];
+                            const prevStates = baseRecord?.state
+                                ? (Array.isArray(baseRecord.state) ? baseRecord.state : [baseRecord.state])
+                                : prevVenues.map(() => '');
+
                             newPostings.push({
                                 file_no: pickedDriver.file_no,
                                 name: pickedDriver.name,
-                                station: pickedDriver.station || '',
-                                conraiss: pickedDriver.conraiss || '',
+                                station: pickedDriver.station || baseRecord?.station || '',
+                                conraiss: pickedDriver.conraiss || baseRecord?.conraiss || '',
+                                sex: pickedDriver.sex || (baseRecord as any)?.sex || null,
                                 year: new Date().getFullYear().toString(),
-                                assignments: [assignmentCode],
-                                mandates: [targetMandate],
-                                assignment_venue: [finalVenue],
-                                state: [vNeed.venue.state_name || ''],
+                                assignments: [...prevAssignments, assignmentCode],
+                                mandates: [...prevMandates, targetMandate],
+                                assignment_venue: [...prevVenues, finalVenue],
+                                state: [...prevStates, vNeed.venue.state_name || ''],
                                 numb_of__nites: numberOfNights,
                                 description: description || null
-                            } as any);
+                            });
 
                             vNeed.remaining--;
                             madeProgress = true;
@@ -627,7 +672,7 @@ const DriverPostings: React.FC = () => {
     return (
         <div className="flex-1 flex flex-col min-h-full bg-slate-50 dark:bg-[#0b1015] p-4 md:p-8 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
             <div className="mb-8">
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm">
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
                     Driver Posting Generator
                 </h1>
                 <p className="mt-2 text-slate-500 dark:text-slate-400 font-medium">Assign Drivers using random or personalized methods.</p>
