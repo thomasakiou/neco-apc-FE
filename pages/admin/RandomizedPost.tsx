@@ -1108,6 +1108,8 @@ const RandomizedPost: React.FC = () => {
                                     name: staff.name,
                                     station: staff.station,
                                     conraiss: staff.conraiss,
+                                    sex: staff.sex || null,
+                                    qualification: staff.qualification || null,
                                     year: new Date().getFullYear().toString(),
                                     count: numberOfNights, // Use explicit number of nights (default 0)
                                     posted_for: mergedAssignments.length,
