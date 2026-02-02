@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import * as XLSX from 'xlsx';
-import { getAllDriverFinalPostings } from '../../services/driverFinalPosting';
+import { getAllDriverPostings } from '../../services/driverPosting';
 import { getAllDriverAPCRecords } from '../../services/driverApc';
 import { getAllStates } from '../../services/state';
 import { DriverAPCRecord } from '../../types/driverApc';
@@ -113,11 +113,11 @@ const DriverPostingReports: React.FC = () => {
         try {
             setLoading(true);
             const [postingsData, activeAPC, statesData] = await Promise.all([
-                getAllDriverFinalPostings(0, 100000),
+                getAllDriverPostings(true),
                 getAllDriverAPCRecords(true),
                 getAllStates()
             ]);
-            const flattened = flattenPostings(postingsData.items, statesData);
+            const flattened = flattenPostings(postingsData, statesData);
             setAllFlatRows(flattened);
             setApcRecords(activeAPC);
         } catch (err) {

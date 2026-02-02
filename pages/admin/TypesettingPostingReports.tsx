@@ -390,7 +390,7 @@ const TypesettingPostingReports: React.FC = () => {
             <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 drop-shadow-sm tracking-tight">
-                        Typesetting Postings Table
+                        Typesetting Postings Report
                     </h1>
                     <p className="mt-1 text-slate-500 dark:text-slate-400 font-medium">View and manage all generated Typesetting postings.</p>
                 </div>
