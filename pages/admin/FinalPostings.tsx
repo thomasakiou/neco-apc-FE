@@ -11,8 +11,6 @@ import { Assignment } from '../../types/assignment';
 import { MarkingVenue } from '../../types/markingVenue';
 import { useNotification } from '../../context/NotificationContext';
 import SearchableSelect from '../../components/SearchableSelect';
-import { getAllAPCRecords, updateAPC } from '../../services/apc';
-import { assignmentFieldMap } from '../../services/personalizedPost';
 import { getPageCache, setPageCache } from '../../services/pageCache';
 
 const normalizeString = (str: string | null | undefined): string => {
@@ -334,7 +332,7 @@ const FinalPostings: React.FC = () => {
                         </h3>
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                             {deletionProgress
-                                ? `Returning staff to pool: ${deletionProgress.current} / ${deletionProgress.total}`
+                                ? `Removing Staff from Archive: ${deletionProgress.current} / ${deletionProgress.total}`
                                 : 'Please wait while we sync with the server...'}
                         </p>
                     </div>
@@ -414,7 +412,7 @@ const FinalPostings: React.FC = () => {
         }
 
         const confirmed = window.confirm(
-            `Are you sure you want to remove assignment(s) for ${recordsToUpdate.length} record(s)? This will return them to the pool.`
+            `Are you sure you want to remove assignment(s) for ${recordsToUpdate.length} record(s) from the archive?`
         );
 
         if (!confirmed) return;
@@ -423,53 +421,14 @@ const FinalPostings: React.FC = () => {
             setDeleting(true);
             setDeletionProgress({ current: 0, total: recordsToUpdate.length });
 
-            // 1. Fetch all APC records to perform updates
-            const allAPC = await getAllAPCRecords(false, true);
-            const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
-
-            // 2. Process records (Update or Delete in Final Table, and Restore APC)
-            const CHUNK_SIZE = 20; // Smaller chunk for complex operations
+            // Process records (Update or Delete in Final Table)
+            const CHUNK_SIZE = 20;
             for (let i = 0; i < recordsToUpdate.length; i += CHUNK_SIZE) {
                 const chunk = recordsToUpdate.slice(i, i + CHUNK_SIZE);
                 const apiCalls = [];
 
                 for (const item of chunk) {
-                    // A. Restore APC
-                    const posting = selectedGrouped.flatMap(g => (g as any)._original || [g]).find(p => p.id === item.id);
-                    if (posting) {
-                        const normFileNo = posting.file_no.toString().padStart(4, '0');
-                        const apcRecord = apcMap.get(normFileNo);
-
-                        if (apcRecord && item.removedAssignments.length > 0) {
-                            let apcPayload: any = { ...apcRecord };
-                            const { id, created_at, updated_at, created_by, updated_by, ...rest } = apcPayload;
-                            apcPayload = { ...rest };
-
-                            let apcChanged = false;
-                            item.removedAssignments.forEach((assignment: any) => {
-                                const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
-                                const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
-                                if (fieldName) {
-                                    // Restore the assignment code (prefer code, fallback to name)
-                                    // Try to find the official code in the assignments list
-                                    const matchedDef = assignments.find(a =>
-                                        a.code?.toString().toUpperCase() === codeOrName.toString().toUpperCase() ||
-                                        a.name?.toString().toUpperCase() === codeOrName.toString().toUpperCase()
-                                    );
-
-                                    const val = matchedDef?.code || codeOrName;
-                                    apcPayload[fieldName] = val; // Restore assignment code
-                                    apcChanged = true;
-                                }
-                            });
-
-                            if (apcChanged) {
-                                apiCalls.push(updateAPC(apcRecord.id, apcPayload));
-                            }
-                        }
-                    }
-
-                    // B. Modify Final Table
+                    // Modify Final Table (no APC restoration)
                     if (item.payload === null) {
                         // All assignments matched - Delete
                         apiCalls.push(bulkDeleteFinalPostings([item.id]));
@@ -506,7 +465,7 @@ const FinalPostings: React.FC = () => {
 
     const handleDeleteAll = async () => {
         const confirmed = window.confirm(
-            "CRITICAL: Are you sure you want to DELETE ALL final postings? This will return ALL staff to the pool. This action cannot be undone."
+            "CRITICAL: Are you sure you want to DELETE ALL final postings? This action cannot be undone."
         );
 
         if (!confirmed) return;
@@ -519,70 +478,13 @@ const FinalPostings: React.FC = () => {
 
         try {
             setDeleting(true);
+            setDeletionProgress({ current: 0, total: 1 });
 
-            // 1. Fetch all APC records
-            const allAPC = await getAllAPCRecords(false, true);
-            const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
-
-            // 2. Fetch fresh raw data for restoration
-            const allFinalData = await getAllFinalPostings();
-            const allRawPostings = allFinalData.items || (Array.isArray(allFinalData) ? allFinalData : []);
-
-            setDeletionProgress({ current: 0, total: allRawPostings.length });
-
-            // 3. Process ALL postings in chunks for APC restoration
-            const CHUNK_SIZE = 50;
-
-            for (let i = 0; i < allRawPostings.length; i += CHUNK_SIZE) {
-                const chunk = allRawPostings.slice(i, i + CHUNK_SIZE);
-                const updates = [];
-
-                for (const posting of chunk) {
-                    const normFileNo = posting.file_no.toString().padStart(4, '0');
-                    const apcRecord = apcMap.get(normFileNo);
-
-                    if (apcRecord && posting.assignments && posting.assignments.length > 0) {
-                        let payload: any = { ...apcRecord };
-                        const { id, created_at, updated_at, created_by, updated_by, ...rest } = payload;
-                        payload = { ...rest };
-
-                        let hasChanges = false;
-                        posting.assignments.forEach((assignment: any) => {
-                            const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
-                            const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
-                            if (fieldName) {
-                                // Restore the assignment code (prefer code, fallback to name)
-                                // Try to find the official code in the assignments list
-                                const matchedDef = assignments.find(a =>
-                                    a.code?.toString().toUpperCase() === codeOrName.toString().toUpperCase() ||
-                                    a.name?.toString().toUpperCase() === codeOrName.toString().toUpperCase()
-                                );
-
-                                const val = matchedDef?.code || codeOrName;
-                                payload[fieldName] = val; // Restore assignment code
-                                hasChanges = true;
-                            }
-                        });
-
-                        if (hasChanges) {
-                            updates.push(updateAPC(apcRecord.id, payload));
-                        }
-                    }
-                }
-
-                if (updates.length > 0) {
-                    await Promise.allSettled(updates);
-                }
-
-                setDeletionProgress(prev => ({
-                    current: Math.min(i + CHUNK_SIZE, allRawPostings.length),
-                    total: allRawPostings.length
-                }));
-            }
-
-            // 4. Delete everything from final table (Backend call)
+            // Delete everything from final table (Backend call)
             await deleteAllFinalPostings();
-            success('All final postings deleted and staff returned to pool.');
+
+            setDeletionProgress({ current: 1, total: 1 });
+            success('All final postings deleted successfully.');
 
             setPostings([]);
             setSelectedIds(new Set());

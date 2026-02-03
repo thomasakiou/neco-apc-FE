@@ -148,9 +148,9 @@ const AdminLayout: React.FC = () => {
               <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
 
               {/* <NavItem to="/admin/apc/modes" icon="tune" label="Posting Modes" active={isActive('/admin/apc/modes')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} /> */}
-              <NavItem to="/admin/apc/annual" icon="list_alt" label="Post Table" active={isActive('/admin/apc/annual')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/board" icon="view_kanban" label="Personalized-Post" active={isActive('/admin/assignments/board')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/assignments/random" icon="shuffle" label="Randomized-Post" active={isActive('/admin/assignments/random')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/apc/annual" icon="list_alt" label="Post Table" active={isActive('/admin/apc/annual')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/apc/final" icon="verified" label="Final Post Table" active={isActive('/admin/apc/final')} isLocked={isModuleLocked('posting') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
 
               <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />

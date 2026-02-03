@@ -339,13 +339,7 @@ export const bulkSaveAssignments = async (
             }
 
             // APC Sync (Immediate but could be batched later if needed)
-            // Removed: APC fields are now only cleared during Archiving to Final Postings.
-            /*
-            if (change.action === 'add' && apcRecord && fieldName) {
-                const { id, created_at, updated_at, created_by, updated_by, ...clean } = apcRecord;
-                await updateAPC(id, { ...clean, [fieldName]: '' });
-            }
-            */
+            // [REMOVED] APC fields are no longer cleared here. They are preserved.
 
             // Ensure all arrays exist and are synchronized
             const newAssignments = postingRecord?.assignments ? [...postingRecord.assignments] : [];
@@ -421,13 +415,7 @@ export const bulkSaveAssignments = async (
             modifiedStaffNos.add(normalizedStaffNo);
 
         } else if (change.action === 'remove') {
-            // Removed: APC fields are now only restored during Deletion from Final Postings.
-            /*
-            if (apcRecord && fieldName) {
-                const { id, created_at, updated_at, created_by, updated_by, ...clean } = apcRecord;
-                await updateAPC(id, { ...clean, [fieldName]: 'Returned' });
-            }
-            */
+            // [REMOVED] APC fields are no longer restored here. They are preserved.
 
             if (postingRecord) {
                 const assignments = postingRecord.assignments ? [...postingRecord.assignments] : [];

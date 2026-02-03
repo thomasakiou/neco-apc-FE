@@ -4,6 +4,7 @@ import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from '../../services/markingVenue';
 import { bulkCreatePostings, bulkDeletePostings, getAllPostingRecords } from '../../services/posting';
+import { getAllFinalPostings } from '../../services/finalPosting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
 import { Mandate } from '../../types/mandate';
@@ -124,6 +125,7 @@ const RandomizedPost: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [mandates, setMandates] = useState<Mandate[]>([]);
     const [existingPostings, setExistingPostings] = useState<PostingResponse[]>([]);
+    const [existingFinalPostings, setExistingFinalPostings] = useState<any[]>([]);
     const [allStations, setAllStations] = useState<Station[]>([]);
     const [allStates, setAllStates] = useState<State[]>([]);
     // Using simple object structure for flexible station types
@@ -252,12 +254,42 @@ const RandomizedPost: React.FC = () => {
             }
         }
 
-        // Pre-calculate posted counts
+        // Pre-calculate posted counts and check for duplicate assignments
         const postedCountMap = new Map<string, number>();
-        existingPostings.forEach(p => {
+        const staffAlreadyPostedForAssignment = new Set<string>();
+
+        const processPostingRecord = (p: any) => {
             const count = (p.assignments || []).length;
-            postedCountMap.set(p.file_no, (postedCountMap.get(p.file_no) || 0) + count);
-        });
+            const normalizedFileNo = p.file_no.toString().padStart(4, '0');
+            postedCountMap.set(normalizedFileNo, (postedCountMap.get(normalizedFileNo) || 0) + count);
+
+            // Helper for robust comparison
+            const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
+            const targetCode = normalize(assignmentCode);
+            const targetName = normalize(assignmentName);
+            const targetMandateNorm = selectedMandate ? normalize(selectedMandate) : '';
+
+            let matchesAssignment = false;
+            if (Array.isArray(p.assignments)) {
+                matchesAssignment = p.assignments.some((a: any) => {
+                    const normA = normalize(a.code || a.name || a);
+                    return (targetCode && normA === targetCode) || (targetName && normA === targetName);
+                });
+            }
+
+            // Matches mandate logic is secondary
+            let matchesMandate = false;
+            if (targetMandateNorm && Array.isArray(p.mandates)) {
+                matchesMandate = p.mandates.some((m: any) => normalize(m.mandate || m.code || m) === targetMandateNorm);
+            }
+
+            if (matchesAssignment || matchesMandate) {
+                staffAlreadyPostedForAssignment.add(normalizedFileNo);
+            }
+        };
+
+        existingPostings.forEach(processPostingRecord);
+        existingFinalPostings.forEach(processPostingRecord);
 
         const breakdown: { [key: number]: number } = {
             6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
@@ -266,9 +298,13 @@ const RandomizedPost: React.FC = () => {
 
         allAPC.forEach(staff => {
             if (!staff.active) return;
+            const normalizedStaffNo = staff.file_no.toString().padStart(4, '0');
 
-            // Capacity Check
-            const totalPosted = postedCountMap.get(staff.file_no) || 0;
+            // 1. Check if already posted for THIS assignment/mandate (Strict Exclusion)
+            if (staffAlreadyPostedForAssignment.has(normalizedStaffNo)) return;
+
+            // 2. Capacity Check
+            const totalPosted = postedCountMap.get(normalizedStaffNo) || 0;
             const totalAllotted = staff.count || 0;
             if (totalPosted >= totalAllotted) return;
 
@@ -317,7 +353,7 @@ const RandomizedPost: React.FC = () => {
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, filterEducation, filterStation, filterQualification, educationStaffSet]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterEducation, filterStation, filterQualification, educationStaffSet]);
 
     useEffect(() => {
         fetchInitialData();
@@ -326,12 +362,13 @@ const RandomizedPost: React.FC = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [apcData, assignmentsData, mandatesData, venuesData, postingsData, stationsData, statesData, staffData] = await Promise.all([
+            const [apcData, assignmentsData, mandatesData, venuesData, postingsData, finalPostingsData, stationsData, statesData, staffData] = await Promise.all([
                 getAllAPCRecords(true),
                 getAllAssignments(true),
                 getAllMandates(true),
                 getAllMarkingVenues(true),
                 getAllPostingRecords(),
+                getAllFinalPostings(),
                 getAllStations(true),
                 getAllStates(),
                 getAllStaff(true) // Fetch only ACTIVE staff for posting
@@ -340,6 +377,7 @@ const RandomizedPost: React.FC = () => {
             setAssignments(assignmentsData);
             setMandates(mandatesData);
             setExistingPostings(postingsData || []); // Ensure safe fallback
+            setExistingFinalPostings(finalPostingsData.items || (Array.isArray(finalPostingsData) ? finalPostingsData : []) || []);
             setAllStations(stationsData);
             setAllStates(statesData);
 
@@ -539,7 +577,7 @@ const RandomizedPost: React.FC = () => {
 
             // 1.5 Calculate Global Posted Counts & Check specific duplication
             const postedCountMap = new Map<string, number>();
-            existingPostings.forEach(p => {
+            const processPostingRecord = (p: any) => {
                 const count = (p.assignments || []).length;
                 const normalizedFileNo = p.file_no.toString().padStart(4, '0');
                 postedCountMap.set(normalizedFileNo, (postedCountMap.get(normalizedFileNo) || 0) + count);
@@ -552,8 +590,8 @@ const RandomizedPost: React.FC = () => {
 
                 let matchesAssignment = false;
                 if (Array.isArray(p.assignments)) {
-                    matchesAssignment = p.assignments.some(a => {
-                        const normA = normalize(a);
+                    matchesAssignment = p.assignments.some((a: any) => {
+                        const normA = normalize(a.code || a.name || a); // Handle object or string
                         return (targetCode && normA === targetCode) || (targetName && normA === targetName);
                     });
                 }
@@ -561,20 +599,22 @@ const RandomizedPost: React.FC = () => {
                 // Matches mandate logic is secondary if we enforce strict 1-assignment-per-staff
                 let matchesMandate = false;
                 if (Array.isArray(p.mandates)) {
-                    matchesMandate = p.mandates.some(m => normalize(m) === targetMandateNorm);
+                    matchesMandate = p.mandates.some((m: any) => normalize(m.mandate || m.code || m) === targetMandateNorm);
                 }
 
                 if (matchesAssignment || matchesMandate) {
                     alreadyAssignedStaffIds.add(normalizedFileNo);
                 }
-            });
+            };
+
+            existingPostings.forEach(processPostingRecord);
+            existingFinalPostings.forEach(processPostingRecord);
 
             console.log('DEBUG: Staff Duplicate Check', {
                 assignmentCode,
                 assignmentName,
-                totalExisting: existingPostings.length,
-                foundDuplicates: alreadyAssignedStaffIds.size,
-                samplePosting: existingPostings[0]
+                totalExisting: existingPostings.length + existingFinalPostings.length,
+                foundDuplicates: alreadyAssignedStaffIds.size
             });
 
             // 2. Filter Eligible Staff (Strict check on Global Quota + Mandate CONRAISS Range)
@@ -1109,7 +1149,6 @@ const RandomizedPost: React.FC = () => {
                                     station: staff.station,
                                     conraiss: staff.conraiss,
                                     sex: staff.sex || null,
-                                    qualification: staff.qualification || null,
                                     year: new Date().getFullYear().toString(),
                                     count: numberOfNights, // Use explicit number of nights (default 0)
                                     posted_for: mergedAssignments.length,
@@ -1201,35 +1240,8 @@ const RandomizedPost: React.FC = () => {
         try {
             // 1. Identify APC Field
             // Removed: APC fields are now only cleared during Archiving to Final Postings.
-            /*
-            const assignmentRecord = assignments.find(a => a.id === selectedAssignment);
-            const assignmentCode = assignmentRecord?.code || '';
-            const assignmentName = assignmentRecord?.name || '';
-            const apcField = assignmentFieldMap[assignmentCode] || assignmentFieldMap[assignmentName];
-
-            if (apcField) {
-                // 2. Prepare APC Updates
-                const updates = [];
-                const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
-
-                for (const posting of generatedPostings) {
-                    const normFileNo = posting.file_no.toString().padStart(4, '0');
-                    const apcRecord = apcMap.get(normFileNo) as any;
-
-                    if (apcRecord && apcRecord.id) {
-                        const { id, created_at, updated_at, created_by, updated_by, ...cleanRecord } = apcRecord;
-                        updates.push(updateAPC(id, {
-                            ...cleanRecord,
-                            [apcField]: '', // Clear the assignment field in APC (Standardized for Add)
-                        } as any));
-                    }
-                }
-
-                if (updates.length > 0) {
-                    await Promise.allSettled(updates);
-                }
-            }
-            */
+            // 2. [REMOVED] APC fields are no longer cleared here. They are cleared ONLY during Archiving if needed, 
+            // but per new logic, we generally keep the APC text intact.
 
             // 3. Create Postings
             // To prevent duplicate ROWS for the same staff, we delete the old records before bulk creating new ones

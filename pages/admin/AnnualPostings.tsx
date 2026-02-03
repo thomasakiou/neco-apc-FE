@@ -828,61 +828,13 @@ const AnnualPostings: React.FC = () => {
     try {
       setIsArchiving(true);
       setLoading(true);
+      setArchiveProgress({ current: 0, total: 1 });
 
-      // Keep a copy of postings to update APC
-      const postingsToArchive = [...postings];
-      setArchiveProgress({ current: 0, total: postingsToArchive.length });
-
-      // 1. Archive to final table (This might take a while if many records)
+      // Archive to final table (APC fields are preserved per new logic)
       await archivePostings();
 
-      // 2. Clear APC fields for archived staff
-      if (postingsToArchive.length > 0) {
-        const allAPC = await getAllAPCRecords(false, true);
-        const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
-        const CHUNK_SIZE = 50;
-
-        for (let i = 0; i < postingsToArchive.length; i += CHUNK_SIZE) {
-          const chunk = postingsToArchive.slice(i, i + CHUNK_SIZE);
-          const updates = [];
-
-          for (const posting of chunk) {
-            const normFileNo = posting.file_no.toString().padStart(4, '0');
-            const apcRecord = apcMap.get(normFileNo);
-
-            if (apcRecord && posting.assignments && posting.assignments.length > 0) {
-              let payload: any = { ...apcRecord };
-              const { id, created_at, updated_at, created_by, updated_by, ...rest } = payload;
-              payload = { ...rest };
-
-              let hasChanges = false;
-              posting.assignments.forEach((assignment: any) => {
-                const codeOrName = typeof assignment === 'string' ? assignment : assignment.code || assignment.name;
-                const fieldName = assignmentFieldMap[codeOrName] || assignmentFieldMap[codeOrName?.toString().toUpperCase()];
-                if (fieldName) {
-                  payload[fieldName] = ''; // Clear the assignment field
-                  hasChanges = true;
-                }
-              });
-
-              if (hasChanges) {
-                updates.push(updateAPC(apcRecord.id, payload));
-              }
-            }
-          }
-
-          if (updates.length > 0) {
-            await Promise.allSettled(updates);
-          }
-
-          setArchiveProgress(prev => ({
-            current: Math.min(i + CHUNK_SIZE, postingsToArchive.length),
-            total: postingsToArchive.length
-          }));
-        }
-      }
-
-      success("Successfully archived all postings and updated APC records.");
+      setArchiveProgress({ current: 1, total: 1 });
+      success("Successfully archived all postings.");
       setArchiveProgress(null);
       fetchInitialData();
     } catch (err: any) {
@@ -977,7 +929,6 @@ const AnnualPostings: React.FC = () => {
       const apcMap = new Map(allAPC.map(a => [a.file_no.toString().padStart(4, '0'), a]));
       const postingMap = new Map(allPostings.map(p => [p.file_no.toString().padStart(4, '0'), p]));
 
-      const apcUpdates = new Map<string, any>();
       const postingPayloads = new Map<string, PostingCreate>();
 
       data.forEach(row => {
@@ -1018,18 +969,7 @@ const AnnualPostings: React.FC = () => {
         // Deduplicate
         const dedup = deduplicatePostings(assignments, mandates, venues);
 
-        // Update APC record (clear fields for these assignments)
-        let apcFields = apcUpdates.get(apcRecord.id) || { ...apcRecord };
-        const { id, created_at, updated_at, created_by, updated_by, ...cleanApc } = apcFields;
-        apcFields = { ...cleanApc };
-
-        dedup.assignments.forEach(code => {
-          const fieldName = assignmentFieldMap[code] || assignmentFieldMap[code.toString().toUpperCase()];
-          if (fieldName) {
-            apcFields[fieldName] = ''; // Clear from pool
-          }
-        });
-        apcUpdates.set(apcRecord.id, apcFields);
+        // [REMOVED] APC fields are no longer cleared here - they are preserved
 
         // Prepare posting record
         const totalAllotted = apcRecord.count || getAssignmentLimit(apcRecord.conraiss);
@@ -1050,8 +990,7 @@ const AnnualPostings: React.FC = () => {
         });
       });
 
-      // 2. Execute Updates
-      const apcPromises = Array.from(apcUpdates.entries()).map(([id, fields]) => updateAPC(id, fields));
+      // 2. Execute Updates (No APC modifications)
       const postingPayload = Array.from(postingPayloads.values());
 
       if (postingPayload.length > 0) {
@@ -1064,10 +1003,7 @@ const AnnualPostings: React.FC = () => {
           await bulkDeletePostings(idsToDelete as string[]);
         }
 
-        await Promise.all([
-          ...apcPromises,
-          bulkCreatePostings({ items: postingPayload })
-        ]);
+        await bulkCreatePostings({ items: postingPayload });
 
         success(`Successfully imported ${postingPayload.length} records.`);
         setIsCsvModalOpen(false);
