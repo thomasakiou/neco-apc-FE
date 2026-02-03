@@ -1,11 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { getStaffLoginLogs, clearStaffLoginLogs } from '../../services/audit';
+import { getAuditLogs } from '../../services/user';
+import { clearStaffLoginLogs } from '../../services/audit';
 import { AuditLogResponse } from '../../types/audit';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import moment from 'moment';
 import * as XLSX from 'xlsx';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const StaffLoginLogs: React.FC = () => {
     const { isSuperAdmin } = useAuth();
@@ -16,23 +18,54 @@ const StaffLoginLogs: React.FC = () => {
     const [limit, setLimit] = useState(20);
     const [total, setTotal] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
     const [isClearLogsModalOpen, setIsClearLogsModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
+        setPage(1);
+    }, [debouncedSearchTerm]);
+
+    useEffect(() => {
         fetchAuditData();
-    }, [page, limit]);
+    }, [page, limit, debouncedSearchTerm]);
 
     const fetchAuditData = async () => {
         setLoading(true);
         try {
-            const skip = (page - 1) * limit;
-            const data = await getStaffLoginLogs(skip, limit, searchTerm);
+            // If searching, fetch larger batch (up to 1000) and filter client-side
+            // This bypasses potential strict-matching issues on the backend
+            const isSearching = !!debouncedSearchTerm;
+            const fetchLimit = isSearching ? 1000 : limit;
+            const fetchSkip = isSearching ? 0 : (page - 1) * limit;
+
+            // Pass 'undefined' for user_name to get all logs, then filter locally if searching
+            const data = await getAuditLogs(fetchSkip, fetchLimit, 'Staff Portal');
 
             if (data && data.items) {
-                setEvents(data.items);
-                setTotal(data.total);
+                let displayEvents = data.items;
+                let displayTotal = data.total;
+
+                if (isSearching) {
+                    const lowerTerm = debouncedSearchTerm.toLowerCase();
+                    displayEvents = data.items.filter(event =>
+                        (event.user_name && event.user_name.toLowerCase().includes(lowerTerm)) ||
+                        (event.details && event.details.toLowerCase().includes(lowerTerm))
+                    );
+                    displayTotal = displayEvents.length;
+
+                    // Client-side pagination for search results if strictly needed, 
+                    // but for now let's just show all found matches (or slice if needed)
+                    // Simple slice to respect current limit per page view
+                    const searchStart = (page - 1) * limit;
+                    const searchEnd = searchStart + limit;
+                    // We only slice for display, but keep total for pagination calc
+                    displayEvents = displayEvents.slice(searchStart, searchEnd);
+                }
+
+                setEvents(displayEvents);
+                setTotal(displayTotal);
             }
         } catch (error) {
             console.error("Failed to fetch staff login logs", error);
@@ -43,8 +76,8 @@ const StaffLoginLogs: React.FC = () => {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        setPage(1);
-        fetchAuditData();
+        // Optional: Trigger immediate search if needed, but debounce handles it.
+        // For now, just prevent default to avoid reload.
     };
 
     const totalPages = Math.ceil(total / limit);
