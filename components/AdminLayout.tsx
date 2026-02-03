@@ -214,7 +214,8 @@ const AdminLayout: React.FC = () => {
                 isActive('/admin/audit') || isActive('/admin/configuration')
               }>
                 <NavItem to="/admin/configuration" icon="tune" label="Super Admin" active={isActive('/admin/configuration')} isCollapsed={isSidebarCollapsed} />
-                <NavItem to="/admin/audit" icon="visibility" label="Audit Logs" active={isActive('/admin/audit')} isCollapsed={isSidebarCollapsed} />
+                <NavItem to="/admin/audit" icon="visibility" label="Audit Logs" active={isActive('/admin/audit') && !isActive('/admin/audit/staff-login')} isCollapsed={isSidebarCollapsed} />
+                <NavItem to="/admin/audit/staff-login" icon="login" label="Staff Login Logs" active={isActive('/admin/audit/staff-login')} isCollapsed={isSidebarCollapsed} />
               </CollapsibleNavSection>
             )}
 

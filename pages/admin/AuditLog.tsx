@@ -29,7 +29,8 @@ const AuditLog: React.FC = () => {
       setLoading(true);
       try {
          const skip = (page - 1) * limit;
-         const data = await getAuditLogs(skip, limit);
+         // Filter by '@' to show only users with email (Admins) and exclude Staff (FileNo)
+         const data = await getAuditLogs(skip, limit, undefined, '@');
 
          if (data && data.items) {
             setEvents(data.items);

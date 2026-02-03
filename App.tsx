@@ -38,6 +38,7 @@ import HODPostings from './pages/admin/HODPostings';
 import HODPostingsTable from './pages/admin/HODPostingsTable';
 import TTCenters from './pages/admin/TTCenters';
 import PrintingPoints from './pages/admin/PrintingPoints';
+import StaffLoginLogs from './pages/admin/StaffLoginLogs';
 import FinalHodPostings from './pages/admin/FinalHodPostings';
 import DriverPostings from './pages/admin/DriverPostings';
 import FinalDriverPostings from './pages/admin/FinalDriverPostings';
@@ -138,6 +139,7 @@ const App: React.FC = () => {
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
               <Route path="statistics" element={<ProtectedRoute moduleName="reports"><Statistics /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />
+              <Route path="audit/staff-login" element={<ProtectedRoute requiredRole="super_admin"><StaffLoginLogs /></ProtectedRoute>} />
 
               <Route path="configuration" element={<ProtectedRoute requiredRole="super_admin"><Configuration /></ProtectedRoute>} />
 
