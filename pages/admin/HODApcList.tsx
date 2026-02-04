@@ -5,6 +5,7 @@ import { getAllHODApc, updateHODApc, deleteHODApc, bulkDeleteHODApc, syncHODApc,
 import { getAllAssignments } from '../../services/assignment';
 import { Assignment } from '../../types/assignment';
 import AlertModal from '../../components/AlertModal';
+import HODApcUploadModal from '../../components/HODApcUploadModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -42,6 +43,7 @@ const HODApcList: React.FC = () => {
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showUploadModal, setShowUploadModal] = useState(false);
     const [showGeneratorModal, setShowGeneratorModal] = useState(false);
     const [editingRecord, setEditingRecord] = useState<HODApcRecord | null>(null);
     const [alertModal, setAlertModal] = useState<{
@@ -653,7 +655,7 @@ const HODApcList: React.FC = () => {
                     </h1>
                     <p className="text-sm md:text-base lg:text-lg text-slate-500 dark:text-slate-400 font-medium">Manage mandates for Heads of Departments synchronized from SDL.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     {selectedIds.size > 0 && (
                         <button
                             onClick={handleBulkDelete}
@@ -702,6 +704,13 @@ const HODApcList: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-indigo-600 dark:from-indigo-300 dark:to-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
                         Export List
+                    </button>
+                    <button
+                        onClick={() => setShowUploadModal(true)}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-md hover:shadow-lg hover:bg-emerald-700 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-lg">upload_file</span>
+                        Upload CSV
                     </button>
                 </div>
             </div>
@@ -984,6 +993,12 @@ const HODApcList: React.FC = () => {
                 isOpen={showHelp}
                 onClose={() => setShowHelp(false)}
                 helpData={helpContent.hodApcList}
+            />
+
+            <HODApcUploadModal
+                isOpen={showUploadModal}
+                onClose={() => setShowUploadModal(false)}
+                onSuccess={() => fetchAllRecords(true)}
             />
         </div>
     );

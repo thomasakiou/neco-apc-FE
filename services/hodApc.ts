@@ -1,6 +1,6 @@
 import { HODApcRecord, HODApcListResponse, HODApcCreate, HODApcUpdate } from '../types/hodApc';
 import { API_BASE_URL } from '../src/config';
-import { getAuthHeaders } from './apiUtils';
+import { getAuthHeaders, getAuthHeadersFormData } from './apiUtils';
 
 const REQUEST_URL = `${API_BASE_URL}/hod-apc`;
 
@@ -41,6 +41,26 @@ export const syncHODApc = async (): Promise<{ message: string; created_count: nu
     if (!response.ok) {
         throw new Error('Failed to sync HOD APC records');
     }
+    const result = await response.json();
+    hodApcCache = null; // Invalidate cache
+    return result;
+};
+
+export const uploadHODApc = async (file: File): Promise<{ message: string; count: number }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${REQUEST_URL}/upload`, {
+        method: 'POST',
+        headers: getAuthHeadersFormData(),
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
+        throw new Error(errorData.detail || 'Failed to upload HOD APC records');
+    }
+
     const result = await response.json();
     hodApcCache = null; // Invalidate cache
     return result;
