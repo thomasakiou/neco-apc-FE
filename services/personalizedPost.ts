@@ -28,7 +28,7 @@ export const assignmentFieldMap: { [key: string]: string } = {
     'STOCK-TK': 'stock_tk',
 
     // Common Names (Fallback for existing records)
-    'TEACHING TABLE': 'tt',
+    'TRIAL TESTING': 'tt',
     'SSCE INTERNAL': 'ssce_int',
     'SSCE EXTERNAL': 'ssce_ext',
     'SSCE INTERNAL MARKING': 'ssce_int_mrk',
@@ -38,7 +38,7 @@ export const assignmentFieldMap: { [key: string]: string } = {
     'BASIC EDUCATION CERTIFICATE EXAMINATION MARKING': 'bece_mrkp',
     'MARCH ACCREDITATION': 'mar_accr',
     'OCTOBER ACCREDITATION': 'oct_accr',
-    'PURCHASE SAMPLES': 'pur_samp',
+    'PURPOSIVE SAMPLES': 'pur_samp',
     'GIFTED EXAMINATION': 'gifted',
     'INTERNAL AUDIT': 'int_audit',
     'STOCK TAKING': 'stock_tk'

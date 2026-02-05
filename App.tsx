@@ -27,6 +27,7 @@ import BECEMarkingVenues from './pages/admin/BECEMarkingVenues';
 import PersonalizedPost from './pages/admin/PersonalizedPost';
 import AssignmentHistory from './pages/admin/AssignmentHistory';
 import SDLPage from './pages/admin/metadata/SDLPage';
+import SDLStagingPage from './pages/admin/metadata/SDLStagingPage';
 import ComparePage from './pages/admin/metadata/ComparePage';
 import FlaggedStaffPage from './pages/admin/metadata/FlaggedStaffPage';
 import AssignmentValidationPage from './pages/admin/metadata/ValidationPage';
@@ -117,6 +118,7 @@ const App: React.FC = () => {
 
               {/* Meta Data Routes */}
               <Route path="metadata/sdl" element={<ProtectedRoute moduleName="metadata"><SDLPage /></ProtectedRoute>} />
+              <Route path="metadata/sdl-staging" element={<ProtectedRoute moduleName="metadata"><SDLStagingPage /></ProtectedRoute>} />
               <Route path="metadata/compare" element={<ProtectedRoute moduleName="metadata"><ComparePage /></ProtectedRoute>} />
               <Route path="metadata/flagged" element={<ProtectedRoute moduleName="metadata"><FlaggedStaffPage /></ProtectedRoute>} />
               <Route path="metadata/validation" element={<ProtectedRoute moduleName="metadata"><AssignmentValidationPage /></ProtectedRoute>} />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -8,12 +8,14 @@ import { Staff, StaffCreate } from '../../../types/staff';
 import { getPageCache, setPageCache } from '../../../services/pageCache';
 import StaffModal from '../StaffModal';
 import AlertModal from '../../../components/AlertModal';
+import { parseSDLFile, compareSDLData } from '../../../utils/sdlParser';
 
 
 
 
 const SDLPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
 
     // Cache Initialization
     const cachedData = getPageCache('sdl');
@@ -175,6 +177,7 @@ const SDLPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const appendFileInputRef = useRef<HTMLInputElement>(null);
     const promoteFileInputRef = useRef<HTMLInputElement>(null);
+    const previewFileInputRef = useRef<HTMLInputElement>(null);
 
     const [promotionDate, setPromotionDate] = useState(new Date().toISOString().split('T')[0]);
     const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
@@ -318,6 +321,53 @@ const SDLPage: React.FC = () => {
         } finally {
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
+            }
+            setLoading(false);
+        }
+    };
+
+    const handlePreviewUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setLoading(true);
+
+            // Parse the uploaded file
+            const importedRecords = await parseSDLFile(file);
+
+            if (importedRecords.length === 0) {
+                setAlertModal({
+                    isOpen: true,
+                    title: 'No Data Found',
+                    message: 'The uploaded file contains no valid records.',
+                    type: 'warning'
+                });
+                return;
+            }
+
+            // Fetch current staff data for comparison
+            const existingStaff = await getAllStaff(false, true);
+
+            // Compare and generate staging records
+            const stagingRecords = compareSDLData(importedRecords, existingStaff);
+
+            // Navigate to staging page with data
+            navigate('/admin/metadata/sdl-staging', {
+                state: { stagingRecords }
+            });
+
+        } catch (error: any) {
+            console.error('Preview upload failed:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Preview Failed',
+                message: error.message || 'An error occurred while processing the file.',
+                type: 'error'
+            });
+        } finally {
+            if (previewFileInputRef.current) {
+                previewFileInputRef.current.value = '';
             }
             setLoading(false);
         }
@@ -971,6 +1021,22 @@ const SDLPage: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-blue-600 dark:from-indigo-400 dark:to-blue-500 group-hover:scale-110 transition-transform text-lg">trending_up</span>
                         Promote Staff
+                    </button>
+
+                    <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        className="hidden"
+                        ref={previewFileInputRef}
+                        onChange={handlePreviewUpload}
+                        style={{ display: 'none' }}
+                    />
+                    <button
+                        onClick={() => previewFileInputRef.current?.click()}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform text-lg">preview</span>
+                        Import with Preview
                     </button>
 
                     <button
