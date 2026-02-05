@@ -12,7 +12,7 @@ import * as XLSX from 'xlsx';
 import HelpModal from '../../components/HelpModal';
 import { helpContent } from '../../data/helpContent';
 import { getPageCache, setPageCache } from '../../services/pageCache';
-import { getAllStaff } from '../../services/staff';
+import { getAllStaff, isRetiring } from '../../services/staff';
 
 const HODApcList: React.FC = () => {
     const cached = getPageCache('HODApcList');
@@ -33,6 +33,7 @@ const HODApcList: React.FC = () => {
     const [filterConraiss, setFilterConraiss] = useState(cached?.filters?.filterConraiss || '');
     const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
     const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
+    const [selectedRetiring, setSelectedRetiring] = useState(cached?.filters?.selectedRetiring || 'All');
     const [viewMode, setViewMode] = useState<'full' | 'unified'>(cached?.viewMode || 'full');
 
     const hasInitialized = useRef(!!cached);
@@ -46,6 +47,7 @@ const HODApcList: React.FC = () => {
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showGeneratorModal, setShowGeneratorModal] = useState(false);
     const [editingRecord, setEditingRecord] = useState<HODApcRecord | null>(null);
+    const [staffRetiringMap, setStaffRetiringMap] = useState<Map<string, boolean>>(new Map());
     const [alertModal, setAlertModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -63,7 +65,7 @@ const HODApcList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment]);
+    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, selectedRetiring]);
 
     const filteredRecords = useMemo(() => {
         let result = [...allRecords];
@@ -92,6 +94,14 @@ const HODApcList: React.FC = () => {
                     return !!(val && val.toString().trim() !== '');
                 });
             }
+
+        }
+
+        if (selectedRetiring !== 'All') {
+            result = result.filter(record => {
+                const isRetiringStaff = staffRetiringMap.get(record.file_no);
+                return selectedRetiring === 'Yes' ? isRetiringStaff : !isRetiringStaff;
+            });
         }
 
         if (sortField) {
@@ -109,7 +119,7 @@ const HODApcList: React.FC = () => {
         }
 
         return result;
-    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, sortField, sortDirection]);
+    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, sortField, sortDirection, selectedRetiring, staffRetiringMap]);
 
     const total = filteredRecords.length;
 
@@ -139,12 +149,13 @@ const HODApcList: React.FC = () => {
                 searchName,
                 filterConraiss,
                 filterStation,
-                filterAssignment
+                filterAssignment,
+                selectedRetiring
             },
             assignmentOptions,
             viewMode
         });
-    }, [allRecords, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, assignmentOptions, viewMode]);
+    }, [allRecords, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, assignmentOptions, viewMode, selectedRetiring]);
 
     const fetchAllRecords = useCallback(async (force: boolean = false) => {
         if (hasInitialized.current && !force) {
@@ -363,6 +374,22 @@ const HODApcList: React.FC = () => {
                 console.error("Failed to load assignments", e);
             }
         };
+
+        const loadStaffData = async () => {
+            try {
+                const staffData = await getAllStaff(true);
+                const retiringMap = new Map<string, boolean>();
+                staffData.forEach(s => {
+                    retiringMap.set(s.fileno, isRetiring(s));
+                });
+                setStaffRetiringMap(retiringMap);
+            } catch (e) {
+                console.error("Failed to load staff data", e);
+            }
+        };
+
+
+        loadStaffData();
         loadAssignments();
         fetchAllRecords();
     }, [fetchAllRecords, cached?.assignmentOptions]);
@@ -731,8 +758,20 @@ const HODApcList: React.FC = () => {
                                 value={filterAssignment}
                                 options={assignmentOptions.map(o => o.code)}
                                 displayOptions={assignmentOptions.map(o => o.name)}
+
                                 onChange={setFilterAssignment}
                             />
+                            <div className="relative w-full md:w-40">
+                                <select
+                                    value={selectedRetiring}
+                                    onChange={(e) => setSelectedRetiring(e.target.value)}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                    <option value="All">Retiring: All</option>
+                                    <option value="Yes">Retiring: Yes</option>
+                                    <option value="No">Retiring: No</option>
+                                </select>
+                            </div>
                             <div className="flex-1"></div>
                             <div className="flex items-center gap-2">
                                 <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">Per page:</label>
@@ -828,6 +867,7 @@ const HODApcList: React.FC = () => {
                                                 onToggleExpand={() => toggleRow(record.id)}
                                                 viewMode={viewMode}
                                                 assignmentOptions={assignmentOptions}
+                                                staffRetiringMap={staffRetiringMap}
                                             />
                                         ))
                                     )}
@@ -1055,7 +1095,7 @@ const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any)
     </th>
 );
 
-const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions }: any) => {
+const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions, staffRetiringMap }: any) => {
     const assignmentNameMap = useMemo(() => {
         return new Map(assignmentOptions.map(a => [a.code, a.name]));
     }, [assignmentOptions]);
@@ -1104,7 +1144,7 @@ const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded,
                 <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold text-xs">{record.name.charAt(0)}</div>
-                        <span className="font-bold text-slate-700 dark:text-slate-200">{record.name}</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">{record.name} {staffRetiringMap?.get(record.file_no) ? '(Retiring)' : ''}</span>
                     </div>
                 </td>
                 <td className="px-4 py-4"><span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold">{record.conraiss || '-'}</span></td>

@@ -4,6 +4,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { APCRecord, APCCreate, APCUpdate } from '../../types/apc';
 import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, appendAPC, bulkDeleteAPC, getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
+import { getAllStaff, isRetiring } from '../../services/staff';
 import { getAllPostingRecords, updatePosting } from '../../services/posting';
 import { getPageCache, setPageCache } from '../../services/pageCache';
 import { PostingResponse } from '../../types/posting';
@@ -41,6 +42,8 @@ const APCList: React.FC = () => {
     const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
     const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>(cached?.filters?.filterStatus || 'all');
+    const [selectedDOB, setSelectedDOB] = useState(cached?.filters?.selectedDOB || 'All');
+    const [selectedRetiring, setSelectedRetiring] = useState(cached?.filters?.selectedRetiring || 'All');
     const [viewMode, setViewMode] = useState<'full' | 'unified'>(cached?.viewMode || 'full');
 
     const hasInitialized = useRef(!!cached);
@@ -70,6 +73,13 @@ const APCList: React.FC = () => {
     const [showCustomModal, setShowCustomModal] = useState(false);
     const [showRandomModal, setShowRandomModal] = useState(false);
 
+    // DOB Map and Search State
+    const [staffDobMap, setStaffDobMap] = useState<Map<string, string>>(new Map());
+    const [staffRetiringMap, setStaffRetiringMap] = useState<Map<string, boolean>>(new Map());
+    const [dobSearchText, setDobSearchText] = useState('');
+    const [showDobDropdown, setShowDobDropdown] = useState(false);
+    const dobDropdownRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         const f = searchParams.get('f');
         if (f) {
@@ -79,7 +89,7 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus]);
+    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, selectedDOB, selectedRetiring]);
 
     const filteredRecords = useMemo(() => {
         let result = [...allRecords];
@@ -118,6 +128,22 @@ const APCList: React.FC = () => {
             result = result.filter(record => record.active === false);
         }
 
+        // DOB Filter
+        if (selectedDOB && selectedDOB !== 'All') {
+            result = result.filter(record => {
+                const dob = staffDobMap.get(record.file_no);
+                return dob && dob.startsWith(selectedDOB);
+            });
+        }
+
+        // Retiring Filter
+        if (selectedRetiring !== 'All') {
+            result = result.filter(record => {
+                const isRetiringStaff = staffRetiringMap.get(record.file_no);
+                return selectedRetiring === 'Yes' ? isRetiringStaff : !isRetiringStaff;
+            });
+        }
+
         // SORT LOGIC
         if (sortField) {
             result.sort((a, b) => {
@@ -134,7 +160,7 @@ const APCList: React.FC = () => {
         }
 
         return result;
-    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, sortField, sortDirection]);
+    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, sortField, sortDirection, selectedDOB, staffDobMap, selectedRetiring, staffRetiringMap]);
 
     const total = filteredRecords.length;
 
@@ -153,6 +179,14 @@ const APCList: React.FC = () => {
         return stations.map(s => ({ id: s, name: s }));
     }, [allRecords]);
 
+    const uniqueDOBs = useMemo(() => {
+        const dobs = new Set<string>();
+        staffDobMap.forEach((dob) => {
+            if (dob) dobs.add(dob.split('-')[0].split('T')[0]);
+        });
+        return Array.from(dobs).sort().reverse();
+    }, [staffDobMap]);
+
     // Update cache
     useEffect(() => {
         setPageCache('APCList', {
@@ -168,12 +202,14 @@ const APCList: React.FC = () => {
                 filterConraiss,
                 filterStation,
                 filterAssignment,
-                filterStatus
+                filterStatus,
+                selectedDOB,
+                selectedRetiring
             },
             assignmentOptions,
             viewMode
         });
-    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions, viewMode]);
+    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions, viewMode, selectedDOB, selectedRetiring]);
 
     const fetchAllRecords = useCallback(async (force: boolean = false) => {
         if (hasInitialized.current && !force) {
@@ -249,7 +285,25 @@ const APCList: React.FC = () => {
                 console.error("Failed to load assignments", e);
             }
         };
+
+        const loadStaffDOBs = async () => {
+            try {
+                const staffData = await getAllStaff(true);
+                const dobMap = new Map<string, string>();
+                const retiringMap = new Map<string, boolean>();
+                staffData.forEach(s => {
+                    if (s.dob) dobMap.set(s.fileno, s.dob);
+                    retiringMap.set(s.fileno, isRetiring(s));
+                });
+                setStaffDobMap(dobMap);
+                setStaffRetiringMap(retiringMap);
+            } catch (e) {
+                console.error("Failed to load staff DOBs", e);
+            }
+        };
+
         loadAssignments();
+        loadStaffDOBs();
         fetchAllRecords();
     }, [fetchAllRecords, cached?.assignmentOptions]);
 
@@ -875,6 +929,95 @@ const APCList: React.FC = () => {
                                 </select>
                             </div>
 
+                            {/* Retiring Status Filter */}
+                            <div className="relative w-full md:w-40">
+                                <select
+                                    value={selectedRetiring}
+                                    onChange={(e) => setSelectedRetiring(e.target.value)}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-slate-700 dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <option value="All">Retiring: All</option>
+                                    <option value="Yes">Retiring: Yes</option>
+                                    <option value="No">Retiring: No</option>
+                                </select>
+                            </div>
+
+                            {/* Searchable DOB Dropdown */}
+                            <div ref={dobDropdownRef} className="relative w-full md:w-56">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDobDropdown(!showDobDropdown)}
+                                    className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-emerald-500 text-slate-700 dark:text-slate-200 font-bold text-sm shadow-sm transition-all cursor-pointer text-left flex items-center justify-between focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <span className="truncate">
+                                        {selectedDOB === 'All' ? 'Year of Birth: All' : selectedDOB}
+                                    </span>
+                                    <span className="material-symbols-outlined text-slate-400 text-lg">
+                                        {showDobDropdown ? 'expand_less' : 'arrow_drop_down'}
+                                    </span>
+                                </button>
+
+                                {showDobDropdown && (
+                                    <div className="absolute z-50 top-full right-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                        <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
+                                            <div className="relative">
+                                                <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search year..."
+                                                    value={dobSearchText}
+                                                    onChange={(e) => setDobSearchText(e.target.value)}
+                                                    className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                    autoFocus
+                                                />
+                                                {dobSearchText && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDobSearchText('')}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            onClick={() => {
+                                                setSelectedDOB('All');
+                                                setShowDobDropdown(false);
+                                                setDobSearchText('');
+                                            }}
+                                            className={`px-3 py-2 cursor-pointer transition-colors ${selectedDOB === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                        >
+                                            Year of Birth: All
+                                        </div>
+
+                                        {uniqueDOBs
+                                            .filter(date => date.toLowerCase().includes(dobSearchText.toLowerCase()))
+                                            .map(date => (
+                                                <div
+                                                    key={date}
+                                                    onClick={() => {
+                                                        setSelectedDOB(date);
+                                                        setShowDobDropdown(false);
+                                                        setDobSearchText('');
+                                                    }}
+                                                    className={`px-3 py-2 cursor-pointer transition-colors ${selectedDOB === date ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                                >
+                                                    {date}
+                                                </div>
+                                            ))}
+
+                                        {uniqueDOBs.filter(date => date.toLowerCase().includes(dobSearchText.toLowerCase())).length === 0 && (
+                                            <div className="px-3 py-4 text-center text-slate-400 text-sm">
+                                                No dates found
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="flex-1"></div>
 
                             {/* Pagination Limit */}
@@ -997,6 +1140,7 @@ const APCList: React.FC = () => {
                                                 onToggleExpand={() => toggleRow(record.id)}
                                                 viewMode={viewMode}
                                                 assignmentOptions={assignmentOptions}
+                                                staffRetiringMap={staffRetiringMap}
                                             />
                                         ))
                                     )}
@@ -1159,7 +1303,8 @@ const APCRow = React.memo<{
     onToggleExpand: () => void;
     viewMode: 'full' | 'unified';
     assignmentOptions: Assignment[];
-}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions }) => {
+    staffRetiringMap: Map<string, boolean>;
+}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions, staffRetiringMap }) => {
     const assignmentNameMap = useMemo(() => {
         return new Map(assignmentOptions.map(a => [a.code, a.name]));
     }, [assignmentOptions]);
@@ -1220,7 +1365,9 @@ const APCRow = React.memo<{
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-200 font-bold text-sm ring-2 ring-white dark:ring-slate-800 shadow-sm">
                             {record.name.charAt(0)}
                         </div>
-                        <span className="font-bold text-slate-700 dark:text-slate-200 text-base">{record.name}</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200 text-base">
+                            {record.name} {staffRetiringMap.get(record.file_no) ? '(Retiring)' : ''}
+                        </span>
                     </div>
                 </td>
                 <td className="px-4 py-4">

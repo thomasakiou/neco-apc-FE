@@ -61,6 +61,19 @@ export const getAllDriverAPC = async (
     return data;
 };
 
+export const syncDriverAPC = async (): Promise<{ message: string; created_count: number }> => {
+    const response = await fetch(`${REQUEST_URL}/sync`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to sync Driver APC records');
+    }
+    const result = await response.json();
+    driverApcCache = null; // Invalidate cache
+    return result;
+};
+
 // Cache
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 let driverApcCache: { data: DriverAPCRecord[], timestamp: number } | null = null;

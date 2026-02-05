@@ -87,7 +87,7 @@ const AdminLayout: React.FC = () => {
               <NavItem to="/admin/metadata/outstanding" icon="pending_actions" label="Outstanding" active={isActive('/admin/metadata/outstanding')} isLocked={isModuleLocked('staff_data') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
-            <CollapsibleNavSection title="Meta Data" icon="dataset" iconColor="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
+            <CollapsibleNavSection title="TEMPLATES" icon="dataset" iconColor="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
               isActive('/admin/states') ||
               isActive('/admin/stations') ||
               isActive('/admin/marking-venues') ||
@@ -97,9 +97,7 @@ const AdminLayout: React.FC = () => {
               isActive('/admin/ssce-custodians') ||
               isActive('/admin/ssce-ext-custodians') ||
               isActive('/admin/ssce-ext-marking-venues') ||
-              isActive('/admin/bece-marking-venues') ||
-              isActive('/admin/mandates/config') ||
-              isActive('/admin/assignments/config')
+              isActive('/admin/bece-marking-venues')
             }>
               <NavItem to="/admin/states" icon="map" label="States" active={isActive('/admin/states')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/stations" icon="location_on" label="Stations" active={isActive('/admin/stations')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
@@ -122,11 +120,14 @@ const AdminLayout: React.FC = () => {
 
               <NavItem to="/admin/ssce-ext-marking-venues" icon="edit_location" label="SSCE EXT Marking Venues" active={isActive('/admin/ssce-ext-marking-venues')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
               <NavItem to="/admin/bece-marking-venues" icon="edit_location" label="BECE Marking Venues" active={isActive('/admin/bece-marking-venues')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+            </CollapsibleNavSection>
 
-              <div className="my-2 h-px bg-slate-300 dark:bg-slate-600" />
-
-              <NavItem to="/admin/mandates/config" icon="admin_panel_settings" label="Mandates" active={isActive('/admin/mandates/config')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+            <CollapsibleNavSection title="ASSIGNMENTS & MANDATES" icon="assignment" iconColor="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400" isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} active={
+              isActive('/admin/mandates/config') ||
+              isActive('/admin/assignments/config')
+            }>
               <NavItem to="/admin/assignments/config" icon="assignment_ind" label="Assignments" active={isActive('/admin/assignments/config')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
+              <NavItem to="/admin/mandates/config" icon="admin_panel_settings" label="Mandates" active={isActive('/admin/mandates/config')} isLocked={isModuleLocked('metadata') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             </CollapsibleNavSection>
 
 

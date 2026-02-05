@@ -8,6 +8,45 @@ const API_URL = `${API_BASE_URL}/staff`;
 /**
  * Maps backend staff object to frontend Staff object.
  */
+const isRetiring = (staff: any): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let isAgeRetiring = false;
+    if (staff.dob) {
+        const dobDate = new Date(staff.dob);
+        if (!isNaN(dobDate.getTime())) {
+            const retirementDate = new Date(dobDate);
+            retirementDate.setFullYear(retirementDate.getFullYear() + 59);
+            retirementDate.setHours(0, 0, 0, 0);
+            if (today >= retirementDate) {
+                isAgeRetiring = true;
+            }
+        }
+    }
+
+    let isServiceRetiring = false;
+    if (staff.dofa) {
+        const dofaDate = new Date(staff.dofa);
+        if (!isNaN(dofaDate.getTime())) {
+            const retirementDate = new Date(dofaDate);
+            retirementDate.setFullYear(retirementDate.getFullYear() + 34);
+            retirementDate.setHours(0, 0, 0, 0);
+            if (today >= retirementDate) {
+                isServiceRetiring = true;
+            }
+        }
+    }
+
+    return isAgeRetiring || isServiceRetiring;
+};
+
+// Exporting simply for reuse in filters if needed, though the name is mutated now.
+export { isRetiring };
+
+/**
+ * Maps backend staff object to frontend Staff object.
+ */
 const mapApiStaffToStaff = (apiStaff: any): Staff => {
     if (!apiStaff) return apiStaff;
 
@@ -23,8 +62,15 @@ const mapApiStaffToStaff = (apiStaff: any): Staff => {
         return Boolean(val);
     };
 
+    const retiring = isRetiring(apiStaff);
+    let fullName = apiStaff.full_name;
+    if (retiring && fullName && !fullName.includes('(Retiring)')) {
+        fullName = `${fullName} (Retiring)`;
+    }
+
     return {
         ...apiStaff,
+        full_name: fullName,
         is_hod: toBool(apiStaff.is_hod),
         is_director: toBool(apiStaff.is_director),
         is_education: toBool(apiStaff.is_education),

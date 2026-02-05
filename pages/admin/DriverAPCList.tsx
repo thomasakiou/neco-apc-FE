@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
 import { DriverAPCRecord as APCRecord, DriverAPCCreate as APCCreate, DriverAPCUpdate as APCUpdate } from '../../types/driverApc';
-import { getAllDriverAPC as getAllAPC, createDriverAPC as createAPC, updateDriverAPC as updateAPC, deleteDriverAPC as deleteAPC, uploadDriverAPC as uploadAPC, appendDriverAPC as appendAPC, bulkDeleteDriverAPC as bulkDeleteAPC, getAllDriverAPCRecords as getAllAPCRecords } from '../../services/driverApc';
+import { getAllDriverAPC as getAllAPC, createDriverAPC as createAPC, updateDriverAPC as updateAPC, deleteDriverAPC as deleteAPC, uploadDriverAPC as uploadAPC, appendDriverAPC as appendAPC, bulkDeleteDriverAPC as bulkDeleteAPC, getAllDriverAPCRecords as getAllAPCRecords, syncDriverAPC } from '../../services/driverApc';
+import { getAllStaff, isRetiring } from '../../services/staff';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllPostingRecords, updatePosting } from '../../services/posting';
 import { getPageCache, setPageCache } from '../../services/pageCache';
@@ -41,6 +42,7 @@ const DriverAPCList: React.FC = () => {
     const [filterStation, setFilterStation] = useState(cached?.filters?.filterStation || '');
     const [filterAssignment, setFilterAssignment] = useState(cached?.filters?.filterAssignment || '');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>(cached?.filters?.filterStatus || 'all');
+    const [selectedRetiring, setSelectedRetiring] = useState(cached?.filters?.selectedRetiring || 'All');
     const [viewMode, setViewMode] = useState<'full' | 'unified'>(cached?.viewMode || 'full');
 
     const hasInitialized = useRef(!!cached);
@@ -51,6 +53,7 @@ const DriverAPCList: React.FC = () => {
     const debouncedFilterStation = useDebounce(filterStation, 300);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [staffRetiringMap, setStaffRetiringMap] = useState<Map<string, boolean>>(new Map());
     const [searchParams, setSearchParams] = useSearchParams();
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingRecord, setEditingRecord] = useState<APCRecord | null>(null);
@@ -79,7 +82,7 @@ const DriverAPCList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus]);
+    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, selectedRetiring]);
 
     const filteredRecords = useMemo(() => {
         let result = [...allRecords];
@@ -118,6 +121,13 @@ const DriverAPCList: React.FC = () => {
             result = result.filter(record => record.active === false);
         }
 
+        if (selectedRetiring !== 'All') {
+            result = result.filter(record => {
+                const isRetiringStaff = staffRetiringMap.get(record.file_no);
+                return selectedRetiring === 'Yes' ? isRetiringStaff : !isRetiringStaff;
+            });
+        }
+
         // SORT LOGIC
         if (sortField) {
             result.sort((a, b) => {
@@ -134,7 +144,7 @@ const DriverAPCList: React.FC = () => {
         }
 
         return result;
-    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, sortField, sortDirection]);
+    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, sortField, sortDirection, selectedRetiring, staffRetiringMap]);
 
     const total = filteredRecords.length;
 
@@ -168,12 +178,13 @@ const DriverAPCList: React.FC = () => {
                 filterConraiss,
                 filterStation,
                 filterAssignment,
-                filterStatus
+                filterStatus,
+                selectedRetiring
             },
             assignmentOptions,
             viewMode
         });
-    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions, viewMode]);
+    }, [allRecords, allPostings, page, limit, sortField, sortDirection, searchFileNo, searchName, filterConraiss, filterStation, filterAssignment, filterStatus, assignmentOptions, viewMode, selectedRetiring]);
 
     const fetchAllRecords = useCallback(async (force: boolean = false) => {
         if (hasInitialized.current && !force) {
@@ -249,9 +260,72 @@ const DriverAPCList: React.FC = () => {
                 console.error("Failed to load assignments", e);
             }
         };
+        const loadStaffData = async () => {
+            try {
+                const staffData = await getAllStaff(true);
+                const retiringMap = new Map<string, boolean>();
+                staffData.forEach(s => {
+                    retiringMap.set(s.fileno, isRetiring(s));
+                });
+                setStaffRetiringMap(retiringMap);
+            } catch (e) {
+                console.error("Failed to load staff data", e);
+            }
+        };
+
+        loadStaffData();
         loadAssignments();
         fetchAllRecords();
     }, [fetchAllRecords, cached?.assignmentOptions]);
+
+    const handleSync = async () => {
+        setLoading(true);
+        try {
+            // 1. Run Backend Sync
+            const result = await syncDriverAPC();
+
+            // 2. Run Clean-up (Removes invalid entries)
+            const [currentRecords, allStaff] = await Promise.all([
+                getAllAPCRecords(false, true),
+                getAllStaff(true, true)
+            ]);
+
+            const staffMap = new Map(allStaff.map(s => [s.fileno, s]));
+            const idsToDelete: string[] = [];
+
+            currentRecords.forEach(record => {
+                const staff = staffMap.get(record.file_no);
+                if (!staff || !staff.is_driver) {
+                    idsToDelete.push(record.id);
+                }
+            });
+
+            let cleanupMsg = '';
+            if (idsToDelete.length > 0) {
+                await bulkDeleteAPC(idsToDelete);
+                cleanupMsg = ` Cleaned up ${idsToDelete.length} invalid Driver(s).`;
+            }
+
+            setAlertModal({
+                isOpen: true,
+                title: 'Sync Successful',
+                message: `Successfully synchronized Driver data from SDL. ${result.created_count} records were processed.${cleanupMsg}`,
+                type: 'success'
+            });
+
+            fetchAllRecords(true);
+        } catch (error: any) {
+            console.error('Error syncing Driver APC records:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Error',
+                message: 'Failed to sync Driver APC records: ' + (error.message || 'Unknown error'),
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) return;
@@ -777,6 +851,14 @@ const DriverAPCList: React.FC = () => {
                         Append New Staff
                     </button>
                     <button
+                        onClick={handleSync}
+                        disabled={loading}
+                        className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all text-xs"
+                    >
+                        {loading ? <span className="material-symbols-outlined animate-spin text-lg">sync</span> : <span className="material-symbols-outlined text-lg">sync</span>}
+                        Sync with SDL
+                    </button>
+                    <button
                         onClick={() => setShowAddModal(true)}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all duration-200"
                     >
@@ -870,6 +952,19 @@ const DriverAPCList: React.FC = () => {
                                     <option value="all">All Status</option>
                                     <option value="active">Active</option>
                                     <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+
+                            {/* Retiring Filter */}
+                            <div className="relative w-full md:w-40">
+                                <select
+                                    value={selectedRetiring}
+                                    onChange={(e) => setSelectedRetiring(e.target.value)}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-slate-700 dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <option value="All">Retiring: All</option>
+                                    <option value="Yes">Retiring: Yes</option>
+                                    <option value="No">Retiring: No</option>
                                 </select>
                             </div>
 
@@ -995,6 +1090,7 @@ const DriverAPCList: React.FC = () => {
                                                 onToggleExpand={() => toggleRow(record.id)}
                                                 viewMode={viewMode}
                                                 assignmentOptions={assignmentOptions}
+                                                staffRetiringMap={staffRetiringMap}
                                             />
                                         ))
                                     )}
@@ -1157,7 +1253,8 @@ const APCRow = React.memo<{
     onToggleExpand: () => void;
     viewMode: 'full' | 'unified';
     assignmentOptions: Assignment[];
-}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions }) => {
+    staffRetiringMap: Map<string, boolean>;
+}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions, staffRetiringMap }) => {
     const assignmentNameMap = useMemo(() => {
         return new Map(assignmentOptions.map(a => [a.code, a.name]));
     }, [assignmentOptions]);
@@ -1218,7 +1315,9 @@ const APCRow = React.memo<{
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-200 font-bold text-sm ring-2 ring-white dark:ring-slate-800 shadow-sm">
                             {record.name.charAt(0)}
                         </div>
-                        <span className="font-bold text-slate-700 dark:text-slate-200 text-base">{record.name}</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200 text-base">
+                            {record.name} {staffRetiringMap.get(record.file_no) ? '(Retiring)' : ''}
+                        </span>
                     </div>
                 </td>
                 <td className="px-4 py-4">

@@ -33,11 +33,15 @@ const HODJuxtapose: React.FC = () => {
         setLoading(true);
         try {
             const records = await getAllHODApcRecords(true, force);
+
+            // Get unique field names to avoid double counting
+            const uniqueFields = Array.from(new Set(Object.values(assignmentFieldMap)));
+
             const processed = records.map(record => {
                 let count = 0;
-                Object.values(assignmentFieldMap).forEach(field => {
+                uniqueFields.forEach(field => {
                     const val = (record as any)[field];
-                    if (val && val.toString().trim() !== '') {
+                    if (val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED') {
                         count++;
                     }
                 });

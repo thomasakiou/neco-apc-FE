@@ -60,6 +60,19 @@ export const getAllTypesettingAPC = async (
     return data;
 };
 
+export const syncTypesettingAPC = async (): Promise<{ message: string; created_count: number }> => {
+    const response = await fetch(`${REQUEST_URL}/sync`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to sync Typesetting APC records');
+    }
+    const result = await response.json();
+    typesettingApcCache = null; // Invalidate cache
+    return result;
+};
+
 // Cache
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 let typesettingApcCache: { data: TypesettingAPCRecord[], timestamp: number } | null = null;

@@ -3,11 +3,14 @@ import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff } from '../../../services/staff';
+import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff, isRetiring } from '../../../services/staff';
 import { Staff, StaffCreate } from '../../../types/staff';
 import { getPageCache, setPageCache } from '../../../services/pageCache';
 import StaffModal from '../StaffModal';
 import AlertModal from '../../../components/AlertModal';
+
+
+
 
 const SDLPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -37,6 +40,9 @@ const SDLPage: React.FC = () => {
     const [selectedDriver, setSelectedDriver] = useState(cachedData?.filters?.selectedDriver || 'All');
     const [selectedTypesetting, setSelectedTypesetting] = useState(cachedData?.filters?.selectedTypesetting || 'All');
     const [selectedPromotionDate, setSelectedPromotionDate] = useState(cachedData?.filters?.selectedPromotionDate || 'All');
+
+    const [selectedDOB, setSelectedDOB] = useState(cachedData?.filters?.selectedDOB || 'All');
+    const [selectedRetiring, setSelectedRetiring] = useState(cachedData?.filters?.selectedRetiring || 'All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     // Flag to prevent redundant fetch on mount if cache exists
@@ -65,15 +71,21 @@ const SDLPage: React.FC = () => {
     const [showDopaDropdown, setShowDopaDropdown] = useState(false);
     const dopaDropdownRef = useRef<HTMLDivElement>(null);
 
+    // DOB search state
+    const [dobSearchText, setDobSearchText] = useState('');
+    const [showDobDropdown, setShowDobDropdown] = useState(false);
+    const dobDropdownRef = useRef<HTMLDivElement>(null);
+
     const uniqueStations = useMemo(() => Array.from(new Set(allStaff.map(s => s.station).filter(Boolean))) as string[], [allStaff]);
     const uniqueRanks = useMemo(() => Array.from(new Set(allStaff.map(s => s.rank).filter(Boolean))) as string[], [allStaff]);
     const uniqueConrs = useMemo(() => Array.from(new Set(allStaff.map(s => s.conr).filter(Boolean))) as string[], [allStaff]);
     const uniqueStates = useMemo(() => Array.from(new Set(allStaff.map(s => s.state).filter(Boolean))).sort() as string[], [allStaff]);
     const uniquePromotionDates = useMemo(() => Array.from(new Set(allStaff.map(s => s.dopa?.split('T')[0]?.split(' ')[0]).filter(Boolean))).sort() as string[], [allStaff]);
+    const uniqueDOBs = useMemo(() => Array.from(new Set(allStaff.map(s => s.dob?.split('-')[0]).filter(Boolean))).sort().reverse() as string[], [allStaff]);
 
     const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
         selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' ||
-        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedDriver !== 'All' || selectedTypesetting !== 'All' || selectedPromotionDate !== 'All';
+        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedDriver !== 'All' || selectedTypesetting !== 'All' || selectedPromotionDate !== 'All' || selectedDOB !== 'All' || selectedRetiring !== 'All';
 
     const filteredStaff = staffList.filter(staff => {
         const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
@@ -95,7 +107,12 @@ const SDLPage: React.FC = () => {
         const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
         const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate;
+        // DOB Year Check
+        const matchesDOB = selectedDOB === 'All' || (staff.dob && staff.dob.startsWith(selectedDOB));
+
+        const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring;
     });
 
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -136,7 +153,11 @@ const SDLPage: React.FC = () => {
         const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
         const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate;
+        const matchesDOB = selectedDOB === 'All' || (staff.dob && (staff.dob.split('T')[0].split(' ')[0] === selectedDOB));
+
+        const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring;
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -158,6 +179,68 @@ const SDLPage: React.FC = () => {
     const [promotionDate, setPromotionDate] = useState(new Date().toISOString().split('T')[0]);
     const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
     const [pendingPromoteFile, setPendingPromoteFile] = useState<File | null>(null);
+
+    const fetchData = useCallback(async (force: boolean = false) => {
+        // Skip fetch if we have cached data and it's the initial mount
+        if (hasInitialized.current && !force) {
+            hasInitialized.current = false;
+            return;
+        }
+
+        setLoading(true);
+        try {
+            if (hasActiveFilters) {
+                // ALL_STAFF_CACHE_TTL in services/staff.ts is 30 mins
+                // This leverages service-level memory cache automatically
+                const allData = await getAllStaff(false, force);
+                const filtered = allData.filter(staff => {
+                    const matchesSearch = !searchTerm ||
+                        staff.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        staff.fileno?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        staff.email?.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
+                    const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
+                    const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
+                    const matchesState = selectedState === 'All' || staff.state === selectedState;
+
+                    const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
+                    const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
+                    const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
+                    const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+                    const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
+                    const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
+                    const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
+                    const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
+                    const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
+                    const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+
+                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesRetiring;
+                });
+
+                const startIndex = (page - 1) * limit;
+                const endIndex = startIndex + limit;
+                setStaffList(filtered.slice(startIndex, endIndex));
+                setTotal(filtered.length);
+            } else {
+                const response = await getStaffList(page, limit, searchTerm);
+                setStaffList(response.items);
+                setTotal(response.total);
+            }
+        } catch (error) {
+            console.error('Error fetching staff:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, hasActiveFilters]);
+
+    const fetchAllStaffData = useCallback(async (force: boolean = false) => {
+        try {
+            const all = await getAllStaff(false, force);
+            setAllStaff(all);
+        } catch (error) {
+            console.error('Error fetching all staff:', error);
+        }
+    }, []);
 
     const handlePromoteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -291,7 +374,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate]);
+    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring]);
 
     // Update Cache whenever relevant state changes
     useEffect(() => {
@@ -318,70 +401,12 @@ const SDLPage: React.FC = () => {
                 selectedDriver,
                 selectedTypesetting,
                 selectedPromotionDate,
+                selectedRetiring,
             }
         });
-    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate]);
+    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring]);
 
-    const fetchData = useCallback(async (force: boolean = false) => {
-        // Skip fetch if we have cached data and it's the initial mount
-        if (hasInitialized.current && !force) {
-            hasInitialized.current = false;
-            return;
-        }
 
-        setLoading(true);
-        try {
-            if (hasActiveFilters) {
-                // ALL_STAFF_CACHE_TTL in services/staff.ts is 30 mins
-                // This leverages service-level memory cache automatically
-                const allData = await getAllStaff(false, force);
-                const filtered = allData.filter(staff => {
-                    const matchesSearch = !searchTerm ||
-                        staff.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        staff.fileno?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        staff.email?.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
-                    const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
-                    const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
-                    const matchesState = selectedState === 'All' || staff.state === selectedState;
-
-                    const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
-                    const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
-                    const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
-                    const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
-                    const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
-                    const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
-                    const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
-                    const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
-                    const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
-
-                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate;
-                });
-
-                const startIndex = (page - 1) * limit;
-                const endIndex = startIndex + limit;
-                setStaffList(filtered.slice(startIndex, endIndex));
-                setTotal(filtered.length);
-            } else {
-                const response = await getStaffList(page, limit, searchTerm);
-                setStaffList(response.items);
-                setTotal(response.total);
-            }
-        } catch (error) {
-            console.error('Error fetching staff:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, hasActiveFilters]);
-
-    const fetchAllStaffData = useCallback(async (force: boolean = false) => {
-        try {
-            const all = await getAllStaff(false, force);
-            setAllStaff(all);
-        } catch (error) {
-            console.error('Error fetching all staff:', error);
-        }
-    }, []);
 
     useEffect(() => {
         fetchData();
@@ -602,8 +627,9 @@ const SDLPage: React.FC = () => {
                 const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
                 const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
                 const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
+                const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
 
-                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting;
+                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesRetiring;
             });
 
             doc.text(`Total Records: ${exportStaff.length}`, 14, 33);
@@ -954,7 +980,7 @@ const SDLPage: React.FC = () => {
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-400 dark:to-teal-500 group-hover:scale-110 transition-transform text-lg">upload_file</span>
                         Import
                     </button>
-                    <input
+                    {/* <input
                         type="file"
                         accept=".csv,.xlsx,.xls"
                         className="hidden"
@@ -968,7 +994,7 @@ const SDLPage: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-teal-500 to-emerald-600 dark:from-teal-400 dark:to-emerald-500 group-hover:scale-110 transition-transform text-lg">library_add</span>
                         Append New Staff
-                    </button>
+                    </button> */}
                     <button
                         onClick={handleOpenAdd}
                         className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all duration-200"
@@ -1179,7 +1205,7 @@ const SDLPage: React.FC = () => {
                                 className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
                             >
                                 <span className="truncate">
-                                    {selectedState === 'All' ? 'State: All' : selectedState}
+                                    {selectedState === 'All' ? 'State of Origin: All' : selectedState}
                                 </span>
                                 <span className="material-symbols-outlined text-slate-400 text-lg">
                                     {showStateDropdown ? 'expand_less' : 'arrow_drop_down'}
@@ -1219,7 +1245,7 @@ const SDLPage: React.FC = () => {
                                         }}
                                         className={`px-3 py-2 cursor-pointer transition-colors ${selectedState === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                                     >
-                                        State: All
+                                        State of Origin: All
                                     </div>
 
                                     {uniqueStates
@@ -1294,6 +1320,12 @@ const SDLPage: React.FC = () => {
                             options={['Yes', 'No']}
                             onChange={setSelectedTypesetting}
                         />
+                        <FilterSelect
+                            label="Retiring Staff"
+                            value={selectedRetiring}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedRetiring}
+                        />
                         {/* Searchable DOPA Dropdown */}
                         <div ref={dopaDropdownRef} className="relative min-w-[200px]">
                             <button
@@ -1362,6 +1394,81 @@ const SDLPage: React.FC = () => {
                                         ))}
 
                                     {uniquePromotionDates.filter(date => date.toLowerCase().includes(dopaSearchText.toLowerCase())).length === 0 && (
+                                        <div className="px-3 py-4 text-center text-slate-400 text-sm">
+                                            No dates found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        {/* Searchable DOB Dropdown */}
+                        <div ref={dobDropdownRef} className="relative min-w-[200px]">
+                            <button
+                                type="button"
+                                onClick={() => setShowDobDropdown(!showDobDropdown)}
+                                className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer text-left flex items-center justify-between"
+                            >
+                                <span className="truncate">
+                                    {selectedDOB === 'All' ? 'Year of Birth: All' : selectedDOB}
+                                </span>
+                                <span className="material-symbols-outlined text-slate-400 text-lg">
+                                    {showDobDropdown ? 'expand_less' : 'arrow_drop_down'}
+                                </span>
+                            </button>
+
+                            {showDobDropdown && (
+                                <div className="absolute z-50 top-full right-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                    <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 z-20">
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                            <input
+                                                type="text"
+                                                placeholder="Search year..."
+                                                value={dobSearchText}
+                                                onChange={(e) => setDobSearchText(e.target.value)}
+                                                className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                autoFocus
+                                            />
+                                            {dobSearchText && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDobSearchText('')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        onClick={() => {
+                                            setSelectedDOB('All');
+                                            setShowDobDropdown(false);
+                                            setDobSearchText('');
+                                        }}
+                                        className={`px-3 py-2 cursor-pointer transition-colors ${selectedDOB === 'All' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                    >
+                                        Year of Birth: All
+                                    </div>
+
+                                    {uniqueDOBs
+                                        .filter(date => date.toLowerCase().includes(dobSearchText.toLowerCase()))
+                                        .map(date => (
+                                            <div
+                                                key={date}
+                                                onClick={() => {
+                                                    setSelectedDOB(date);
+                                                    setShowDobDropdown(false);
+                                                    setDobSearchText('');
+                                                }}
+                                                className={`px-3 py-2 cursor-pointer transition-colors ${selectedDOB === date ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                                            >
+                                                {date}
+                                            </div>
+                                        ))}
+
+                                    {uniqueDOBs.filter(date => date.toLowerCase().includes(dobSearchText.toLowerCase())).length === 0 && (
                                         <div className="px-3 py-4 text-center text-slate-400 text-sm">
                                             No dates found
                                         </div>
@@ -1595,6 +1702,7 @@ const StaffRow: React.FC<{
                             {!!staff.others && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300 border border-slate-200 dark:border-slate-800 uppercase" title="Others">OTH</span>}
                             {!!staff.is_driver && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800 uppercase" title="Driver">DRV</span>}
                             {!!staff.is_typesetting && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300 border border-pink-200 dark:border-pink-800 uppercase" title="Typesetting">TYP</span>}
+
                         </div>
                     </div>
                 </td>
@@ -1617,7 +1725,7 @@ const StaffRow: React.FC<{
                 <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
                         <ActionBtn icon="edit" onClick={onEdit} tooltip="Edit Staff" />
-                        <ActionBtn icon="delete" isDanger onClick={onDelete} tooltip="Delete Staff" />
+                        {/* <ActionBtn icon="delete" isDanger onClick={onDelete} tooltip="Delete Staff" /> */}
                     </div>
                 </td>
             </tr>
