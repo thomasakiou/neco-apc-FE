@@ -29,12 +29,20 @@ interface MissingRow {
     remark: string;
 }
 
+interface MissingInSDLRow {
+    fileNo: string;
+    name: string;
+    grade: string;
+    station: string;
+}
+
 const ComparePage: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [comparisonData, setComparisonData] = useState<ComparisonRow[]>([]);
     const [missingInAPC, setMissingInAPC] = useState<MissingRow[]>([]);
-    const [activeTab, setActiveTab] = useState<'compare' | 'mismatch' | 'missing'>('compare');
+    const [missingInSDL, setMissingInSDL] = useState<MissingInSDLRow[]>([]);
+    const [activeTab, setActiveTab] = useState<'compare' | 'mismatch' | 'missing' | 'missingSDL'>('compare');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Match' | 'Mismatch' | 'MissingSDL'>('All');
     const [mismatchTypeFilter, setMismatchTypeFilter] = useState<'All' | 'Name' | 'Grade' | 'Station'>('All');
     const [searchQuery, setSearchQuery] = useState('');
@@ -45,7 +53,8 @@ const ComparePage: React.FC = () => {
         totalSDL: 0,
         matches: 0,
         mismatches: 0,
-        missingInAPC: 0
+        missingInAPC: 0,
+        missingInSDL: 0
     });
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<MissingRow | null>(null);
@@ -100,13 +109,15 @@ const ComparePage: React.FC = () => {
 
             const comparison: ComparisonRow[] = [];
             const processedStaffIds = new Set<string>();
+            const missingSDLRecords: MissingInSDLRow[] = [];
 
             let matches = 0;
             let mismatches = 0;
-            let missingSDL = 0;
 
             apcRecords.forEach(apc => {
-                const fileNoKey = apc.file_no.trim().toUpperCase();
+                const fileNoKey = apc.file_no?.trim().toUpperCase();
+                if (!fileNoKey) return;
+                
                 const staff = staffMap.get(fileNoKey);
 
                 processedStaffIds.add(fileNoKey);
@@ -144,7 +155,12 @@ const ComparePage: React.FC = () => {
                         stationMismatch: !stationMatch
                     });
                 } else {
-                    missingSDL++;
+                    missingSDLRecords.push({
+                        fileNo: apc.file_no,
+                        name: apc.name,
+                        grade: apc.conraiss || '-',
+                        station: apc.station || '-'
+                    });
                     comparison.push({
                         id: apc.id,
                         fileNo: apc.file_no,
@@ -161,7 +177,7 @@ const ComparePage: React.FC = () => {
             const missing: MissingRow[] = [];
             staffList.forEach(s => {
                 const fileNoKey = s.fileno?.trim().toUpperCase();
-                if (fileNoKey && !processedStaffIds.has(fileNoKey) && s.active) {
+                if (fileNoKey && !processedStaffIds.has(fileNoKey)) {
                     missing.push({
                         fileNo: s.fileno,
                         name: s.full_name,
@@ -173,13 +189,15 @@ const ComparePage: React.FC = () => {
             });
 
             setMissingInAPC(missing);
+            setMissingInSDL(missingSDLRecords);
 
             setStats({
                 totalAPC: apcRecords.length,
                 totalSDL: staffList.length,
                 matches,
                 mismatches,
-                missingInAPC: missing.length
+                missingInAPC: missing.length,
+                missingInSDL: missingSDLRecords.length
             });
 
         } catch (error) {
@@ -208,12 +226,13 @@ const ComparePage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <StatCard label="Total APC Records" value={stats.totalAPC} icon="list_alt" />
                 <StatCard label="Total SDL Records" value={stats.totalSDL} icon="group" />
                 <StatCard label="Perfect Matches" value={stats.matches} icon="check_circle" color="text-emerald-600 dark:text-emerald-400" bg="bg-emerald-50 dark:bg-emerald-900/10" />
                 <StatCard label="Mismatches" value={stats.mismatches} icon="warning" color="text-amber-600 dark:text-amber-400" bg="bg-amber-50 dark:bg-amber-900/10" />
                 <StatCard label="Missing in APC" value={stats.missingInAPC} icon="person_off" color="text-rose-600 dark:text-rose-400" bg="bg-rose-50 dark:bg-rose-900/10" />
+                <StatCard label="Missing in SDL" value={stats.missingInSDL} icon="person_remove" color="text-purple-600 dark:text-purple-400" bg="bg-purple-50 dark:bg-purple-900/10" />
             </div>
 
             <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
@@ -241,6 +260,14 @@ const ComparePage: React.FC = () => {
                             count={missingInAPC.length}
                             icon="playlist_remove"
                             alert={missingInAPC.length > 0}
+                        />
+                        <TabButton
+                            active={activeTab === 'missingSDL'}
+                            onClick={() => setActiveTab('missingSDL')}
+                            label="Missing in SDL"
+                            count={missingInSDL.length}
+                            icon="person_remove"
+                            alert={missingInSDL.length > 0}
                         />
                     </div>
 
@@ -303,7 +330,7 @@ const ComparePage: React.FC = () => {
                                 mismatchTypeFilter={mismatchTypeFilter}
                                 setMismatchTypeFilter={setMismatchTypeFilter}
                             />
-                        ) : (
+                        ) : activeTab === 'missing' ? (
                             <MissingTable
                                 data={missingInAPC.filter(item => {
                                     if (!searchQuery) return true;
@@ -321,6 +348,21 @@ const ComparePage: React.FC = () => {
                                     setSelectedStaff(staff);
                                     setShowAddModal(true);
                                 }}
+                            />
+                        ) : (
+                            <MissingInSDLTable
+                                data={missingInSDL.filter(item => {
+                                    if (!searchQuery) return true;
+                                    const q = searchQuery.toLowerCase();
+                                    return (
+                                        item.fileNo.toLowerCase().includes(q) ||
+                                        item.name.toLowerCase().includes(q)
+                                    );
+                                })}
+                                page={page}
+                                limit={limit}
+                                setPage={setPage}
+                                setLimit={setLimit}
                             />
                         )}
                     </div>
@@ -692,6 +734,114 @@ const MissingTable = ({ data, page, limit, setPage, setLimit, onAddToAPC }: { da
     );
 };
 
+const MissingInSDLTable = ({ data, page, limit, setPage, setLimit }: { data: MissingInSDLRow[]; page: number; limit: number; setPage: (p: number) => void; setLimit: (l: number) => void }) => {
+    const navigate = useNavigate();
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = data.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(data.length / limit);
+
+    return (
+        <div className="flex flex-col gap-4">
+            {data.length === 0 ? (
+                <div className="p-12 flex flex-col items-center justify-center gap-4 text-slate-400">
+                    <span className="material-symbols-outlined text-5xl text-emerald-100">task_alt</span>
+                    <p className="font-medium">All APC records exist in SDL!</p>
+                </div>
+            ) : (
+                <>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-slate-600">Per page:</label>
+                            <select
+                                value={limit}
+                                onChange={(e) => {
+                                    setLimit(Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                className="h-8 px-2 rounded border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 text-sm"
+                            >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+                        <p className="text-sm text-slate-500">
+                            Showing {data.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, data.length)} of {data.length} results
+                        </p>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-gray-700">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-purple-50/50 dark:bg-purple-900/10 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider border-b border-purple-100 dark:border-purple-900/20">
+                                <tr>
+                                    <th className="px-4 py-3">File No</th>
+                                    <th className="px-4 py-3">Staff Name</th>
+                                    <th className="px-4 py-3">Grade/Conraiss</th>
+                                    <th className="px-4 py-3">Station</th>
+                                    <th className="px-4 py-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-300 dark:divide-gray-800">
+                                {paginatedData.map((row) => (
+                                    <tr key={row.fileNo} className="hover:bg-purple-50/20 dark:hover:bg-purple-900/5 transition-colors">
+                                        <td className="px-4 py-3 font-mono font-bold text-purple-700 dark:text-purple-400">{row.fileNo}</td>
+                                        <td className="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">{row.name}</td>
+                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.grade}</td>
+                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.station}</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <button
+                                                onClick={() => navigate(`/admin/apc/list?f=${row.fileNo}`)}
+                                                className="p-1.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                                                title="Go to APC Record"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="flex justify-center gap-2 pt-4">
+                        <button
+                            disabled={page === 1}
+                            onClick={() => setPage(1)}
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
+                        >
+                            First
+                        </button>
+                        <button
+                            disabled={page === 1}
+                            onClick={() => setPage(page - 1)}
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
+                        >
+                            Previous
+                        </button>
+                        <span className="px-3 py-1 bg-slate-100 rounded">
+                            Page {page} of {totalPages || 1}
+                        </span>
+                        <button
+                            disabled={page >= totalPages}
+                            onClick={() => setPage(page + 1)}
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
+                        >
+                            Next
+                        </button>
+                        <button
+                            disabled={page >= totalPages}
+                            onClick={() => setPage(totalPages)}
+                            className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-background-light"
+                        >
+                            Last
+                        </button>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
 const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClose: () => void; onSuccess: () => void }) => {
     const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
@@ -822,7 +972,7 @@ const AddToAPCModal = ({ staff, onClose, onSuccess }: { staff: MissingRow; onClo
                                             onChange={(e) => handleAssignmentChange(code, e.target.checked)}
                                             className="rounded"
                                         />
-                                        <span className="text-sm font-bold text-white dark:text-white">{label}</span>
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{label}</span>
                                     </label>
                                 );
                             })}
