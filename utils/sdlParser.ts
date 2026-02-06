@@ -38,9 +38,7 @@ const FIELD_LABELS: Record<string, string> = {
  */
 const COMPARABLE_FIELDS = [
     'full_name', 'station', 'qualification', 'sex', 'dob', 'dofa', 'doan', 'dopa',
-    'rank', 'conr', 'state', 'lga', 'email', 'phone', 'remark',
-    'is_hod', 'is_state_coordinator', 'is_director', 'is_education',
-    'is_secretary', 'is_driver', 'is_typesetting', 'others'
+    'rank', 'conr', 'state', 'lga', 'email', 'phone', 'remark'
 ];
 
 /**
@@ -93,12 +91,61 @@ const parseBool = (val: any): boolean => {
 };
 
 /**
- * Normalize a value for comparison (handle null, undefined, empty strings)
+ * Convert Excel serial date to YYYY-MM-DD format
  */
-const normalizeValue = (val: any): string | boolean | null => {
+const excelDateToString = (serial: number): string => {
+    const utc_days = Math.floor(serial - 25569);
+    const utc_value = utc_days * 86400;
+    const date_info = new Date(utc_value * 1000);
+    const year = date_info.getUTCFullYear();
+    const month = String(date_info.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date_info.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+/**
+ * Convert date string to YYYY-MM-DD format
+ */
+const normalizeDateString = (dateStr: string): string => {
+    // Try dd/mm/yyyy format
+    const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ddmmyyyyMatch) {
+        const [, day, month, year] = ddmmyyyyMatch;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    // Try dd-mm-yyyy format
+    const ddmmyyyyDashMatch = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (ddmmyyyyDashMatch) {
+        const [, day, month, year] = ddmmyyyyDashMatch;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    // Already in yyyy-mm-dd format or other format, return as is
+    return dateStr;
+};
+
+/**
+ * Normalize a value for comparison (handle null, undefined, empty strings)
+ * Also removes "(Retiring)" suffix from names for comparison
+ */
+const normalizeValue = (val: any, field?: string): string | boolean | null => {
     if (val === undefined || val === null || val === '') return null;
     if (typeof val === 'boolean') return val;
-    if (typeof val === 'string') return val.trim();
+    if (typeof val === 'string') {
+        let normalized = val.trim();
+        // Remove "(Retiring)" suffix from full_name field
+        if (field === 'full_name') {
+            normalized = normalized.replace(/\s*\(Retiring\)\s*$/i, '').trim();
+        }
+        // Normalize state field by removing " State" suffix
+        if (field === 'state') {
+            normalized = normalized.replace(/\s+State$/i, '').trim();
+        }
+        return normalized;
+    }
+    // Convert Excel date serial numbers to date strings for date fields
+    if (typeof val === 'number' && (field === 'dob' || field === 'dofa' || field === 'doan' || field === 'dopa')) {
+        return excelDateToString(val);
+    }
     return String(val);
 };
 
@@ -140,7 +187,13 @@ export const parseSDLFile = async (file: File): Promise<StaffCreate[]> => {
                     const fileno = row[filenoIndex];
                     if (!fileno) continue; // Skip rows without file number
 
-                    const record: any = { fileno: String(fileno).trim() };
+                    // Pad file number with leading zeros to 4 digits if numeric
+                    let normalizedFileno = String(fileno).trim();
+                    if (/^\d+$/.test(normalizedFileno)) {
+                        normalizedFileno = normalizedFileno.padStart(4, '0');
+                    }
+
+                    const record: any = { fileno: normalizedFileno };
 
                     headers.forEach((header, idx) => {
                         if (header === 'fileno') return;
@@ -151,7 +204,14 @@ export const parseSDLFile = async (file: File): Promise<StaffCreate[]> => {
                         if (header.startsWith('is_') || header === 'others' || header === 'active') {
                             record[header] = parseBool(value);
                         } else if (value !== undefined && value !== null && value !== '') {
-                            record[header] = String(value).trim();
+                            // Convert Excel date serial numbers to date strings
+                            if (typeof value === 'number' && (header === 'dob' || header === 'dofa' || header === 'doan' || header === 'dopa')) {
+                                record[header] = excelDateToString(value);
+                            } else if (typeof value === 'string' && (header === 'dob' || header === 'dofa' || header === 'doan' || header === 'dopa')) {
+                                record[header] = normalizeDateString(value.trim());
+                            } else {
+                                record[header] = String(value).trim();
+                            }
                         }
                     });
 
@@ -213,8 +273,8 @@ export const compareSDLData = (
             const fieldChanges: FieldChange[] = [];
 
             for (const field of COMPARABLE_FIELDS) {
-                const importedVal = normalizeValue((importedRecord as any)[field]);
-                const existingVal = normalizeValue((existingRecord as any)[field]);
+                const importedVal = normalizeValue((importedRecord as any)[field], field);
+                const existingVal = normalizeValue((existingRecord as any)[field], field);
 
                 // Only compare if imported value is provided
                 if (importedVal === null) continue;

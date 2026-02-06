@@ -20,6 +20,8 @@ const SDLStagingPage: React.FC = () => {
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [filterType, setFilterType] = useState<ChangeType | 'ALL'>('ALL');
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [alertModal, setAlertModal] = useState<{
         isOpen: boolean;
@@ -49,6 +51,20 @@ const SDLStagingPage: React.FC = () => {
             return matchesFilter && matchesSearch;
         });
     }, [records, filterType, searchTerm]);
+
+    // Paginate records
+    const paginatedRecords = useMemo(() => {
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        return filteredRecords.slice(startIndex, endIndex);
+    }, [filteredRecords, currentPage, rowsPerPage]);
+
+    const totalPages = Math.ceil(filteredRecords.length / rowsPerPage);
+
+    // Reset to page 1 when filters change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [filterType, searchTerm]);
 
     // Redirect if no data
     if (initialRecords.length === 0) {
@@ -84,8 +100,9 @@ const SDLStagingPage: React.FC = () => {
     };
 
     const handleSelectAll = (checked: boolean) => {
+        const filteredFilenos = new Set(filteredRecords.filter(r => r.changeType !== 'UNCHANGED').map(r => r.fileno));
         setRecords(prev => prev.map(r =>
-            r.changeType !== 'UNCHANGED' ? { ...r, isSelected: checked } : r
+            filteredFilenos.has(r.fileno) ? { ...r, isSelected: checked } : r
         ));
     };
 
@@ -257,7 +274,8 @@ const SDLStagingPage: React.FC = () => {
         }
     };
 
-    const isAllSelected = records.filter(r => r.changeType !== 'UNCHANGED').every(r => r.isSelected);
+    const isAllSelected = filteredRecords.filter(r => r.changeType !== 'UNCHANGED').length > 0 && 
+        filteredRecords.filter(r => r.changeType !== 'UNCHANGED').every(r => r.isSelected);
 
     const getChangeTypeBadge = (type: ChangeType) => {
         switch (type) {
@@ -286,7 +304,8 @@ const SDLStagingPage: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto transition-colors duration-200">
+        <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] overflow-hidden transition-colors duration-200">
+            <div className="flex-1 flex flex-col p-4 md:p-8 gap-6 md:gap-8 overflow-y-auto">
             <AlertModal
                 isOpen={alertModal.isOpen}
                 onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
@@ -386,6 +405,19 @@ const SDLStagingPage: React.FC = () => {
                         <option value="UNCHANGED">Unchanged Only</option>
                     </select>
                 </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Rows:</span>
+                    <select
+                        value={rowsPerPage}
+                        onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                        className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-medium text-sm"
+                    >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                </div>
                 <div className="flex-1 max-w-md">
                     <input
                         type="text"
@@ -398,7 +430,7 @@ const SDLStagingPage: React.FC = () => {
             </div>
 
             {/* Table */}
-            <div className="bg-surface-light dark:bg-[#121b25] rounded-2xl shadow-xl border border-slate-200 dark:border-gray-800 overflow-hidden">
+            <div className="bg-surface-light dark:bg-[#121b25] rounded-2xl shadow-xl border border-slate-200 dark:border-gray-800 overflow-hidden flex-shrink-0">
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200 dark:divide-gray-700">
                         <thead className="bg-slate-50 dark:bg-[#0b1015]">
@@ -419,7 +451,7 @@ const SDLStagingPage: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
-                            {filteredRecords.map((record) => (
+                            {paginatedRecords.map((record) => (
                                 <React.Fragment key={record.fileno}>
                                     <tr className={`transition-colors ${record.isSelected ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
                                         <td className="py-4 px-4">
@@ -427,7 +459,10 @@ const SDLStagingPage: React.FC = () => {
                                                 <input
                                                     type="checkbox"
                                                     checked={record.isSelected}
-                                                    onChange={(e) => handleSelectRecord(record.fileno, e.target.checked)}
+                                                    onChange={(e) => {
+                                                        e.stopPropagation();
+                                                        handleSelectRecord(record.fileno, e.target.checked);
+                                                    }}
                                                     className="w-5 h-5 text-emerald-600 rounded border-slate-300 dark:border-gray-600 focus:ring-emerald-500"
                                                 />
                                             )}
@@ -497,6 +532,49 @@ const SDLStagingPage: React.FC = () => {
                         <p className="text-slate-500 dark:text-slate-400 font-medium">No records match your filter criteria.</p>
                     </div>
                 )}
+            </div>
+
+            {/* Pagination */}
+            {filteredRecords.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-4 bg-surface-light dark:bg-[#121b25] rounded-xl p-4 border border-slate-200 dark:border-gray-800">
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredRecords.length)} of {filteredRecords.length} records
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-base">first_page</span>
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-base">chevron_left</span>
+                        </button>
+                        <span className="px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                            Page {currentPage} of {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-base">chevron_right</span>
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-base">last_page</span>
+                        </button>
+                    </div>
+                </div>
+            )}
             </div>
         </div>
     );
