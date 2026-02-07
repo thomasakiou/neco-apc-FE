@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Mandate, MandateCreate } from '../../types/mandate';
 
+import { Assignment } from '../../types/assignment';
+
 interface MandateModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: MandateCreate) => Promise<void>;
+    onSubmit: (data: MandateCreate, assignedTo: string[]) => Promise<void>;
     initialData?: Mandate | null;
+    allAssignments: Assignment[];
 }
 
 const CONRAISS_OPTIONS = ['6', '7', '8', '9', '10', '11', '12', '13', '14', '15'];
@@ -18,23 +21,32 @@ const initialFormState: MandateCreate = {
     active: true,
 };
 
-const MandateModal: React.FC<MandateModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+const MandateModal: React.FC<MandateModalProps> = ({ isOpen, onClose, onSubmit, initialData, allAssignments }) => {
     const [formData, setFormData] = useState<MandateCreate>(initialFormState);
+    const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (initialData) {
-            setFormData({
-                code: initialData.code,
-                mandate: initialData.mandate,
-                conraiss_range: initialData.conraiss_range || [],
-                station: initialData.station || '',
-                active: !!(initialData.active ?? true),
-            });
-        } else {
-            setFormData(initialFormState);
+        if (isOpen) {
+            if (initialData) {
+                setFormData({
+                    code: initialData.code,
+                    mandate: initialData.mandate,
+                    conraiss_range: initialData.conraiss_range || [],
+                    station: initialData.station || '',
+                    active: !!(initialData.active ?? true),
+                });
+                // Determine which assignments currently have this mandate
+                const linked = allAssignments
+                    .filter(a => a.mandates?.includes(initialData.code))
+                    .map(a => a.code);
+                setSelectedAssignments(linked);
+            } else {
+                setFormData(initialFormState);
+                setSelectedAssignments([]);
+            }
         }
-    }, [initialData, isOpen]);
+    }, [initialData, isOpen, allAssignments]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target;
@@ -54,11 +66,19 @@ const MandateModal: React.FC<MandateModalProps> = ({ isOpen, onClose, onSubmit, 
         });
     };
 
+    const handleAssignmentToggle = (assignmentCode: string) => {
+        setSelectedAssignments(prev =>
+            prev.includes(assignmentCode)
+                ? prev.filter(c => c !== assignmentCode)
+                : [...prev, assignmentCode]
+        );
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await onSubmit(formData);
+            await onSubmit(formData, selectedAssignments);
             onClose();
         } catch (error) {
             console.error(error);
@@ -71,7 +91,7 @@ const MandateModal: React.FC<MandateModalProps> = ({ isOpen, onClose, onSubmit, 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 transition-all duration-300">
-            <div className="bg-white/95 dark:bg-[#121b25]/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col border border-slate-200/50 dark:border-gray-800/50 transition-colors">
+            <div className="bg-white/95 dark:bg-[#121b25]/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-slate-200/50 dark:border-gray-800/50 transition-colors">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-gray-800 bg-gradient-to-r from-emerald-50/50 via-white to-teal-50/50 dark:from-emerald-900/20 dark:via-[#121b25] dark:to-teal-900/20 rounded-t-2xl transition-colors">
                     <div className="flex flex-col">
@@ -89,7 +109,7 @@ const MandateModal: React.FC<MandateModalProps> = ({ isOpen, onClose, onSubmit, 
                 </div>
 
                 {/* Content */}
-                <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+                <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 flex-1 overflow-y-auto">
                     <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-gray-700 transition-colors">
                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Active Status</label>
                         <label className="relative inline-flex items-center cursor-pointer">
@@ -145,6 +165,26 @@ const MandateModal: React.FC<MandateModalProps> = ({ isOpen, onClose, onSubmit, 
                                         className="w-4 h-4 rounded border-slate-300 dark:border-gray-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                                     />
                                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">CONR {conraiss}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="border border-slate-200 dark:border-gray-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-800/50 transition-colors">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 block">Associated Assignments</label>
+                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                            {allAssignments.map((assignment) => (
+                                <label
+                                    key={assignment.id}
+                                    className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-600 transition-all"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedAssignments.includes(assignment.code)}
+                                        onChange={() => handleAssignmentToggle(assignment.code)}
+                                        className="w-4 h-4 rounded border-slate-300 dark:border-gray-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{assignment.name}</span>
                                 </label>
                             ))}
                         </div>

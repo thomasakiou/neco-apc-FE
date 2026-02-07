@@ -58,7 +58,19 @@ export const createMandate = async (data: MandateCreate): Promise<Mandate> => {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Failed to create mandate');
+    if (!response.ok) {
+        let errorMessage = 'Failed to create mandate';
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+            if (Array.isArray(errorData.detail)) {
+                errorMessage = errorData.detail.map((d: any) => d.msg).join(', ');
+            }
+        } catch (e) {
+            // parsing failed
+        }
+        throw new Error(errorMessage);
+    }
     invalidateCache();
     return response.json();
 };
@@ -69,7 +81,19 @@ export const updateMandate = async (id: string, data: MandateUpdate): Promise<Ma
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Failed to update mandate');
+    if (!response.ok) {
+        let errorMessage = 'Failed to update mandate';
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+            if (Array.isArray(errorData.detail)) {
+                errorMessage = errorData.detail.map((d: any) => d.msg).join(', ');
+            }
+        } catch (e) {
+            // parsing failed, use default message
+        }
+        throw new Error(errorMessage);
+    }
     invalidateCache();
     return response.json();
 };

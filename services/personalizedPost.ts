@@ -157,6 +157,9 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         const normalizedStaffFileNo = staff.fileno.toString().padStart(4, '0');
         const postedSpecifics = staffPostedSpecifics.get(normalizedStaffFileNo);
 
+        // Exclude secretaries from eligible pool
+        if (staff.is_secretary) return;
+
         // Hide if already posted for THIS assignment type (Case-Insensitive)
         // Check both assignment code AND name since postings may store either
         const normalize = (s: string) => s.toString().trim().toUpperCase();
@@ -211,6 +214,10 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         if (!usedApcIds.has(record.id) && fieldName) {
             const normalizedFileNo = record.file_no.toString().padStart(4, '0');
             const postedSpecifics = staffPostedSpecifics.get(normalizedFileNo);
+
+            // Exclude secretaries from orphan records too
+            const staffSDL = allStaff!.find((s: any) => s.fileno.toString().padStart(4, '0') === normalizedFileNo);
+            if (staffSDL?.is_secretary) return;
 
             // Hide if already posted for THIS assignment type (Case-Insensitive)
             // Check both assignment code AND name since postings may store either

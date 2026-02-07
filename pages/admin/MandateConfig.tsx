@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { getMandateList, deleteMandate, createMandate, updateMandate, uploadMandateCsv, getAllMandates, bulkDeleteMandates } from '../../services/mandate';
-import { getAllAssignments } from '../../services/assignment';
+import { getAllAssignments, updateAssignment } from '../../services/assignment';
 import { Mandate, MandateCreate } from '../../types/mandate';
 import { Assignment } from '../../types/assignment';
 import MandateModal from './MandateModal';
@@ -35,9 +35,12 @@ const MandateConfig: React.FC = () => {
 
         // Dropdown Filters
         if (selectedAssignment !== 'All') {
-            result = result.filter(mandate =>
-                mandate.conraiss_range && mandate.conraiss_range.includes(selectedAssignment)
-            );
+            const assignment = assignmentList.find(a => a.code === selectedAssignment);
+            if (assignment && assignment.mandates) {
+                result = result.filter(mandate =>
+                    assignment.mandates.includes(mandate.code)
+                );
+            }
         }
 
         // SORT LOGIC
@@ -211,22 +214,54 @@ const MandateConfig: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleModalSubmit = async (data: MandateCreate) => {
+    const handleModalSubmit = async (data: MandateCreate, assignedTo: string[]) => {
         try {
+            let savedMandate: Mandate;
             if (editingMandate) {
-                await updateMandate(editingMandate.id, data);
+                savedMandate = await updateMandate(editingMandate.id, data);
             } else {
-                await createMandate(data);
+                savedMandate = await createMandate(data);
             }
+
+            // Handle Assignment Linking
+            const mandateCode = savedMandate.code;
+            const updatePromises = assignmentList.map(async (assignment) => {
+                const hasMandate = assignment.mandates?.includes(mandateCode);
+                const shouldHaveMandate = assignedTo.includes(assignment.code);
+
+                if (hasMandate && !shouldHaveMandate) {
+                    // Remove mandate from assignment
+                    const newMandates = assignment.mandates.filter(m => m !== mandateCode);
+                    await updateAssignment(assignment.id, {
+                        ...assignment,
+                        mandates: newMandates
+                    });
+                } else if (!hasMandate && shouldHaveMandate) {
+                    // Add mandate to assignment
+                    const newMandates = [...(assignment.mandates || []), mandateCode];
+                    await updateAssignment(assignment.id, {
+                        ...assignment,
+                        mandates: newMandates
+                    });
+                }
+            });
+
+            await Promise.all(updatePromises);
+
+            // Refresh logic
             fetchData();
             fetchAllMandates();
+            // Also refresh assignments since we modified them
+            const assignments = await getAllAssignments();
+            setAssignmentList(assignments);
+
             setIsModalOpen(false);
         } catch (error) {
             console.error('Error saving mandate:', error);
             setAlertModal({
                 isOpen: true,
                 title: 'Error',
-                message: 'Failed to save mandate. Please check your inputs and try again.',
+                message: error.message || 'Failed to save mandate. Please check your inputs and try again.',
                 type: 'error'
             });
             throw error;
@@ -328,6 +363,7 @@ const MandateConfig: React.FC = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleModalSubmit}
                 initialData={editingMandate}
+                allAssignments={assignmentList}
             />
 
             <AlertModal

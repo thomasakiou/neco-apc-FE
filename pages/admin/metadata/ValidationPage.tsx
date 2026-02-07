@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { getAllAPCRecords } from '../../../services/apc';
 import { getAllPostingRecords } from '../../../services/posting';
+import { getAllFinalPostings } from '../../../services/finalPosting';
 import { getPageCache, setPageCache } from '../../../services/pageCache';
 import { APCRecord } from '../../../types/apc';
-import { PostingResponse } from '../../../types/posting';
 import { assignmentFieldMap } from '../../../services/personalizedPost';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -215,9 +215,10 @@ const AssignmentValidationPage: React.FC = () => {
         // setValidationResults([]); // Keep existing results to prevent flicker if fetching from cache
 
         try {
-            const [apcRecords, postingRecords] = await Promise.all([
+            const [apcRecords, postingRecords, finalPostingRecords] = await Promise.all([
                 getAllAPCRecords(true, force), // only active
-                getAllPostingRecords(force) // force refresh only if requested
+                getAllPostingRecords(force),
+                getAllFinalPostings(force)
             ]);
 
             const targetField = assignmentFieldMap[selectedAssignment];
@@ -232,60 +233,79 @@ const AssignmentValidationPage: React.FC = () => {
                 .filter(key => assignmentFieldMap[key] === targetField)
                 .map(key => key.toUpperCase());
 
-            // 1. Filter APC records that are SCHEDULED for this assignment (field is not empty)
+            // Extract assignment code/name from selectedAssignment for comparison
+            const assignmentCode = selectedAssignment;
+            const assignmentName = selectedAssignment;
+
+            // 1. Get final posting items first
+            const finalPostingItems = finalPostingRecords.items || (Array.isArray(finalPostingRecords) ? finalPostingRecords : []);
+            
+            // 2. Filter APC records that are SCHEDULED for this assignment (field is not empty)
+            // AND have capacity remaining (not fully posted yet)
+            const postedCountMap = new Map<string, number>();
+            
+            // Count total postings per staff from both tables
+            [...postingRecords, ...finalPostingItems].forEach(p => {
+                const key = p.file_no.trim().padStart(4, '0');
+                const count = Array.isArray(p.assignments) ? p.assignments.length : 0;
+                postedCountMap.set(key, (postedCountMap.get(key) || 0) + count);
+            });
+            
             const scheduledStaff = apcRecords.filter(apc => {
                 const val = (apc as any)[targetField];
-                return val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED';
+                if (!val || val.toString().trim() === '' || val.toString().trim().toUpperCase() === 'RETURNED') return false;
+                
+                // Check capacity - only include if they have remaining capacity
+                const normFileNo = apc.file_no.trim().padStart(4, '0');
+                const totalPosted = postedCountMap.get(normFileNo) || 0;
+                const totalAllotted = apc.count || 0;
+                
+                return totalPosted < totalAllotted;
             });
 
-            // 2. Create a Map of Postings for quick lookup
-            const postingMap = new Map<string, PostingResponse>();
-            postingRecords.forEach(p => postingMap.set(p.file_no.trim().padStart(4, '0'), p));
+            // 3. Build set of staff already posted for THIS specific assignment
+            const alreadyPostedForAssignment = new Set<string>();
+            
+            const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
+            
+            [...postingRecords, ...finalPostingItems].forEach((p: any) => {
+                const key = p.file_no.trim().padStart(4, '0');
+                const assignmentsRaw = p.assignments;
+                
+                let hasThisAssignment = false;
+                if (Array.isArray(assignmentsRaw)) {
+                    hasThisAssignment = assignmentsRaw.some((a: any) => {
+                        const code = typeof a === 'string' ? a : a.code || a.name || '';
+                        const normCode = normalize(code);
+                        // Check against all valid aliases
+                        return validAliases.some(alias => normCode === alias);
+                    });
+                } else if (typeof assignmentsRaw === 'string' && assignmentsRaw) {
+                    hasThisAssignment = assignmentsRaw.split(',').some(s => {
+                        const normCode = normalize(s);
+                        return validAliases.some(alias => normCode === alias);
+                    });
+                }
+                
+                if (hasThisAssignment) {
+                    alreadyPostedForAssignment.add(key);
+                }
+            });
 
             const issues: ValidationResult[] = [];
 
-            // 3. Cross-reference
+            // 4. Cross-reference - Only show staff scheduled but NOT posted for this assignment
             scheduledStaff.forEach(staff => {
                 const normFileNo = staff.file_no.trim().padStart(4, '0');
-                const posting = postingMap.get(normFileNo);
-
-                if (!posting) {
+                
+                // If staff is NOT in the alreadyPostedForAssignment set, they need to be posted
+                if (!alreadyPostedForAssignment.has(normFileNo)) {
                     issues.push({
                         fileNo: staff.file_no.trim(),
                         name: staff.name,
                         station: staff.station || '-',
                         issue: 'Scheduled in APC but Not posted yet'
                     });
-                } else {
-                    // Check if the assignment is in the posting's assignments list
-                    const assignmentsRaw = posting.assignments;
-                    let assignmentsArr: any[] = [];
-                    if (Array.isArray(assignmentsRaw)) {
-                        assignmentsArr = assignmentsRaw;
-                    } else if (typeof assignmentsRaw === 'string') {
-                        // Handle comma-separated string from backend
-                        assignmentsArr = (assignmentsRaw as string).split(',').map(s => s.trim());
-                    }
-
-                    // Normalize all posted codes to uppercase for comparison
-                    const postedCodesNormalized = assignmentsArr.map((a: any) => {
-                        const code = typeof a === 'string' ? a : a.code || a.name || '';
-                        return code.toString().trim().toUpperCase();
-                    });
-
-                    // Check if ANY posted code matches ANY valid alias for this assignment
-                    const hasAssignment = validAliases.some(alias =>
-                        postedCodesNormalized.includes(alias)
-                    );
-
-                    if (!hasAssignment) {
-                        issues.push({
-                            fileNo: staff.file_no,
-                            name: staff.name,
-                            station: staff.station || '-',
-                            issue: `Missing assignment: ${selectedAssignment}`
-                        });
-                    }
                 }
             });
 

@@ -133,6 +133,8 @@ const RandomizedPost: React.FC = () => {
     const [loading, setLoading] = useState(false);
     // Lookup for Education Staff (from SDL)
     const [educationStaffSet, setEducationStaffSet] = useState<Set<string>>(new Set());
+    // Lookup for Secretary Staff (from SDL)
+    const [secretaryStaffSet, setSecretaryStaffSet] = useState<Set<string>>(new Set());
 
     // Selections
     const [selectedAssignment, setSelectedAssignment] = useState<string>('');
@@ -346,6 +348,9 @@ const RandomizedPost: React.FC = () => {
                 if (!isEduSDL && !hasProf) return;
             }
 
+            // 4. Exclude Secretaries
+            if (secretaryStaffSet.has(staff.file_no)) return;
+
             total++;
             if (breakdown[lvl] !== undefined) {
                 breakdown[lvl]++;
@@ -383,10 +388,13 @@ const RandomizedPost: React.FC = () => {
 
             // Populate Education Staff Lookup
             const eduSet = new Set<string>();
+            const secSet = new Set<string>();
             staffData.forEach(s => {
                 if (s.is_education) eduSet.add(s.fileno);
+                if (s.is_secretary) secSet.add(s.fileno);
             });
             setEducationStaffSet(eduSet);
+            setSecretaryStaffSet(secSet);
 
             const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
             const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
@@ -657,6 +665,9 @@ const RandomizedPost: React.FC = () => {
 
                     if (!isEduSDL && !hasProf) return false;
                 }
+
+                // 4. Exclude Secretaries from SDL
+                if (secretaryStaffSet.has(staff.file_no)) return false;
 
                 return true;
             });

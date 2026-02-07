@@ -498,6 +498,7 @@ const AssignmentConfig: React.FC = () => {
                 onSubmit={handleSubmit}
                 initialData={selectedAssignment}
                 allMandates={allMandates}
+                allAssignments={allAssignments}
             />
 
             <AlertModal
