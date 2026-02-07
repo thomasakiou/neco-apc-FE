@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getAllFinalPostings, updateFinalPosting, getAllFinalPostings as fetchAllFinalPostings } from '../../services/finalPosting'; // Alias for clarity
 import { getAllAPCRecords } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
+import { assignmentFieldMap } from '../../services/personalizedPost';
 import { FinalPostingResponse } from '../../types/finalPosting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
@@ -135,13 +136,26 @@ const ReplacementPostPage: React.FC = () => {
         let source: any[] = [];
 
         if (reason === 'Replacement') {
-            // Show only UNPOSTED staff
-            source = apcRecords.filter(p => !postedFileNumbers.has(p.file_no.trim()));
+            // Requirement check: When Action is replacement, I expect the name area to be empty until and Assignment is choosen 
+            if (!filterAssignment) return [];
+
+            // Staff who are scheduled for the selected assignment (having the assignment in their APC) but not posted yet
+            const fieldName = assignmentFieldMap[filterAssignment] ||
+                Object.keys(assignmentFieldMap).find(k => k.toUpperCase() === filterAssignment.toUpperCase()) ? assignmentFieldMap[Object.keys(assignmentFieldMap).find(k => k.toUpperCase() === filterAssignment.toUpperCase()) as string] : null;
+
+            if (!fieldName) {
+                // If we can't map the assignment name to a field, we show empty as we enforcement scheduling.
+                return [];
+            }
+
+            source = apcRecords.filter(p => {
+                const isUnposted = !postedFileNumbers.has(p.file_no.trim());
+                const val = (p as any)[fieldName];
+                const isScheduled = val && typeof val === 'string' && val.trim() !== '' && val.toUpperCase() !== 'RETURNED';
+                return isUnposted && isScheduled;
+            });
         } else {
             // Swapping: Show POSTED staff (excluding the currently selected one)
-            // If filterAssignment is active, arguably we should only show staff in that assignment too? 
-            // The user said "they will only swap venues", implying same assignment.
-
             let pool = finalPostings;
             if (filterAssignment) {
                 pool = pool.filter(p => p.assignments?.some((a: any) => {
