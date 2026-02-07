@@ -236,10 +236,14 @@ const OutstandingPostingsPage: React.FC = () => {
                 const postedSet = postingMap.get(normFileNo);
                 const posted = postedSet ? Array.from(postedSet) : [];
 
+                // Filter out posted assignments from pending
+                const actualPending = pendingFromApc.filter(code => !postedSet?.has(code));
+
                 // Combine Pending + Posted to get the Original Schedule
+                // Note: scheduled should logically be what was required (from APC)
                 const allScheduled = Array.from(new Set([...pendingFromApc, ...posted]));
 
-                if (allScheduled.length > 0) {
+                if (actualPending.length > 0) {
                     results.push({
                         fileNo: staff.file_no,
                         name: staff.name,
@@ -247,7 +251,7 @@ const OutstandingPostingsPage: React.FC = () => {
                         conraiss: staff.conraiss || (staff as any).conr || '-',
                         scheduled: allScheduled,
                         posted,
-                        pending: pendingFromApc,
+                        pending: actualPending,
                         limit: staff.count || 0
                     });
                 }
@@ -294,7 +298,7 @@ const OutstandingPostingsPage: React.FC = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-600 via-orange-600 to-rose-600 dark:from-rose-400 dark:via-orange-400 dark:to-rose-400 tracking-tight">
+                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-600 dark:from-emerald-400 dark:via-teal-400 dark:to-emerald-400 tracking-tight">
                         Outstanding Postings
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">

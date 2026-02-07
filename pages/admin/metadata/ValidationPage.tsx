@@ -3,6 +3,7 @@ import { getAllAPCRecords } from '../../../services/apc';
 import { getAllPostingRecords } from '../../../services/posting';
 import { getAllFinalPostings } from '../../../services/finalPosting';
 import { getPageCache, setPageCache } from '../../../services/pageCache';
+import { getAllStaff } from '../../../services/staff';
 import { APCRecord } from '../../../types/apc';
 import { assignmentFieldMap } from '../../../services/personalizedPost';
 import jsPDF from 'jspdf';
@@ -215,10 +216,11 @@ const AssignmentValidationPage: React.FC = () => {
         // setValidationResults([]); // Keep existing results to prevent flicker if fetching from cache
 
         try {
-            const [apcRecords, postingRecords, finalPostingRecords] = await Promise.all([
+            const [apcRecords, postingRecords, finalPostingRecords, allStaff] = await Promise.all([
                 getAllAPCRecords(true, force), // only active
                 getAllPostingRecords(force),
-                getAllFinalPostings(force)
+                getAllFinalPostings(0, 100000, force),
+                getAllStaff(force)
             ]);
 
             const targetField = assignmentFieldMap[selectedAssignment];
@@ -227,6 +229,14 @@ const AssignmentValidationPage: React.FC = () => {
                 setLoading(false);
                 return;
             }
+
+            // Create a Set of file numbers for secretaries
+            const secretaryFileNos = new Set<string>();
+            allStaff.forEach(s => {
+                if (s.is_secretary) {
+                    secretaryFileNos.add(s.fileno.trim().padStart(4, '0'));
+                }
+            });
 
             // Get all valid aliases for this field (e.g. 'OCT-ACCR' also matches 'OCTOBER ACCREDITATION')
             const validAliases = Object.keys(assignmentFieldMap)
@@ -239,39 +249,27 @@ const AssignmentValidationPage: React.FC = () => {
 
             // 1. Get final posting items first
             const finalPostingItems = finalPostingRecords.items || (Array.isArray(finalPostingRecords) ? finalPostingRecords : []);
-            
+
             // 2. Filter APC records that are SCHEDULED for this assignment (field is not empty)
-            // AND have capacity remaining (not fully posted yet)
-            const postedCountMap = new Map<string, number>();
-            
-            // Count total postings per staff from both tables
-            [...postingRecords, ...finalPostingItems].forEach(p => {
-                const key = p.file_no.trim().padStart(4, '0');
-                const count = Array.isArray(p.assignments) ? p.assignments.length : 0;
-                postedCountMap.set(key, (postedCountMap.get(key) || 0) + count);
-            });
-            
+            // AND ensure they are not returned
+            // AND ensure they are NOT secretaries
             const scheduledStaff = apcRecords.filter(apc => {
-                const val = (apc as any)[targetField];
-                if (!val || val.toString().trim() === '' || val.toString().trim().toUpperCase() === 'RETURNED') return false;
-                
-                // Check capacity - only include if they have remaining capacity
                 const normFileNo = apc.file_no.trim().padStart(4, '0');
-                const totalPosted = postedCountMap.get(normFileNo) || 0;
-                const totalAllotted = apc.count || 0;
-                
-                return totalPosted < totalAllotted;
+                if (secretaryFileNos.has(normFileNo)) return false;
+
+                const val = (apc as any)[targetField];
+                return val && val.toString().trim() !== '' && val.toString().trim().toUpperCase() !== 'RETURNED';
             });
 
             // 3. Build set of staff already posted for THIS specific assignment
             const alreadyPostedForAssignment = new Set<string>();
-            
+
             const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
-            
+
             [...postingRecords, ...finalPostingItems].forEach((p: any) => {
                 const key = p.file_no.trim().padStart(4, '0');
                 const assignmentsRaw = p.assignments;
-                
+
                 let hasThisAssignment = false;
                 if (Array.isArray(assignmentsRaw)) {
                     hasThisAssignment = assignmentsRaw.some((a: any) => {
@@ -286,7 +284,7 @@ const AssignmentValidationPage: React.FC = () => {
                         return validAliases.some(alias => normCode === alias);
                     });
                 }
-                
+
                 if (hasThisAssignment) {
                     alreadyPostedForAssignment.add(key);
                 }
@@ -297,7 +295,7 @@ const AssignmentValidationPage: React.FC = () => {
             // 4. Cross-reference - Only show staff scheduled but NOT posted for this assignment
             scheduledStaff.forEach(staff => {
                 const normFileNo = staff.file_no.trim().padStart(4, '0');
-                
+
                 // If staff is NOT in the alreadyPostedForAssignment set, they need to be posted
                 if (!alreadyPostedForAssignment.has(normFileNo)) {
                     issues.push({
@@ -323,7 +321,7 @@ const AssignmentValidationPage: React.FC = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400 tracking-tight">
+                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-600 dark:from-emerald-400 dark:via-teal-400 dark:to-emerald-400 tracking-tight">
                         Assignment Validation
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">

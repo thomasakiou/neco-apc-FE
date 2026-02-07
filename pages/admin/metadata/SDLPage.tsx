@@ -135,32 +135,35 @@ const SDLPage: React.FC = () => {
         return sortDirection === 'asc' ? comparison : -comparison;
     });
 
-    const allFilteredStaff = allStaff.filter(staff => {
-        const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
-        const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
-        const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
-        const matchesState = selectedState === 'All' || staff.state === selectedState;
+    const allFilteredStaff = useMemo(() => {
+        return allStaff.filter(staff => {
+            const matchesSearch = !searchTerm ||
+                staff.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                staff.fileno?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                staff.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const remarkLower = (staff.remark || '').toLowerCase();
-        const qualLower = (staff.qualification || '').toLowerCase();
-        const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
-        const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
-        const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
-        const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
-        const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
-        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
-        const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
-        const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
-        const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
-        const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
-        const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
+            const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
+            const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
+            const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
+            const matchesState = selectedState === 'All' || staff.state === selectedState;
 
-        const matchesDOB = selectedDOB === 'All' || (staff.dob && (staff.dob.split('T')[0].split(' ')[0] === selectedDOB));
+            const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
+            const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
+            const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
+            const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+            const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
+            const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
+            const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
+            const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
+            const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
+            const matchesDOB = selectedDOB === 'All' || (staff.dob && staff.dob.startsWith(selectedDOB));
+            const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
 
-        const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
-
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring;
-    });
+            return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD &&
+                matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers &&
+                matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring;
+        });
+    }, [allStaff, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedDOB, selectedRetiring]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -659,28 +662,8 @@ const SDLPage: React.FC = () => {
             const dateStr = new Date().toLocaleString();
             doc.text(`Generated on: ${dateStr}`, 14, 28);
 
-            // Calculate full filtered data (including search term)
-            const exportStaff = allStaff.filter(staff => {
-                const matchesSearch = !searchTerm ||
-                    staff.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    staff.fileno?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    staff.email?.toLowerCase().includes(searchTerm.toLowerCase());
-                const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
-                const matchesRank = selectedRank === 'All' || staff.rank === selectedRank;
-                const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
-                const matchesState = selectedState === 'All' || staff.state === selectedState;
-                const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
-                const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
-                const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
-                const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
-                const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
-                const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
-                const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);
-                const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
-                const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
-
-                return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesRetiring;
-            });
+            // Use centralized filtered data
+            const exportStaff = allFilteredStaff;
 
             doc.text(`Total Records: ${exportStaff.length}`, 14, 33);
 
@@ -802,9 +785,8 @@ const SDLPage: React.FC = () => {
     const handleExport = async () => {
         try {
             setLoading(true);
-            const allStaffData = await getAllStaff();
-
-            const exportData = allStaffData.map(staff => ({
+            // Use centralized filtered data instead of fetching all
+            const exportData = allFilteredStaff.map(staff => ({
                 'File No': staff.fileno,
                 'Full Name': staff.full_name,
                 'Station': staff.station,
@@ -871,7 +853,7 @@ const SDLPage: React.FC = () => {
             setAlertModal({
                 isOpen: true,
                 title: 'Export Successful',
-                message: 'The full staff list has been exported to Excel.',
+                message: 'The filtered staff list has been exported to Excel.',
                 type: 'success'
             });
 

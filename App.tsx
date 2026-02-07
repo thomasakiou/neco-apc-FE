@@ -12,6 +12,7 @@ import AnnualPostings from './pages/admin/AnnualPostings';
 import FinalPostings from './pages/admin/FinalPostings';
 import APCList from './pages/admin/APCList';
 import DriverAPCList from './pages/admin/DriverAPCList';
+import ReplacementPostPage from './pages/admin/ReplacementPost';
 import TypesettingAPCList from './pages/admin/TypesettingAPCList';
 import CustomAPC from './pages/admin/CustomAPC';
 import RandomAPC from './pages/admin/RandomAPC';
@@ -98,7 +99,10 @@ const App: React.FC = () => {
               <Route path="apc/random" element={<ProtectedRoute moduleName="apc"><RandomAPC /></ProtectedRoute>} />
               <Route path="apc/hod" element={<ProtectedRoute moduleName="apc"><HODApcList /></ProtectedRoute>} />
               <Route path="apc/annual" element={<ProtectedRoute moduleName="posting"><AnnualPostings /></ProtectedRoute>} />
+
+              {/* ... (inside Routes) */}
               <Route path="apc/final" element={<ProtectedRoute moduleName="posting"><FinalPostings /></ProtectedRoute>} />
+              <Route path="apc/replacement" element={<ProtectedRoute moduleName="posting"><ReplacementPostPage /></ProtectedRoute>} />
 
               <Route path="states" element={<ProtectedRoute moduleName="metadata"><StateManagement /></ProtectedRoute>} />
               <Route path="stations" element={<ProtectedRoute moduleName="metadata"><StationManagement /></ProtectedRoute>} />

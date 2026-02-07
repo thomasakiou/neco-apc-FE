@@ -245,7 +245,7 @@ const FlaggedStaffPage: React.FC = () => {
         <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-900 via-red-800 to-rose-700 dark:from-rose-400 dark:via-red-300 dark:to-rose-500 tracking-tight">
+                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-600 dark:from-emerald-400 dark:via-teal-400 dark:to-emerald-400 tracking-tight">
                         Flagged Staff Records
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Identifying staff with assignment count violations based on CONRAISS grade rules.</p>

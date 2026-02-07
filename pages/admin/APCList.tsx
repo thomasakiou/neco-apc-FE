@@ -338,17 +338,8 @@ const APCList: React.FC = () => {
     const handleExport = useCallback(async () => {
         try {
             setLoading(true);
-            const allData = await getAllAPC(0, 100000, '');
-
-            const filteredExport = allData.items.filter(record => {
-                const matchFileNo = record.file_no.toLowerCase().includes(searchFileNo.toLowerCase().trim());
-                const matchName = record.name.toLowerCase().includes(searchName.toLowerCase().trim());
-                const matchConraiss = filterConraiss ? record.conraiss === filterConraiss : true;
-                const matchStation = filterStation ? record.station === filterStation : true;
-                return matchFileNo && matchName && matchConraiss && matchStation;
-            });
-
-            const exportData = filteredExport.map(record => ({
+            // Use already filtered records from the memoized state
+            const exportData = filteredRecords.map(record => ({
                 'File Number': record.file_no,
                 'Name': record.name,
                 'CONRAISS': record.conraiss,
@@ -384,7 +375,7 @@ const APCList: React.FC = () => {
             setAlertModal({
                 isOpen: true,
                 title: 'Export Successful',
-                message: 'APC records have been exported to Excel.',
+                message: 'Filtered APC records have been exported to Excel.',
                 type: 'success'
             });
         } catch (error) {
@@ -397,7 +388,7 @@ const APCList: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchFileNo, searchName, filterConraiss, filterStation]);
+    }, [filteredRecords]);
 
     // Report Modal State for PDF Title
     const [showReportModal, setShowReportModal] = useState(false);

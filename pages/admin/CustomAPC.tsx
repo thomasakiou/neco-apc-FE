@@ -101,8 +101,9 @@ const CustomAPC: React.FC = () => {
 
             const rawData = lines.slice(1).map(line => {
                 const cols = line.split(',').map(c => c.trim());
+                const filenoRaw = cols[idxFileNo] || '';
                 return {
-                    fileno: cols[idxFileNo],
+                    fileno: filenoRaw.length === 3 ? `0${filenoRaw}` : filenoRaw,
                     mandate: idxMandate !== -1 ? cols[idxMandate] : undefined
                 };
             }).filter(d => d.fileno);
@@ -180,18 +181,8 @@ const CustomAPC: React.FC = () => {
                     continue;
                 }
 
-                let val = 'Post'; // Default
-
-                if (globalMandateName) {
-                    val = globalMandateName;
-                } else if (staff.csvMandate) {
-                    // Try to resolve CSV mandate code to name, or use as is if it looks like a name
-                    const raw = staff.csvMandate.trim();
-                    if (raw) {
-                        const match = mandates.find(m => m.code === raw || m.mandate.toLowerCase() === raw.toLowerCase());
-                        val = match ? match.mandate : raw;
-                    }
-                }
+                // Assignment field value is now always 'Post' as per user requirement
+                const val = 'Post';
 
                 if (existing) {
                     const { id, created_at, updated_at, created_by, updated_by, ...clean } = existing;

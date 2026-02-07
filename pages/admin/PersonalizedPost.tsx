@@ -105,6 +105,22 @@ const PersonalizedPost: React.FC = () => {
         } finally { setLoading(false); }
     };
 
+    const handleRefresh = async () => {
+        setLoading(true);
+        try {
+            await loadAssignments();
+            if (selectedAssignmentId) {
+                await loadBoardData(selectedAssignmentId);
+            }
+            showAlert('Refreshed', 'Data successfully reloaded.', 'success');
+        } catch (error) {
+            console.error(error);
+            showAlert('Error', 'Failed to refresh data', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning') => {
         setAlert({ open: true, title, message, type });
     };
@@ -408,6 +424,15 @@ const PersonalizedPost: React.FC = () => {
                             <option value="">Select Assignment...</option>
                             {assignments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
+
+                        <button
+                            onClick={handleRefresh}
+                            disabled={loading}
+                            className={`w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 text-slate-500 hover:text-indigo-500 hover:border-indigo-400 transition-all font-bold group shadow-sm ${loading ? 'opacity-50' : ''}`}
+                            title="Refresh Data"
+                        >
+                            <span className={`material-symbols-outlined text-[20px] ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-500`}>refresh</span>
+                        </button>
 
                         <div ref={venueDropdownRef} className="relative w-full sm:min-w-[240px] flex-1">
                             <button
