@@ -28,16 +28,25 @@ const AuditLog: React.FC = () => {
    const fetchAuditData = async () => {
       setLoading(true);
       try {
-         const skip = (page - 1) * limit;
-         // Filter by '@' to show only users with email (Admins) and exclude Staff (FileNo)
-         const data = await getAuditLogs(skip, limit, undefined, '@');
+         // Parallel fetch for the two specifically requested users
+         const [data1, data2] = await Promise.all([
+            getAuditLogs(0, 500, undefined, "Mr. Raphael B. Izulu"),
+            getAuditLogs(0, 500, undefined, "Dr. Grace Durodola")
+         ]);
 
-         if (data && data.items) {
-            setEvents(data.items);
-            setTotal(data.total);
-         }
+         // Combine results and sort by timestamp descending
+         const combined = [
+            ...(data1.items || []),
+            ...(data2.items || [])
+         ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+         setTotal(combined.length);
+         // Apply client-side pagination since we merged results
+         const skip = (page - 1) * limit;
+         setEvents(combined.slice(skip, skip + limit));
       } catch (error) {
          console.error("Failed to fetch audit data", error);
+         showNotification('Failed to fetch restricted audit data', 'error');
       } finally {
          setLoading(false);
       }
