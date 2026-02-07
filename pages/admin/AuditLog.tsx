@@ -10,11 +10,11 @@ import * as XLSX from 'xlsx';
 const AuditLog: React.FC = () => {
    const { user: currentUser, isSuperAdmin } = useAuth();
    const { showNotification } = useNotification();
-   const [events, setEvents] = useState<AuditLogResponse[]>([]);
+   const [allRestrictedEvents, setAllRestrictedEvents] = useState<AuditLogResponse[]>([]);
+   const [searchTerm, setSearchTerm] = useState('');
    const [loading, setLoading] = useState(true);
    const [page, setPage] = useState(1);
    const [limit] = useState(20);
-   const [total, setTotal] = useState(0);
 
    // Deletion State
    const [logToDelete, setLogToDelete] = useState<string | null>(null);
@@ -23,7 +23,7 @@ const AuditLog: React.FC = () => {
 
    useEffect(() => {
       fetchAuditData();
-   }, [page]);
+   }, []);
 
    const fetchAuditData = async () => {
       setLoading(true);
@@ -40,10 +40,7 @@ const AuditLog: React.FC = () => {
             ...(data2.items || [])
          ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-         setTotal(combined.length);
-         // Apply client-side pagination since we merged results
-         const skip = (page - 1) * limit;
-         setEvents(combined.slice(skip, skip + limit));
+         setAllRestrictedEvents(combined);
       } catch (error) {
          console.error("Failed to fetch audit data", error);
          showNotification('Failed to fetch restricted audit data', 'error');
@@ -52,7 +49,28 @@ const AuditLog: React.FC = () => {
       }
    };
 
+   const filteredEvents = useMemo(() => {
+      if (!searchTerm) return allRestrictedEvents;
+      const lower = searchTerm.toLowerCase();
+      return allRestrictedEvents.filter(e =>
+         e.user_name?.toLowerCase().includes(lower) ||
+         e.action?.toLowerCase().includes(lower) ||
+         e.entity_name?.toLowerCase().includes(lower) ||
+         e.details?.toLowerCase().includes(lower)
+      );
+   }, [allRestrictedEvents, searchTerm]);
+
+   const total = filteredEvents.length;
    const totalPages = Math.ceil(total / limit);
+
+   const paginatedEvents = useMemo(() => {
+      const skip = (page - 1) * limit;
+      return filteredEvents.slice(skip, skip + limit);
+   }, [filteredEvents, page, limit]);
+
+   useEffect(() => {
+      setPage(1);
+   }, [searchTerm]);
 
    const handleDeleteLog = async () => {
       if (!logToDelete) return;
@@ -84,7 +102,7 @@ const AuditLog: React.FC = () => {
    };
 
    const handleExport = () => {
-      const dataToExport = events.map(event => ({
+      const dataToExport = filteredEvents.map(event => ({
          User: event.user_name || 'System',
          Action: event.action,
          Entity: event.entity_name,
@@ -110,6 +128,27 @@ const AuditLog: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
+               <div className="relative group/search hidden md:block">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                     <span className="material-symbols-outlined text-slate-400 group-focus-within/search:text-emerald-500 transition-colors">search</span>
+                  </div>
+                  <input
+                     type="text"
+                     placeholder="Search Audit Logs..."
+                     value={searchTerm}
+                     onChange={(e) => setSearchTerm(e.target.value)}
+                     className="w-64 h-12 pl-12 pr-10 bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl focus:w-80 focus:bg-white dark:focus:bg-white/10 focus:border-emerald-500/50 outline-none transition-all font-bold text-sm text-slate-900 dark:text-white placeholder:text-slate-400"
+                  />
+                  {searchTerm && (
+                     <button
+                        onClick={() => setSearchTerm('')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-rose-500 transition-colors"
+                     >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                     </button>
+                  )}
+               </div>
+
                <button
                   onClick={handleExport}
                   className="group flex items-center gap-3 px-6 py-3 bg-white dark:bg-white/5 text-slate-900 dark:text-white rounded-2xl border border-slate-200 dark:border-white/10 hover:border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all font-black text-sm shadow-sm"
@@ -121,7 +160,7 @@ const AuditLog: React.FC = () => {
                {isSuperAdmin && (
                   <button
                      onClick={() => setIsClearLogsModalOpen(true)}
-                     disabled={loading || events.length === 0}
+                     disabled={loading || allRestrictedEvents.length === 0}
                      className="group flex items-center gap-3 px-6 py-3 bg-rose-500/10 text-rose-500 rounded-2xl border border-rose-500/20 hover:bg-rose-500/20 transition-all font-black text-sm active:scale-95 disabled:opacity-50"
                   >
                      <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">delete_sweep</span>
@@ -171,15 +210,15 @@ const AuditLog: React.FC = () => {
                                        <td colSpan={isSuperAdmin ? 5 : 4} className="px-8 py-6 h-16 bg-slate-50/50 dark:bg-white/5"></td>
                                     </tr>
                                  ))
-                              ) : events.length === 0 ? (
+                              ) : paginatedEvents.length === 0 ? (
                                  <tr>
                                     <td colSpan={isSuperAdmin ? 5 : 4} className="px-8 py-20 text-center">
                                        <span className="material-symbols-outlined text-6xl text-slate-200 dark:text-white/5">layers_clear</span>
-                                       <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-xs">No administrative trails found</p>
+                                       <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-xs">No records found matching your tray</p>
                                     </td>
                                  </tr>
                               ) : (
-                                 events.map(event => (
+                                 paginatedEvents.map(event => (
                                     <tr key={event.id} className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-all">
                                        <td className="px-8 py-6">
                                           <div className="flex items-center gap-4">
