@@ -45,6 +45,26 @@ const isRetiring = (staff: any): boolean => {
 export { isRetiring };
 
 /**
+ * Checks if a staff member's qualification indicates an education background.
+ */
+export const isEducationQualified = (qualification: string | null | undefined): boolean => {
+    if (!qualification) return false;
+    const keywords = ['b.ed', 'm.ed', 'pgd', 'pgde', 'nce', 'edu', 'ed', 'trcn', 'education'];
+    const lowerQual = qualification.toLowerCase();
+
+    // Check for exact matches or parts of words carefully to avoid false positives (e.g. "Bed" in "Bedroom" - though unlikely here)
+    // Using a more robust check: punctuation or spaces around keywords like 'ed' or 'edu'
+    return keywords.some(k => {
+        if (k === 'ed' || k === 'edu') {
+            // Match 'ed' or 'edu' as distinct parts of the qualification string
+            const regex = new RegExp(`(^|[^a-z])${k}([^a-z]|$)`, 'i');
+            return regex.test(lowerQual);
+        }
+        return lowerQual.includes(k);
+    });
+};
+
+/**
  * Maps backend staff object to frontend Staff object.
  */
 const mapApiStaffToStaff = (apiStaff: any): Staff => {
@@ -73,7 +93,7 @@ const mapApiStaffToStaff = (apiStaff: any): Staff => {
         full_name: fullName,
         is_hod: toBool(apiStaff.is_hod),
         is_director: toBool(apiStaff.is_director),
-        is_education: toBool(apiStaff.is_education),
+        is_education: toBool(apiStaff.is_education) || isEducationQualified(apiStaff.qualification),
         is_secretary: toBool(apiStaff.is_secretary),
         others: toBool(apiStaff.others),
         // Backend uses 'is_state_cordinator' (with typo)

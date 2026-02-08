@@ -86,6 +86,16 @@ export interface StaffMandateAssignment {
     total_allotted?: number;
     assign_left?: number;
 
+    // Category Flags
+    is_hod?: boolean;
+    is_state_coordinator?: boolean;
+    is_secretary?: boolean;
+    is_education?: boolean;
+    is_director?: boolean;
+    is_driver?: boolean;
+    is_typesetting?: boolean;
+    others?: boolean;
+
     // Draft State
     pendingAction?: 'add' | 'remove' | 'move';
     originalMandateId?: string | null; // To track changes

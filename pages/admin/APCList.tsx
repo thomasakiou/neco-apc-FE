@@ -44,6 +44,7 @@ const APCList: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>(cached?.filters?.filterStatus || 'all');
     const [selectedDOB, setSelectedDOB] = useState(cached?.filters?.selectedDOB || 'All');
     const [selectedRetiring, setSelectedRetiring] = useState(cached?.filters?.selectedRetiring || 'All');
+    const [selectedTag, setSelectedTag] = useState<'All' | 'HOD' | 'COORD' | 'DIR' | 'EDU' | 'SEC' | 'OTH' | 'DRV' | 'TYP'>(cached?.filters?.selectedTag || 'All');
     const [viewMode, setViewMode] = useState<'full' | 'unified'>(cached?.viewMode || 'full');
 
     const hasInitialized = useRef(!!cached);
@@ -76,6 +77,7 @@ const APCList: React.FC = () => {
     // DOB Map and Search State
     const [staffDobMap, setStaffDobMap] = useState<Map<string, string>>(new Map());
     const [staffRetiringMap, setStaffRetiringMap] = useState<Map<string, boolean>>(new Map());
+    const [staffCategoryMap, setStaffCategoryMap] = useState<Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>>(new Map());
     const [dobSearchText, setDobSearchText] = useState('');
     const [showDobDropdown, setShowDobDropdown] = useState(false);
     const dobDropdownRef = useRef<HTMLDivElement>(null);
@@ -89,7 +91,7 @@ const APCList: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, selectedDOB, selectedRetiring]);
+    }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, selectedDOB, selectedRetiring, selectedTag]);
 
     const filteredRecords = useMemo(() => {
         let result = [...allRecords];
@@ -144,6 +146,25 @@ const APCList: React.FC = () => {
             });
         }
 
+        // Tag Filter
+        if (selectedTag !== 'All') {
+            result = result.filter(record => {
+                const cats = staffCategoryMap.get(record.file_no);
+                if (!cats) return false;
+                switch (selectedTag) {
+                    case 'HOD': return cats.is_hod;
+                    case 'COORD': return cats.is_state_coordinator;
+                    case 'DIR': return cats.is_director;
+                    case 'EDU': return cats.is_education;
+                    case 'SEC': return cats.is_secretary;
+                    case 'OTH': return cats.others;
+                    case 'DRV': return cats.is_driver;
+                    case 'TYP': return cats.is_typesetting;
+                    default: return true;
+                }
+            });
+        }
+
         // SORT LOGIC
         if (sortField) {
             result.sort((a, b) => {
@@ -160,7 +181,7 @@ const APCList: React.FC = () => {
         }
 
         return result;
-    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, sortField, sortDirection, selectedDOB, staffDobMap, selectedRetiring, staffRetiringMap]);
+    }, [allRecords, debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, sortField, sortDirection, selectedDOB, staffDobMap, selectedRetiring, staffRetiringMap, selectedTag, staffCategoryMap]);
 
     const total = filteredRecords.length;
 
@@ -204,7 +225,8 @@ const APCList: React.FC = () => {
                 filterAssignment,
                 filterStatus,
                 selectedDOB,
-                selectedRetiring
+                selectedRetiring,
+                selectedTag
             },
             assignmentOptions,
             viewMode
@@ -291,12 +313,24 @@ const APCList: React.FC = () => {
                 const staffData = await getAllStaff(true);
                 const dobMap = new Map<string, string>();
                 const retiringMap = new Map<string, boolean>();
+                const catMap = new Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>();
                 staffData.forEach(s => {
                     if (s.dob) dobMap.set(s.fileno, s.dob);
                     retiringMap.set(s.fileno, isRetiring(s));
+                    catMap.set(s.fileno, {
+                        is_hod: !!s.is_hod,
+                        is_state_coordinator: !!s.is_state_coordinator,
+                        is_director: !!s.is_director,
+                        is_education: !!s.is_education,
+                        is_secretary: !!s.is_secretary,
+                        is_driver: !!s.is_driver,
+                        is_typesetting: !!s.is_typesetting,
+                        others: !!s.others
+                    });
                 });
                 setStaffDobMap(dobMap);
                 setStaffRetiringMap(retiringMap);
+                setStaffCategoryMap(catMap);
             } catch (e) {
                 console.error("Failed to load staff DOBs", e);
             }
@@ -933,6 +967,25 @@ const APCList: React.FC = () => {
                                 </select>
                             </div>
 
+                            {/* Tag Filter */}
+                            <div className="relative w-full md:w-40">
+                                <select
+                                    value={selectedTag}
+                                    onChange={(e) => setSelectedTag(e.target.value as any)}
+                                    className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-gray-700 bg-white dark:bg-[#0b1015] text-sm font-bold text-slate-700 dark:text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                >
+                                    <option value="All">Tag: All</option>
+                                    <option value="HOD">Tag: HOD</option>
+                                    <option value="COORD">Tag: COORD</option>
+                                    <option value="DIR">Tag: DIR</option>
+                                    <option value="EDU">Tag: EDU</option>
+                                    <option value="SEC">Tag: SEC</option>
+                                    <option value="OTH">Tag: OTH</option>
+                                    <option value="DRV">Tag: DRV</option>
+                                    <option value="TYP">Tag: TYP</option>
+                                </select>
+                            </div>
+
                             {/* Searchable DOB Dropdown */}
                             <div ref={dobDropdownRef} className="relative w-full md:w-56">
                                 <button
@@ -1129,6 +1182,7 @@ const APCList: React.FC = () => {
                                                 onDelete={() => handleDelete(record.id)}
                                                 isExpanded={expandedRows.has(record.id)}
                                                 onToggleExpand={() => toggleRow(record.id)}
+                                                staffCategoryMap={staffCategoryMap}
                                                 viewMode={viewMode}
                                                 assignmentOptions={assignmentOptions}
                                                 staffRetiringMap={staffRetiringMap}
@@ -1295,7 +1349,8 @@ const APCRow = React.memo<{
     viewMode: 'full' | 'unified';
     assignmentOptions: Assignment[];
     staffRetiringMap: Map<string, boolean>;
-}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions, staffRetiringMap }) => {
+    staffCategoryMap: Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>;
+}>(({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions, staffRetiringMap, staffCategoryMap }) => {
     const assignmentNameMap = useMemo(() => {
         return new Map(assignmentOptions.map(a => [a.code, a.name]));
     }, [assignmentOptions]);
@@ -1357,8 +1412,18 @@ const APCRow = React.memo<{
                             {record.name.charAt(0)}
                         </div>
                         <span className="font-bold text-slate-700 dark:text-slate-200 text-base">
-                            {record.name} {staffRetiringMap.get(record.file_no) ? '(Retiring)' : ''}
+                            {record.name} {staffRetiringMap.get(record.file_no) && !record.name.includes('(Retiring)') ? '(Retiring)' : ''}
                         </span>
+                        <div className="flex gap-1">
+                            {staffCategoryMap.get(record.file_no)?.is_hod && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase" title="Head of Division">HOD</span>}
+                            {staffCategoryMap.get(record.file_no)?.is_state_coordinator && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 uppercase" title="State Coordinator">COORD</span>}
+                            {staffCategoryMap.get(record.file_no)?.is_director && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase" title="Director">DIR</span>}
+                            {staffCategoryMap.get(record.file_no)?.is_education && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase" title="Education">EDU</span>}
+                            {staffCategoryMap.get(record.file_no)?.is_secretary && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 uppercase" title="Secretary">SEC</span>}
+                            {staffCategoryMap.get(record.file_no)?.others && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300 border border-slate-200 dark:border-slate-800 uppercase" title="Others">OTH</span>}
+                            {staffCategoryMap.get(record.file_no)?.is_driver && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800 uppercase" title="Driver">DRV</span>}
+                            {staffCategoryMap.get(record.file_no)?.is_typesetting && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300 border border-pink-200 dark:border-pink-800 uppercase" title="Typesetting">TYP</span>}
+                        </div>
                     </div>
                 </td>
                 <td className="px-4 py-4">

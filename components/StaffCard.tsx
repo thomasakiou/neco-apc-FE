@@ -44,8 +44,20 @@ export const StaffCard = React.memo<StaffCardProps>(({ staff, onDragStart, onCli
             )}
 
             <div className="flex justify-between items-start mb-1">
-                <div className="font-bold text-slate-800 dark:text-slate-200 text-base truncate pr-2" title={staff.staff_name}>
-                    {staff.staff_name}
+                <div className="flex flex-col overflow-hidden">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 text-base truncate pr-2" title={staff.staff_name}>
+                        {staff.staff_name}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                        {!!staff.is_hod && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase line-height-1">HOD</span>}
+                        {!!staff.is_state_coordinator && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 uppercase line-height-1">COORD</span>}
+                        {!!staff.is_director && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase line-height-1">DIR</span>}
+                        {!!staff.is_education && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase line-height-1">EDU</span>}
+                        {!!staff.is_secretary && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 uppercase line-height-1">SEC</span>}
+                        {!!staff.others && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300 border border-slate-200 dark:border-slate-800 uppercase line-height-1">OTH</span>}
+                        {!!staff.is_driver && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800 uppercase line-height-1">DRV</span>}
+                        {!!staff.is_typesetting && <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-black bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300 border border-pink-200 dark:border-pink-800 uppercase line-height-1">TYP</span>}
+                    </div>
                 </div>
                 <div className="text-sm font-black font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600 shadow-sm">
                     {staff.staff_no}

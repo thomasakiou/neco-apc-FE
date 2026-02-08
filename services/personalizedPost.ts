@@ -198,7 +198,15 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
             mandate_id: mandateId || null,
             apc_id: existingApcRecord?.id,
             total_allotted: totalAllotted,
-            assign_left: assignLeft
+            assign_left: assignLeft,
+            is_hod: !!staff.is_hod,
+            is_state_coordinator: !!staff.is_state_coordinator,
+            is_secretary: !!staff.is_secretary,
+            is_education: !!staff.is_education,
+            is_director: !!staff.is_director,
+            is_driver: !!staff.is_driver,
+            is_typesetting: !!staff.is_typesetting,
+            others: !!staff.others
         };
 
         if (mandateId) {
@@ -255,7 +263,15 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
                     apc_id: record.id,
                     mandate_id: mandateId || null,
                     total_allotted: record.count || 0,
-                    assign_left: assignLeft
+                    assign_left: assignLeft,
+                    is_hod: !!staffSDL?.is_hod,
+                    is_state_coordinator: !!staffSDL?.is_state_coordinator,
+                    is_secretary: !!staffSDL?.is_secretary,
+                    is_education: !!staffSDL?.is_education,
+                    is_director: !!staffSDL?.is_director,
+                    is_driver: !!staffSDL?.is_driver,
+                    is_typesetting: !!staffSDL?.is_typesetting,
+                    others: !!staffSDL?.others
                 };
 
                 if (mandateId) {

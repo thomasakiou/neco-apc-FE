@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff, isRetiring } from '../../../services/staff';
+import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff, isRetiring, isEducationQualified } from '../../../services/staff';
 import { Staff, StaffCreate } from '../../../types/staff';
 import { getPageCache, setPageCache } from '../../../services/pageCache';
 import StaffModal from '../StaffModal';
@@ -95,14 +95,10 @@ const SDLPage: React.FC = () => {
         const matchesConr = selectedConr === 'All' || staff.conr === selectedConr;
         const matchesState = selectedState === 'All' || staff.state === selectedState;
 
-        const remarkLower = (staff.remark || '').toLowerCase();
-        const qualLower = (staff.qualification || '').toLowerCase();
-        const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
-        const hasEducationQual = educationKeywords.some(keyword => qualLower.includes(keyword));
         const matchesHOD = selectedHOD === 'All' || (selectedHOD === 'Yes' ? !!staff.is_hod : !staff.is_hod);
         const matchesStateCoord = selectedStateCoord === 'All' || (selectedStateCoord === 'Yes' ? !!staff.is_state_coordinator : !staff.is_state_coordinator);
         const matchesDirector = selectedDirector === 'All' || (selectedDirector === 'Yes' ? !!staff.is_director : !staff.is_director);
-        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? !!staff.is_education : !staff.is_education);
+        const matchesEducation = selectedEducation === 'All' || (selectedEducation === 'Yes' ? staff.is_education : !staff.is_education);
         const matchesSecretary = selectedSecretary === 'All' || (selectedSecretary === 'Yes' ? !!staff.is_secretary : !staff.is_secretary);
         const matchesOthers = selectedOthers === 'All' || (selectedOthers === 'Yes' ? !!staff.others : !staff.others);
         const matchesDriver = selectedDriver === 'All' || (selectedDriver === 'Yes' ? !!staff.is_driver : !staff.is_driver);

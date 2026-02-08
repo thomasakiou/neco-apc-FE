@@ -48,6 +48,7 @@ const HODApcList: React.FC = () => {
     const [showGeneratorModal, setShowGeneratorModal] = useState(false);
     const [editingRecord, setEditingRecord] = useState<HODApcRecord | null>(null);
     const [staffRetiringMap, setStaffRetiringMap] = useState<Map<string, boolean>>(new Map());
+    const [staffCategoryMap, setStaffCategoryMap] = useState<Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>>(new Map());
     const [alertModal, setAlertModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -379,10 +380,22 @@ const HODApcList: React.FC = () => {
             try {
                 const staffData = await getAllStaff(true);
                 const retiringMap = new Map<string, boolean>();
+                const catMap = new Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>();
                 staffData.forEach(s => {
                     retiringMap.set(s.fileno, isRetiring(s));
+                    catMap.set(s.fileno, {
+                        is_hod: !!s.is_hod,
+                        is_state_coordinator: !!s.is_state_coordinator,
+                        is_director: !!s.is_director,
+                        is_education: !!s.is_education,
+                        is_secretary: !!s.is_secretary,
+                        is_driver: !!s.is_driver,
+                        is_typesetting: !!s.is_typesetting,
+                        others: !!s.others
+                    });
                 });
                 setStaffRetiringMap(retiringMap);
+                setStaffCategoryMap(catMap);
             } catch (e) {
                 console.error("Failed to load staff data", e);
             }
@@ -868,6 +881,7 @@ const HODApcList: React.FC = () => {
                                                 viewMode={viewMode}
                                                 assignmentOptions={assignmentOptions}
                                                 staffRetiringMap={staffRetiringMap}
+                                                staffCategoryMap={staffCategoryMap}
                                             />
                                         ))
                                     )}
@@ -1095,7 +1109,7 @@ const SortableHeader = ({ field, label, sortField, sortDirection, onSort }: any)
     </th>
 );
 
-const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions, staffRetiringMap }: any) => {
+const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded, onToggleExpand, viewMode, assignmentOptions, staffRetiringMap, staffCategoryMap }: any) => {
     const assignmentNameMap = useMemo(() => {
         return new Map(assignmentOptions.map(a => [a.code, a.name]));
     }, [assignmentOptions]);
@@ -1144,7 +1158,17 @@ const HODApcRow = ({ record, isSelected, onSelect, onEdit, onDelete, isExpanded,
                 <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold text-xs">{record.name.charAt(0)}</div>
-                        <span className="font-bold text-slate-700 dark:text-slate-200">{record.name} {staffRetiringMap?.get(record.file_no) ? '(Retiring)' : ''}</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">{record.name} {staffRetiringMap?.get(record.file_no) && !record.name.includes('(Retiring)') ? '(Retiring)' : ''}</span>
+                        <div className="flex gap-1">
+                            {staffCategoryMap?.get(record.file_no)?.is_hod && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase" title="Head of Division">HOD</span>}
+                            {staffCategoryMap?.get(record.file_no)?.is_state_coordinator && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 uppercase" title="State Coordinator">COORD</span>}
+                            {staffCategoryMap?.get(record.file_no)?.is_director && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase" title="Director">DIR</span>}
+                            {staffCategoryMap?.get(record.file_no)?.is_education && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 uppercase" title="Education">EDU</span>}
+                            {staffCategoryMap?.get(record.file_no)?.is_secretary && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 uppercase" title="Secretary">SEC</span>}
+                            {staffCategoryMap?.get(record.file_no)?.others && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300 border border-slate-200 dark:border-slate-800 uppercase" title="Others">OTH</span>}
+                            {staffCategoryMap?.get(record.file_no)?.is_driver && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800 uppercase" title="Driver">DRV</span>}
+                            {staffCategoryMap?.get(record.file_no)?.is_typesetting && <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300 border border-pink-200 dark:border-pink-800 uppercase" title="Typesetting">TYP</span>}
+                        </div>
                     </div>
                 </td>
                 <td className="px-4 py-4"><span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold">{record.conraiss || '-'}</span></td>
@@ -1323,7 +1347,7 @@ const AssignmentGeneratorModal: React.FC<{
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Education qualification check
-    const educationKeywords = ['b.ed', 'pgd', 'pgde', 'nce', 'm.ed', 'edu', 'trcn'];
+    const educationKeywords = ['b.ed', 'm.ed', 'pgd', 'pgde', 'nce', 'edu', 'ed', 'trcn', 'education'];
     const isEducationQualified = (qualification: string | null | undefined) =>
         qualification ? educationKeywords.some(k => qualification.toLowerCase().includes(k)) : false;
 

@@ -40,6 +40,7 @@ const PersonalizedPost: React.FC = () => {
     const [showPoolStationDropdown, setShowPoolStationDropdown] = useState(false);
     const [poolStationSearch, setPoolStationSearch] = useState('');
     const poolStationDropdownRef = React.useRef<HTMLDivElement>(null);
+    const [selectedTag, setSelectedTag] = useState<'All' | 'HOD' | 'COORD' | 'DIR' | 'EDU' | 'SEC' | 'OTH' | 'DRV' | 'TYP'>('All');
     const [boardSearch, setBoardSearch] = useState('');
     const [showHelp, setShowHelp] = useState(false);
 
@@ -424,39 +425,46 @@ const PersonalizedPost: React.FC = () => {
         return Array.from(set).sort();
     }, [boardData?.unassignedStaff]);
 
+    const filterByTag = useCallback((staff: StaffMandateAssignment) => {
+        if (selectedTag === 'All') return true;
+        switch (selectedTag) {
+            case 'HOD': return !!staff.is_hod;
+            case 'COORD': return !!staff.is_state_coordinator;
+            case 'DIR': return !!staff.is_director;
+            case 'EDU': return !!staff.is_education;
+            case 'SEC': return !!staff.is_secretary;
+            case 'OTH': return !!staff.others;
+            case 'DRV': return !!staff.is_driver;
+            case 'TYP': return !!staff.is_typesetting;
+            default: return true;
+        }
+    }, [selectedTag]);
+
     const filteredPool = useMemo(() => {
         if (!boardData) return [];
-        const search = poolSearch.toLowerCase();
         return boardData.unassignedStaff.filter(s => {
-            // Search filter
-            const matchesSearch = !search || (
-                s.staff_name.toLowerCase().includes(search) ||
-                s.staff_no.includes(search) ||
-                s.current_station.toLowerCase().includes(search) ||
-                s.qualification?.toLowerCase().includes(search)
-            );
-            // Conraiss filter
+            const matchesSearch = s.staff_name.toLowerCase().includes(poolSearch.toLowerCase()) ||
+                s.staff_no.toLowerCase().includes(poolSearch.toLowerCase());
             const matchesConraiss = !poolFilterConraiss || s.conr === poolFilterConraiss;
-            // Station filter
-            const matchesStation = !poolFilterStation || s.current_station === poolFilterStation;
-
-            return matchesSearch && matchesConraiss && matchesStation;
+            const matchesStation = !poolFilterStation || s.current_station.toLowerCase().includes(poolFilterStation.toLowerCase());
+            const matchesTag = filterByTag(s);
+            return matchesSearch && matchesConraiss && matchesStation && matchesTag;
         });
-    }, [boardData?.unassignedStaff, poolSearch, poolFilterConraiss, poolFilterStation]);
+    }, [boardData, poolSearch, poolFilterConraiss, poolFilterStation, filterByTag]);
 
     const filteredBoard = useMemo(() => {
         if (!boardData) return [];
         const search = boardSearch.toLowerCase();
         return boardData.mandateColumns.map(col => ({
             ...col,
-            staff: col.staff.filter(s =>
-                s.staff_name.toLowerCase().includes(search) ||
-                s.staff_no.includes(search) ||
-                s.current_station.toLowerCase().includes(search) ||
-                s.qualification?.toLowerCase().includes(search)
-            )
+            staff: col.staff.filter(s => {
+                const matchesSearch = s.staff_name.toLowerCase().includes(search) ||
+                    s.staff_no.toLowerCase().includes(search);
+                const matchesTag = filterByTag(s);
+                return matchesSearch && matchesTag;
+            })
         }));
-    }, [boardData?.mandateColumns, boardSearch]);
+    }, [boardData?.mandateColumns, boardSearch, filterByTag]);
 
     return (
         <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A]">
@@ -748,53 +756,59 @@ const PersonalizedPost: React.FC = () => {
                                     onClick={() => setShowPoolStationDropdown(!showPoolStationDropdown)}
                                     className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between cursor-pointer hover:border-indigo-400 outline-none transition-all"
                                 >
-                                    <span className="truncate">{poolFilterStation || 'All Stations'}</span>
-                                    <span className="material-symbols-outlined text-slate-400 text-sm">
-                                        {showPoolStationDropdown ? 'expand_less' : 'expand_more'}
-                                    </span>
+                                    <span className="truncate">{poolFilterStation || 'Station'}</span>
+                                    <span className="material-symbols-outlined text-[14px] text-slate-400">expand_more</span>
                                 </button>
                                 {showPoolStationDropdown && (
-                                    <div className="absolute z-50 top-full left-0 mt-1 w-full max-h-60 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden">
-                                        <div className="sticky top-0 bg-white dark:bg-[#1E293B] p-2 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="p-2 border-b border-slate-100 dark:border-gray-800">
                                             <input
                                                 type="text"
-                                                placeholder="Search stations..."
+                                                placeholder="Search station..."
                                                 value={poolStationSearch}
                                                 onChange={(e) => setPoolStationSearch(e.target.value)}
-                                                className="w-full h-8 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500"
-                                                autoFocus
+                                                className="w-full h-8 px-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-gray-700 rounded-lg text-xs outline-none focus:ring-1 ring-indigo-500/30"
                                             />
                                         </div>
-                                        <div className="max-h-44 overflow-y-auto">
-                                            <div
-                                                onClick={() => {
-                                                    setPoolFilterStation('');
-                                                    setShowPoolStationDropdown(false);
-                                                    setPoolStationSearch('');
-                                                }}
-                                                className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors ${!poolFilterStation ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                        <div className="max-h-48 overflow-y-auto">
+                                            <button
+                                                onClick={() => { setPoolFilterStation(''); setShowPoolStationDropdown(false); }}
+                                                className="w-full px-3 py-2 text-left text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                             >
-                                                All Stations
-                                            </div>
+                                                Clear Station
+                                            </button>
                                             {uniquePoolStations
                                                 .filter(s => s.toLowerCase().includes(poolStationSearch.toLowerCase()))
                                                 .map(s => (
-                                                    <div
+                                                    <button
                                                         key={s}
-                                                        onClick={() => {
-                                                            setPoolFilterStation(s);
-                                                            setShowPoolStationDropdown(false);
-                                                            setPoolStationSearch('');
-                                                        }}
-                                                        className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors ${poolFilterStation === s ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                        onClick={() => { setPoolFilterStation(s); setShowPoolStationDropdown(false); }}
+                                                        className="w-full px-3 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600 transition-colors"
                                                     >
                                                         {s}
-                                                    </div>
+                                                    </button>
                                                 ))}
                                         </div>
                                     </div>
                                 )}
                             </div>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                            <select
+                                value={selectedTag}
+                                onChange={(e) => setSelectedTag(e.target.value as any)}
+                                className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all cursor-pointer"
+                            >
+                                <option value="All">Filter by Tag (HOD, EDU, etc.)</option>
+                                <option value="HOD">HOD</option>
+                                <option value="COORD">COORD</option>
+                                <option value="DIR">DIR</option>
+                                <option value="EDU">EDU</option>
+                                <option value="SEC">SEC</option>
+                                <option value="OTH">OTH</option>
+                                <option value="DRV">DRV</option>
+                                <option value="TYP">TYP</option>
+                            </select>
                         </div>
                     </div>
 
@@ -870,6 +884,7 @@ const PersonalizedPost: React.FC = () => {
                                 filteredBoard.map((col, idx) => (
                                     <div key={col.id} className="w-[280px] md:w-[320px] flex flex-col relative h-[600px] lg:h-[650px] xl:h-[700px]">
                                         <MandateColumn
+                                            key={col.id}
                                             columnId={col.id}
                                             title={col.title}
                                             subtitle={col.code}
