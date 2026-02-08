@@ -28,6 +28,7 @@ const PersonalizedPost: React.FC = () => {
     const [stationOptions, setStationOptions] = useState<{ id: string; name: string; type: string; state?: string | null; group?: string; code?: string }[]>([]);
     const [boardData, setBoardData] = useState<AssignmentBoardData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [selectedMandateId, setSelectedMandateId] = useState<string>('');
 
     // Modern State Management
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -59,11 +60,13 @@ const PersonalizedPost: React.FC = () => {
     useEffect(() => {
         if (selectedAssignmentId) {
             loadBoardData(selectedAssignmentId);
+            setSelectedMandateId('');
         } else {
             setBoardData(null);
             setHasUnsavedChanges(false);
             setPendingChanges([]);
             setSelectedStaffIds(new Set());
+            setSelectedMandateId('');
         }
     }, [selectedAssignmentId]);
 
@@ -222,15 +225,78 @@ const PersonalizedPost: React.FC = () => {
             let finalChanges = changes;
 
             if (additionsOrMoves.length > 1 && selectedStations.length > 1) {
-                // 1-to-1 Mode (Distributed)
-                // We need to map each change to a specific station from the selection list
+                // 1-to-1 Mode (Distributed) OR Smart Matching (for States)
                 finalChanges = changes.map(change => {
-                    // Only distribute for add/move actions
                     if (change.action === 'add' || change.action === 'move') {
-                        // Find index of this change in the filtered list to determine which station to pick
                         const idx = additionsOrMoves.findIndex(c => c.staffId === change.staffId);
                         if (idx !== -1) {
-                            const targetStation = selectedStations[idx % selectedStations.length];
+                            let targetStation = selectedStations[idx % selectedStations.length];
+
+                            // Smart Match for States: If we are dealing with states, try to find the one closest to staff station
+                            if (manualStationType === 'state') {
+                                const stateAliasMap: { [key: string]: string[] } = {
+                                    'ABIA': ['UMUAHIA'],
+                                    'ADAMAWA': ['YOLA'],
+                                    'AKWA IBOM': ['UYO', 'AKWA-IBOM'],
+                                    'ANAMBRA': ['AWKA'],
+                                    'BAUCHI': ['BAUCHI'],
+                                    'BAYELSA': ['YENAGOA'],
+                                    'BENUE': ['MAKURDI'],
+                                    'BORNO': ['MAIDUGURI'],
+                                    'CROSS RIVER': ['CALABAR', 'CROSS-RIVER'],
+                                    'DELTA': ['ASABA'],
+                                    'EBONYI': ['ABAKALIKI'],
+                                    'EDO': ['BENIN'],
+                                    'EKITI': ['ADO EKITI', 'ADO-EKITI'],
+                                    'ENUGU': ['ENUGU', 'NSUKKA'],
+                                    'FEDERAL CAPITAL TERRITORY': ['ABUJA', 'FCT', 'F.C.T'],
+                                    'GOMBE': ['GOMBE'],
+                                    'IMO': ['OWERRI'],
+                                    'JIGAWA': ['DUTSE'],
+                                    'KADUNA': ['KADUNA', 'ZARIA'],
+                                    'KANO': ['KANO'],
+                                    'KATSINA': ['KATSINA'],
+                                    'KEBBI': ['BIRNIN KEBBI'],
+                                    'KOGI': ['LOKOJA'],
+                                    'KWARA': ['ILORIN'],
+                                    'LAGOS': ['IKEJA', 'LAGOS'],
+                                    'NASARAWA': ['LAFIA'],
+                                    'NIGER': ['MINNA'],
+                                    'OGUN': ['ABEOKUTA'],
+                                    'ONDO': ['AKURE'],
+                                    'OSUN': ['OSOGBO', 'OSHOGBO'],
+                                    'OYO': ['IBADAN'],
+                                    'PLATEAU': ['JOS'],
+                                    'RIVERS': ['PORT HARCOURT', 'PHC'],
+                                    'SOKOTO': ['SOKOTO'],
+                                    'TARABA': ['JALINGO'],
+                                    'YOBE': ['DAMATURU'],
+                                    'ZAMFARA': ['GUSAU']
+                                };
+
+                                const rawStation = (change.staff.current_station || '').toUpperCase();
+                                // Clean station: remove punctuation except | which we use as separator
+                                const staffStation = rawStation.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, " ").trim();
+
+                                const matched = selectedStations.find(s => {
+                                    const stateName = s.name.toUpperCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").trim();
+
+                                    // 1. Direct match
+                                    if (staffStation.includes(stateName)) return true;
+
+                                    // 2. Alias match
+                                    const aliases = stateAliasMap[stateName];
+                                    if (aliases && aliases.some(alias => staffStation.includes(alias))) return true;
+
+                                    // 3. Reverse match (State name is in station name path)
+                                    if (stateName.length > 3 && staffStation.includes(stateName)) return true;
+
+                                    return false;
+                                });
+
+                                if (matched) targetStation = matched;
+                            }
+
                             return {
                                 ...change,
                                 station: {
@@ -433,6 +499,23 @@ const PersonalizedPost: React.FC = () => {
                         >
                             <span className={`material-symbols-outlined text-[20px] ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-500`}>refresh</span>
                         </button>
+
+                        {selectedAssignmentId && boardData && (
+                            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                                <div className="hidden sm:block h-10 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
+                                <select
+                                    value={selectedMandateId}
+                                    onChange={(e) => setSelectedMandateId(e.target.value)}
+                                    className="h-10 px-4 rounded-xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-indigo-500 outline-none transition-all w-full sm:min-w-[180px] flex-1"
+                                    title="Mandate Filter for CSV Upload"
+                                >
+                                    <option value="">Specific Mandate (Optional)...</option>
+                                    {boardData.mandateColumns.map(m => (
+                                        <option key={m.id} value={m.id}>{m.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         <div ref={venueDropdownRef} className="relative w-full sm:min-w-[240px] flex-1">
                             <button
@@ -853,7 +936,9 @@ const PersonalizedPost: React.FC = () => {
                     csvData.forEach(record => {
                         const staffNo = record.staffNo.toString().padStart(4, '0');
                         const staff = staffMap.get(staffNo);
-                        const targetMandateId = record.mandateCode ? mandateMap.get(record.mandateCode.toLowerCase()) : null;
+
+                        // Use selectedMandateId if provided, otherwise fallback to record.mandateCode
+                        let targetMandateId = selectedMandateId || (record.mandateCode ? mandateMap.get(record.mandateCode.toLowerCase()) : null);
 
                         if (!staff) {
                             errorCount++;
@@ -863,7 +948,7 @@ const PersonalizedPost: React.FC = () => {
 
                         if (!targetMandateId) {
                             errorCount++;
-                            errorDetails.push(`• Mandate ${record.mandateCode || 'NOT SPECIFIED'} not found on the board.`);
+                            errorDetails.push(`• Mandate ${record.mandateCode || 'NOT SPECIFIED'} not found on the board and no specific mandate selected.`);
                             return;
                         }
 
