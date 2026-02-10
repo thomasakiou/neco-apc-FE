@@ -248,6 +248,7 @@ const RandomizedPost: React.FC = () => {
     }, []);
 
     const [filterCategory, setFilterCategory] = useState<'All' | 'HOD' | 'COORD' | 'DIR' | 'EDU' | 'SEC' | 'DRV' | 'TYP' | 'OTH'>('All');
+    const [filterGender, setFilterGender] = useState<'All' | 'M' | 'F'>('All');
 
     // Derived Options for Filters
     const uniqueStations = useMemo(() => {
@@ -443,14 +444,18 @@ const RandomizedPost: React.FC = () => {
                 }
             }
 
+            // 4. Gender Filter
+            if (filterGender !== 'All' && staff.sex !== filterGender) return;
+
             total++;
             if (breakdown[lvl] !== undefined) {
                 breakdown[lvl]++;
             }
+
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterStation, filterQualifications, educationStaffSet, filterCategory, staffCategoryMap, getQualificationGroup]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterStation, filterQualifications, educationStaffSet, filterCategory, staffCategoryMap, getQualificationGroup, filterGender]);
 
     useEffect(() => {
         fetchInitialData();
@@ -778,6 +783,9 @@ const RandomizedPost: React.FC = () => {
                         case 'OTH': if (!cats.others) return false; break;
                     }
                 }
+
+                // 6. Gender Filter
+                if (filterGender !== 'All' && staff.sex !== filterGender) return false;
 
                 return true;
             });
@@ -1852,7 +1860,7 @@ const RandomizedPost: React.FC = () => {
                         </div>
 
                         {/* Optional Filters Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
                             {/* 1. Station Filter */}
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Station</label>
@@ -2004,6 +2012,20 @@ const RandomizedPost: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* 4. Gender Filter */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Gender</label>
+                                <select
+                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                    value={filterGender}
+                                    onChange={e => setFilterGender(e.target.value as any)}
+                                >
+                                    <option value="All">All Genders</option>
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                </select>
                             </div>
                         </div>
                     </div>
