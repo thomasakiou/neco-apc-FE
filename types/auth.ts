@@ -22,3 +22,7 @@ export interface UserCreate {
     is_active: boolean;
     password?: string;
 }
+
+export interface UserUpdate extends Partial<Omit<UserCreate, 'password'>> {
+    password?: string;
+}

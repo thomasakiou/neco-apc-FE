@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { listUsers, createUser, getAuditLogs, resetUserPassword } from '../../services/user';
+import { listUsers, createUser, getAuditLogs, resetUserPassword, toggleUserStatus } from '../../services/user';
 import { deleteAuditLog, clearAllAuditLogs } from '../../services/audit';
 import { downloadDatabaseBackup } from '../../services/database';
 import { changePassword } from '../../services/auth';
@@ -103,6 +103,27 @@ const Configuration: React.FC = () => {
             }
         } catch (error: any) {
             showNotification(error.message, 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleToggleUserStatus = async (user: UserResponse) => {
+        if (user.id === currentUser?.id) {
+            showNotification('You cannot deactivate your own account', 'warning');
+            return;
+        }
+
+        const action = user.is_active ? 'deactivate' : 'activate';
+        if (!window.confirm(`Are you sure you want to ${action} ${user.full_name}?`)) return;
+
+        setIsLoading(true);
+        try {
+            await toggleUserStatus(user.id, user.is_active);
+            showNotification(`User ${user.full_name} ${user.is_active ? 'deactivated' : 'activated'} successfully`, 'success');
+            fetchUsers();
+        } catch (error: any) {
+            showNotification(error.message || `Failed to ${action} user`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -255,6 +276,17 @@ const Configuration: React.FC = () => {
                                                                         title="Reset Password"
                                                                     >
                                                                         <span className="material-symbols-outlined text-lg">lock_reset</span>
+                                                                    </button>
+                                                                )}
+                                                                {currentUser?.id !== u.id && (
+                                                                    <button
+                                                                        onClick={() => handleToggleUserStatus(u)}
+                                                                        className={`size-10 rounded-xl flex items-center justify-center transition-all shadow-sm active:scale-90 ${u.is_active ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'}`}
+                                                                        title={u.is_active ? "Deactivate User" : "Activate User"}
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-lg">
+                                                                            {u.is_active ? 'person_off' : 'person_check'}
+                                                                        </span>
                                                                     </button>
                                                                 )}
                                                                 {currentUser?.id !== u.id && (

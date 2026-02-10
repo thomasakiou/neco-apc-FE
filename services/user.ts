@@ -1,4 +1,4 @@
-import { UserResponse, UserCreate } from '../types/auth';
+import { UserResponse, UserCreate, UserUpdate } from '../types/auth';
 import { AuditLogListResponse } from '../types/audit';
 import { API_BASE_URL } from '../src/config';
 
@@ -69,4 +69,23 @@ export const resetUserPassword = async (userId: number): Promise<void> => {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to reset password' }));
         throw new Error(errorData.detail || 'Failed to reset password');
     }
+};
+
+export const updateUser = async (userId: string | number, userData: UserUpdate): Promise<UserResponse> => {
+    const response = await fetch(`${USERS_URL}/${userId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(userData),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to update user' }));
+        throw new Error(errorData.detail || 'Failed to update user');
+    }
+
+    return response.json();
+};
+
+export const toggleUserStatus = async (userId: string | number, currentActive: boolean): Promise<UserResponse> => {
+    return updateUser(userId, { is_active: !currentActive });
 };

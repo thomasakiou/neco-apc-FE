@@ -544,16 +544,19 @@ const GeneratePage: React.FC = () => {
 
             // 2. Table Data Generation
             if (reportTemplate === 'ACCREDITATION') {
-                // Group by State (Venue)
+                // Group by State + Description (e.g. "Abia (Team One)")
                 const groupedByState: { [key: string]: any[] } = {};
                 // Create lookup for Qualification
                 const apcMap = new Map<string, APCRecord>(apcRecords.map(a => [a.file_no, a] as [string, APCRecord]));
 
                 filteredFlatRows.forEach(post => {
                     const stateKey = post.state || 'UNKNOWN STATE';
-                    if (!groupedByState[stateKey]) groupedByState[stateKey] = [];
-                    groupedByState[stateKey].push(post);
+                    const desc = post.description?.trim();
+                    const groupKey = desc ? `${stateKey} (${desc})` : stateKey;
+                    if (!groupedByState[groupKey]) groupedByState[groupKey] = [];
+                    groupedByState[groupKey].push(post);
                 });
+
 
                 const sortedStates = Object.keys(groupedByState).sort();
                 let currentY = 50; // Reduced from 60 to match other pages

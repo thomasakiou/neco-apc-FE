@@ -135,6 +135,8 @@ const RandomizedPost: React.FC = () => {
     const [educationStaffSet, setEducationStaffSet] = useState<Set<string>>(new Set());
     // Lookup for Secretary Staff (from SDL)
     const [secretaryStaffSet, setSecretaryStaffSet] = useState<Set<string>>(new Set());
+    // Lookup for staff categories (HOD, COORD, etc.)
+    const [staffCategoryMap, setStaffCategoryMap] = useState<Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>>(new Map());
 
     // Selections
     const [selectedAssignment, setSelectedAssignment] = useState<string>('');
@@ -221,6 +223,7 @@ const RandomizedPost: React.FC = () => {
     const [filterEducation, setFilterEducation] = useState<'all' | 'education'>('all');
     const [filterStation, setFilterStation] = useState<string>(''); // Filters by staff's current station
     const [filterQualification, setFilterQualification] = useState<string>(''); // Filters by specific qualification
+    const [filterCategory, setFilterCategory] = useState<'All' | 'HOD' | 'COORD' | 'DIR' | 'EDU' | 'SEC' | 'DRV' | 'TYP' | 'OTH'>('All');
 
     // Derived Options for Filters
     const uniqueStations = useMemo(() => {
@@ -351,6 +354,22 @@ const RandomizedPost: React.FC = () => {
             // 4. Exclude Secretaries
             if (secretaryStaffSet.has(staff.file_no)) return;
 
+            // 5. Category Filter
+            if (filterCategory !== 'All') {
+                const cats = staffCategoryMap.get(staff.file_no);
+                if (!cats) return;
+                switch (filterCategory) {
+                    case 'HOD': if (!cats.is_hod) return; break;
+                    case 'COORD': if (!cats.is_state_coordinator) return; break;
+                    case 'DIR': if (!cats.is_director) return; break;
+                    case 'EDU': if (!cats.is_education) return; break;
+                    case 'SEC': if (!cats.is_secretary) return; break;
+                    case 'DRV': if (!cats.is_driver) return; break;
+                    case 'TYP': if (!cats.is_typesetting) return; break;
+                    case 'OTH': if (!cats.others) return; break;
+                }
+            }
+
             total++;
             if (breakdown[lvl] !== undefined) {
                 breakdown[lvl]++;
@@ -358,7 +377,7 @@ const RandomizedPost: React.FC = () => {
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterEducation, filterStation, filterQualification, educationStaffSet]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterEducation, filterStation, filterQualification, educationStaffSet, filterCategory, staffCategoryMap]);
 
     useEffect(() => {
         fetchInitialData();
@@ -389,12 +408,24 @@ const RandomizedPost: React.FC = () => {
             // Populate Education Staff Lookup
             const eduSet = new Set<string>();
             const secSet = new Set<string>();
+            const catMap = new Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>();
             staffData.forEach(s => {
                 if (s.is_education) eduSet.add(s.fileno);
                 if (s.is_secretary) secSet.add(s.fileno);
+                catMap.set(s.fileno, {
+                    is_hod: !!s.is_hod,
+                    is_state_coordinator: !!s.is_state_coordinator,
+                    is_director: !!s.is_director,
+                    is_education: !!s.is_education,
+                    is_secretary: !!s.is_secretary,
+                    is_driver: !!s.is_driver,
+                    is_typesetting: !!s.is_typesetting,
+                    others: !!s.others
+                });
             });
             setEducationStaffSet(eduSet);
             setSecretaryStaffSet(secSet);
+            setStaffCategoryMap(catMap);
 
             const stateMap = new Map<string, State>(statesData.map(s => [s.id, s]));
             const stateNameMap = new Map<string, State>(statesData.map(s => [s.name.toLowerCase(), s]));
@@ -668,6 +699,22 @@ const RandomizedPost: React.FC = () => {
 
                 // 4. Exclude Secretaries from SDL
                 if (secretaryStaffSet.has(staff.file_no)) return false;
+
+                // 5. Category Filter
+                if (filterCategory !== 'All') {
+                    const cats = staffCategoryMap.get(staff.file_no);
+                    if (!cats) return false;
+                    switch (filterCategory) {
+                        case 'HOD': if (!cats.is_hod) return false; break;
+                        case 'COORD': if (!cats.is_state_coordinator) return false; break;
+                        case 'DIR': if (!cats.is_director) return false; break;
+                        case 'EDU': if (!cats.is_education) return false; break;
+                        case 'SEC': if (!cats.is_secretary) return false; break;
+                        case 'DRV': if (!cats.is_driver) return false; break;
+                        case 'TYP': if (!cats.is_typesetting) return false; break;
+                        case 'OTH': if (!cats.others) return false; break;
+                    }
+                }
 
                 return true;
             });
@@ -1742,7 +1789,7 @@ const RandomizedPost: React.FC = () => {
                         </div>
 
                         {/* Optional Filters Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
                             {/* 1. Education Filter */}
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Education/Qualifications</label>
@@ -1783,6 +1830,26 @@ const RandomizedPost: React.FC = () => {
                                     {uniqueQualifications.map(q => (
                                         <option key={q} value={q}>{q}</option>
                                     ))}
+                                </select>
+                            </div>
+
+                            {/* 4. Category Tag Filter */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Category</label>
+                                <select
+                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
+                                    value={filterCategory}
+                                    onChange={e => setFilterCategory(e.target.value as any)}
+                                >
+                                    <option value="All">All Categories</option>
+                                    <option value="HOD">HOD</option>
+                                    <option value="COORD">COORD</option>
+                                    <option value="DIR">DIR</option>
+                                    <option value="EDU">EDU</option>
+                                    <option value="SEC">SEC</option>
+                                    <option value="DRV">DRV</option>
+                                    <option value="TYP">TYP</option>
+                                    <option value="OTH">OTH</option>
                                 </select>
                             </div>
                         </div>
