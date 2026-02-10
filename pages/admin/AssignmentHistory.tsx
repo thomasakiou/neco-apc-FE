@@ -1094,7 +1094,21 @@ const GeneratePage: React.FC = () => {
                                     name="reportTemplate"
                                     className="hidden"
                                     checked={reportTemplate === template}
-                                    onChange={() => setReportTemplate(template)}
+                                    onChange={() => {
+                                        setReportTemplate(template);
+                                        if (template === 'ACCREDITATION') {
+                                            // Set specific columns for Accreditation
+                                            // FILE NO, NAME, STATION, CONR, MANDATE, STATE, NUMBER OF NIGHTS
+                                            const accredCols = ['file_no', 'name', 'station', 'conraiss', 'mandate', 'state', 'count'];
+                                            // Ensure we only use valid IDs
+                                            const validCols = accredCols.filter(id => REPORT_FIELDS.some(f => f.id === id));
+                                            setOrderedFieldIds(validCols);
+                                        } else {
+                                            // Reset to default for others or keep existing? 
+                                            // User didn't specify for others, but resetting to default is safe behavior
+                                            setOrderedFieldIds(REPORT_FIELDS.filter(f => f.default).map(f => f.id));
+                                        }
+                                    }}
                                 />
                                 <span className={`material-symbols-outlined text-xl ${reportTemplate === template ? 'font-filled' : ''}`}>
                                     {template === 'SSCE' ? 'school' : template === 'NCEE' ? 'child_care' : template === 'ACCREDITATION' ? 'verified' : 'history_edu'}

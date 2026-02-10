@@ -220,9 +220,33 @@ const RandomizedPost: React.FC = () => {
 
 
     // Optional Filters
-    const [filterEducation, setFilterEducation] = useState<'all' | 'education'>('all');
     const [filterStation, setFilterStation] = useState<string>(''); // Filters by staff's current station
-    const [filterQualification, setFilterQualification] = useState<string>(''); // Filters by specific qualification
+    const [filterQualifications, setFilterQualifications] = useState<string[]>([]); // Filters by specific qualification groups
+    const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
+    const [qualificationSearchText, setQualificationSearchText] = useState('');
+    const qualificationDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Click-outside handler for qualification dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (qualificationDropdownRef.current && !qualificationDropdownRef.current.contains(event.target as Node)) {
+                setShowQualificationDropdown(false);
+            }
+        };
+
+        if (showQualificationDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showQualificationDropdown]);
+
+    const getQualificationGroup = useCallback((qual: string | undefined | null): string => {
+        return qual ? qual.trim().toUpperCase() : 'OTHERS';
+    }, []);
+
     const [filterCategory, setFilterCategory] = useState<'All' | 'HOD' | 'COORD' | 'DIR' | 'EDU' | 'SEC' | 'DRV' | 'TYP' | 'OTH'>('All');
 
     // Derived Options for Filters
@@ -231,10 +255,69 @@ const RandomizedPost: React.FC = () => {
         return Array.from(set).sort();
     }, [allAPC]);
 
+    // Dynamic qualifications based on assignment/mandate/category selection
     const uniqueQualifications = useMemo(() => {
-        const set = new Set(allAPC.map(s => s.qualification).filter(Boolean));
+        // Start with all APC staff
+        let pool = allAPC.filter(s => s.active);
+
+        // Filter by assignment if selected
+        if (selectedAssignment) {
+            const assignmentRecord = assignments.find(a => a.id === selectedAssignment);
+            if (assignmentRecord) {
+                const apcField = assignmentFieldMap[assignmentRecord.code] || assignmentFieldMap[assignmentRecord.name];
+                if (apcField) {
+                    pool = pool.filter(s => {
+                        const val = s[apcField as keyof APCRecord];
+                        return !!val;
+                    });
+                }
+            }
+        }
+
+        // Filter by mandate conraiss range if selected
+        if (selectedMandate) {
+            const mandateRecord = mandates.find(m => m.mandate === selectedMandate);
+            if (mandateRecord?.conraiss_range?.length) {
+                pool = pool.filter(s => {
+                    const lvl = parseInt(s.conraiss || '0');
+                    return mandateRecord.conraiss_range!.some(range => {
+                        if (range.includes('-')) {
+                            const [min, max] = range.split('-').map(n => parseInt(n.trim()));
+                            return lvl >= min && lvl <= max;
+                        }
+                        return parseInt(range) === lvl;
+                    });
+                });
+            }
+        }
+
+        // Filter by category if selected
+        if (filterCategory !== 'All') {
+            pool = pool.filter(s => {
+                const cats = staffCategoryMap.get(s.file_no);
+                if (!cats) return false;
+                switch (filterCategory) {
+                    case 'HOD': return cats.is_hod;
+                    case 'COORD': return cats.is_state_coordinator;
+                    case 'DIR': return cats.is_director;
+                    case 'EDU': return cats.is_education;
+                    case 'SEC': return cats.is_secretary;
+                    case 'DRV': return cats.is_driver;
+                    case 'TYP': return cats.is_typesetting;
+                    case 'OTH': return cats.others;
+                    default: return true;
+                }
+            });
+        }
+
+        const set = new Set(pool.map(s => getQualificationGroup(s.qualification)).filter(Boolean));
         return Array.from(set).sort();
-    }, [allAPC]);
+    }, [allAPC, selectedAssignment, selectedMandate, assignments, mandates, filterCategory, staffCategoryMap, getQualificationGroup]);
+
+    // Reset qualification filter if the selected values are no longer in the dynamic list
+    useEffect(() => {
+        setFilterQualifications(prev => prev.filter(q => uniqueQualifications.includes(q)));
+    }, [uniqueQualifications]);
 
     // Memoized Eligible Staff Count and Breakdown for Selected Assignment
     const eligibleStaffData = useMemo(() => {
@@ -339,19 +422,9 @@ const RandomizedPost: React.FC = () => {
             if (filterStation && staff.station !== filterStation) return;
 
             // 2. Qualification Filter
-            if (filterQualification && staff.qualification !== filterQualification) return;
+            if (filterQualifications.length > 0 && !filterQualifications.includes(getQualificationGroup(staff.qualification))) return;
 
-            // 3. Education/Professional Filter
-            if (filterEducation === 'education') {
-                const isEduSDL = educationStaffSet.has(staff.file_no);
-                const qual = (staff.qualification || '').toUpperCase();
-                const profKeywords = ['ICAN', 'ANAN', 'ACCT', 'COMP', 'COMPUTER'];
-                const hasProf = profKeywords.some(k => qual.includes(k));
-
-                if (!isEduSDL && !hasProf) return;
-            }
-
-            // 4. Exclude Secretaries
+            // 3. Exclude Secretaries
             if (secretaryStaffSet.has(staff.file_no)) return;
 
             // 5. Category Filter
@@ -377,7 +450,7 @@ const RandomizedPost: React.FC = () => {
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterEducation, filterStation, filterQualification, educationStaffSet, filterCategory, staffCategoryMap]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterStation, filterQualifications, educationStaffSet, filterCategory, staffCategoryMap, getQualificationGroup]);
 
     useEffect(() => {
         fetchInitialData();
@@ -685,19 +758,9 @@ const RandomizedPost: React.FC = () => {
                 if (filterStation && staff.station !== filterStation) return false;
 
                 // 2. Qualification Filter
-                if (filterQualification && staff.qualification !== filterQualification) return false;
+                if (filterQualifications.length > 0 && !filterQualifications.includes(getQualificationGroup(staff.qualification))) return false;
 
-                // 3. Education/Professional Filter
-                if (filterEducation === 'education') {
-                    const isEduSDL = educationStaffSet.has(staff.file_no);
-                    const qual = (staff.qualification || '').toUpperCase();
-                    const profKeywords = ['ICAN', 'ANAN', 'ACCT', 'COMP', 'COMPUTER'];
-                    const hasProf = profKeywords.some(k => qual.includes(k));
-
-                    if (!isEduSDL && !hasProf) return false;
-                }
-
-                // 4. Exclude Secretaries from SDL
+                // 3. Exclude Secretaries from SDL
                 if (secretaryStaffSet.has(staff.file_no)) return false;
 
                 // 5. Category Filter
@@ -1789,21 +1852,8 @@ const RandomizedPost: React.FC = () => {
                         </div>
 
                         {/* Optional Filters Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
-                            {/* 1. Education Filter */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Education/Qualifications</label>
-                                <select
-                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
-                                    value={filterEducation}
-                                    onChange={e => setFilterEducation(e.target.value as 'all' | 'education')}
-                                >
-                                    <option value="all">All Staff</option>
-                                    <option value="education">Qualified Staff Only (Edu/Pro)</option>
-                                </select>
-                            </div>
-
-                            {/* 2. Station Filter */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
+                            {/* 1. Station Filter */}
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Station</label>
                                 <select
@@ -1818,22 +1868,7 @@ const RandomizedPost: React.FC = () => {
                                 </select>
                             </div>
 
-                            {/* 3. Qualification Filter */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Qualification</label>
-                                <select
-                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
-                                    value={filterQualification}
-                                    onChange={e => setFilterQualification(e.target.value)}
-                                >
-                                    <option value="">All Qualifications</option>
-                                    {uniqueQualifications.map(q => (
-                                        <option key={q} value={q}>{q}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* 4. Category Tag Filter */}
+                            {/* 2. Category Tag Filter */}
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Category</label>
                                 <select
@@ -1851,6 +1886,124 @@ const RandomizedPost: React.FC = () => {
                                     <option value="TYP">TYP</option>
                                     <option value="OTH">OTH</option>
                                 </select>
+                            </div>
+
+                            {/* 3. Qualification Filter (dynamic based on assignment/mandate/category) */}
+                            {/* 3. Qualification Filter (Multi-select) */}
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-bold uppercase text-slate-500">Filter by Qualification</label>
+                                </div>
+                                <div className="relative" ref={qualificationDropdownRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowQualificationDropdown(!showQualificationDropdown)}
+                                        className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-left flex items-center justify-between cursor-pointer hover:border-emerald-400 text-slate-900 dark:text-white"
+                                    >
+                                        <span className="truncate">
+                                            {filterQualifications.length === 0
+                                                ? 'All Qualifications'
+                                                : filterQualifications.length === 1
+                                                    ? filterQualifications[0]
+                                                    : `${filterQualifications.length} selected`}
+                                        </span>
+                                        <span className="material-symbols-outlined text-slate-400">
+                                            {showQualificationDropdown ? 'expand_less' : 'expand_more'}
+                                        </span>
+                                    </button>
+
+                                    {/* Dropdown Panel */}
+                                    {showQualificationDropdown && (
+                                        <div className="absolute z-50 top-full left-0 mt-1 w-full max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                            {/* Search & Actions */}
+                                            <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 flex flex-col gap-2 z-20">
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFilterQualifications(uniqueQualifications)}
+                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                                                    >
+                                                        Select All
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFilterQualifications([])}
+                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                    >
+                                                        Clear All
+                                                    </button>
+                                                </div>
+                                                <div className="relative">
+                                                    <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search..."
+                                                        value={qualificationSearchText}
+                                                        onChange={(e) => setQualificationSearchText(e.target.value)}
+                                                        className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                        autoFocus
+                                                    />
+                                                    {qualificationSearchText && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setQualificationSearchText('')}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                        >
+                                                            <span className="material-symbols-outlined text-sm">close</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* List */}
+                                            <div className="p-2">
+                                                {uniqueQualifications
+                                                    .filter(q => q.toLowerCase().includes(qualificationSearchText.toLowerCase()))
+                                                    .map(q => {
+                                                        const isSelected = filterQualifications.includes(q);
+                                                        return (
+                                                            <div
+                                                                key={q}
+                                                                onClick={() => {
+                                                                    if (isSelected) {
+                                                                        setFilterQualifications(prev => prev.filter(item => item !== q));
+                                                                    } else {
+                                                                        setFilterQualifications(prev => [...prev, q]);
+                                                                    }
+                                                                }}
+                                                                className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors rounded-lg mb-1 ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => { }}
+                                                                    className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                />
+                                                                <span className={`text-sm ${isSelected ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                    {q}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                {uniqueQualifications.filter(q => q.toLowerCase().includes(qualificationSearchText.toLowerCase())).length === 0 && (
+                                                    <div className="text-center py-4 text-slate-400 text-sm italic">
+                                                        No matches found
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Done Button */}
+                                            <div className="sticky bottom-0 bg-white dark:bg-[#1a2533] p-2 border-t border-slate-100 dark:border-gray-700">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowQualificationDropdown(false)}
+                                                    className="w-full text-sm font-bold px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                                >
+                                                    Done ({filterQualifications.length} selected)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
