@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { getAllAPCRecords, updateAPC } from '../../services/apc';
+import { getAllAPCRecords, getAssignmentLimit, getAssignmentUsage, updateAPC } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllMandates } from '../../services/mandate';
 import { getAllMarkingVenues, getAllSSCEExtMarkingVenues, getAllBECEMarkingVenues } from '../../services/markingVenue';
@@ -167,10 +167,11 @@ const RandomizedPost: React.FC = () => {
     // Modals
     const [isStationModalOpen, setIsStationModalOpen] = useState(false);
 
-    // Config: CONRAISS 6-15
+    // Config: CONRAISS 3-15 (Checkboxes)
     const [targetQuota, setTargetQuota] = useState<number>(0);
+    // Initialize all as checked (1)
     const [conraissConfig, setConraissConfig] = useState<{ [key: number]: number }>({
-        6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
+        3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1, 11: 1, 12: 1, 13: 1, 14: 1, 15: 1
     });
     // Distribution Quotas (Absolute Numbers)
     const [distCounts, setDistCounts] = useState({ state: 0, zone: 0, hq: 0 });
@@ -255,6 +256,28 @@ const RandomizedPost: React.FC = () => {
         const set = new Set(allAPC.map(s => s.station).filter(Boolean));
         return Array.from(set).sort();
     }, [allAPC]);
+
+    // NEW: Staff Origin Map for HQ Logic
+    const [staffOriginMap, setStaffOriginMap] = useState<Map<string, string>>(new Map());
+
+    useEffect(() => {
+        const loadStaffOrigins = async () => {
+            try {
+                const staffList = await getAllStaff(false); // Fetch all staff (active & inactive to be safe)
+                const map = new Map<string, string>();
+                staffList.forEach(s => {
+                    if (s.state) {
+                        map.set(s.fileno, s.state);
+                    }
+                });
+                setStaffOriginMap(map);
+                console.log(`[RandomizedPost] Loaded ${map.size} staff origins for HQ logic.`);
+            } catch (err) {
+                console.error("Failed to load staff origins", err);
+            }
+        };
+        loadStaffOrigins();
+    }, []);
 
     // Dynamic qualifications based on assignment/mandate/category selection
     const uniqueQualifications = useMemo(() => {
@@ -381,7 +404,7 @@ const RandomizedPost: React.FC = () => {
         existingFinalPostings.forEach(processPostingRecord);
 
         const breakdown: { [key: number]: number } = {
-            6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
+            3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0
         };
         let total = 0;
 
@@ -447,6 +470,11 @@ const RandomizedPost: React.FC = () => {
             // 4. Gender Filter
             if (filterGender !== 'All' && staff.sex !== filterGender) return;
 
+            // 5. CONRAISS Checkbox Filter (New)
+            // If the key exists in conraissConfig and is 0 (unchecked), exclude
+            // Note: conraissConfig keys are numbers, lvl is number.
+            if (conraissConfig[lvl] === 0) return;
+
             total++;
             if (breakdown[lvl] !== undefined) {
                 breakdown[lvl]++;
@@ -455,7 +483,7 @@ const RandomizedPost: React.FC = () => {
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterStation, filterQualifications, educationStaffSet, filterCategory, staffCategoryMap, getQualificationGroup, filterGender]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterStation, filterQualifications, educationStaffSet, filterCategory, staffCategoryMap, getQualificationGroup, filterGender, conraissConfig]);
 
     useEffect(() => {
         fetchInitialData();
@@ -635,9 +663,8 @@ const RandomizedPost: React.FC = () => {
         }
     };
 
-    const handleConfigChange = (level: number, value: string) => {
-        const numVal = parseInt(value) || 0;
-        setConraissConfig(prev => ({ ...prev, [level]: numVal }));
+    const handleConfigChange = (level: number, checked: boolean) => {
+        setConraissConfig(prev => ({ ...prev, [level]: checked ? 1 : 0 }));
     };
 
 
@@ -786,6 +813,10 @@ const RandomizedPost: React.FC = () => {
 
                 // 6. Gender Filter
                 if (filterGender !== 'All' && staff.sex !== filterGender) return false;
+
+                // 7. CONRAISS Checkbox Filter (Strict)
+                const lvl = parseInt(staff.conraiss || '0');
+                if (conraissConfig[lvl] === 0) return false;
 
                 return true;
             });
@@ -1019,12 +1050,16 @@ const RandomizedPost: React.FC = () => {
                 };
             }).filter(vq => vq.remainingNeeded > 0);
 
-            const allPossibleLevels = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+            const allPossibleLevels = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
             const activeLevels = allPossibleLevels.filter(lvl => conraissConfig[lvl] > 0);
 
-            // We need at least one level to calculate, but if sumOfLevelQuotas < targetQuota, we use all levels
-            // If useCandidateLogic is true, we fallback to allPossibleLevels to ensure flexibility
-            const searchLevels = (useCandidateLogic || sumOfLevelQuotas < targetQuota) ? allPossibleLevels : activeLevels;
+            // If user has selected specific levels (checkboxes), use ONLY those.
+            // If NO levels are selected, use allPossibleLevels as fallback (avoid 0 staff match) - or warn?
+            // User requested checkboxes to filter breakdown, so we should trust activeLevels.
+            // If activeLevels is empty, we show warning.
+
+            // Logic change: We no longer fallback to allPossibleLevels if activeLevels exist.
+            const searchLevels = activeLevels.length > 0 ? activeLevels : allPossibleLevels;
 
             if (searchLevels.length === 0) {
                 warning('Please select at least one CONRAISS level.');
@@ -1162,10 +1197,55 @@ const RandomizedPost: React.FC = () => {
                                 const isSameZone = !isSameState && venueZone && staffZone &&
                                     normalizeStr(staffZone) === normalizeStr(venueZone);
 
+                                // HQ PRIORITIZATION LOGIC
+                                // If staff is HQ, check if venue is in their Super Zone (Region)
+                                let isHQPreferredZone = false;
+                                if (staffIsHQ) {
+                                    // Get Staff Origin from the new Map
+                                    const originState = staffOriginMap.get(staff.file_no);
+                                    if (originState) {
+                                        // Determine Staff's Super Zone
+                                        // We need to map Origin State -> Zone -> Super Zone
+                                        // Use helper to get Zone from State Name
+                                        const originZone = getEffectiveZone(originState, undefined); // undefined if not passed, but helper might have internal map?
+                                        // Re-use logic: find state in allStates to get zone
+                                        const stateObj = allStates.find(s => normalizeStr(s.name) === normalizeStr(originState));
+                                        const realOriginZone = stateObj?.zone || originZone;
+
+                                        if (realOriginZone && venueZone) {
+                                            const getSuperZone = (z: string) => {
+                                                const normZ = normalizeStr(z);
+                                                if (['south south', 'south east', 'south west'].includes(normZ)) return 'SOUTH';
+                                                if (['north central', 'north east', 'north west'].includes(normZ)) return 'NORTH';
+                                                return 'UNKNOWN';
+                                            };
+
+                                            const staffSuper = getSuperZone(realOriginZone);
+                                            const venueSuper = getSuperZone(venueZone);
+
+                                            isHQPreferredZone = (staffSuper !== 'UNKNOWN' && staffSuper === venueSuper);
+                                        }
+                                    }
+                                }
+
                                 // STAGE-BASED PRIORITY ENFORCEMENT
                                 if (stage === 0) {
                                     // HQ QUOTA: Only accept HQ-based staff
-                                    return staffIsHQ;
+                                    // Enhanced: Prioritize HQ staff from same Super Zone
+                                    if (!staffIsHQ) return false;
+                                    // Ideally we want purely preferred zone here? 
+                                    // Or just allow any HQ? 
+                                    // User said: "staff will first be posted within [Super Zone]... before posted to other zones"
+                                    // So we should probably split HQ stage? Or logic inside?
+                                    // Let's enforce preference if possible.
+                                    // BUT, we don't have sub-stages here easily.
+                                    // Hack: If this staff is NOT in preferred zone, yield to others who might be?
+                                    // Risk: If no one from preferred zone is available, we stall?
+                                    // Better: We are iterating `levelOrder` then `priorityMatches`.
+                                    // `priorityMatches` is shuffled.
+                                    // We can SORT `priorityMatches` to put preferred zone HQ staff first!
+                                    // See sort below.
+                                    return true;
                                 } else if (stage === 1) {
                                     // STATE QUOTA: Only accept non-HQ staff from the same state
                                     return !staffIsHQ && isSameState;
@@ -1213,7 +1293,39 @@ const RandomizedPost: React.FC = () => {
                             const postingMap = new Map<string, PostingResponse>(existingPostings.map(p => [p.file_no.toString().padStart(4, '0'), p]));
 
                             if (priorityMatches.length > 0) {
-                                const staff = shuffle(priorityMatches)[0];
+                                // SORT PRIORITY MATCHES
+                                // 1. HQ Super Zone Preference (if HQ stage or overflow)
+                                priorityMatches.sort((a, b) => {
+                                    if (stage === 0 || stage === 3) {
+                                        const isHQA = isHQStaff(a);
+                                        const isHQB = isHQStaff(b);
+                                        if (isHQA && isHQB) {
+                                            // Both HQ: prioritize if match preferred zone
+                                            // Re-calc match (expensive inside sort? maybe pre-calc?)
+                                            // optimisation: do it inline
+                                            const getPref = (s: APCRecord) => {
+                                                const origin = staffOriginMap.get(s.file_no);
+                                                if (!origin) return 0;
+                                                const sObj = allStates.find(st => normalizeStr(st.name) === normalizeStr(origin));
+                                                // Default to generic zone if state object not found (rare)
+                                                const z = sObj?.zone || getEffectiveZone(origin, undefined);
+                                                if (!z || !vq.venue.zone) return 0;
+
+                                                const normalizeZ = (str: string) => {
+                                                    const n = normalizeStr(str);
+                                                    if (['south south', 'south east', 'south west'].includes(n)) return 'SOUTH';
+                                                    if (['north central', 'north east', 'north west'].includes(n)) return 'NORTH';
+                                                    return 'UNKNOWN';
+                                                };
+                                                return normalizeZ(z) === normalizeZ(vq.venue.zone) ? 1 : 0;
+                                            };
+                                            return getPref(b) - getPref(a); // Descending (1 before 0)
+                                        }
+                                    }
+                                    return 0; // Maintain shuffle order otherwise
+                                });
+
+                                const staff = priorityMatches[0] // Take top match (shuffled + sorted);
                                 const normalizedStaffNo = staff.file_no.toString().padStart(4, '0');
                                 usedStaffIds.add(staff.id);
 
@@ -2097,18 +2209,19 @@ const RandomizedPost: React.FC = () => {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-5 md:grid-cols-10 gap-x-4 gap-y-4">
-                            {[6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(level => (
-                                <div key={level} className="flex flex-col gap-1">
-                                    <label className="text-[10px] uppercase font-bold text-center text-slate-400">CON {level}</label>
+                        <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
+                            {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(level => (
+                                <label key={level} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${conraissConfig[level] ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-gray-700 hover:border-emerald-300'}`}>
                                     <input
-                                        type="number"
-                                        min="0"
-                                        className="w-full h-12 text-center text-lg font-bold rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                                        value={conraissConfig[level]}
-                                        onChange={e => handleConfigChange(level, e.target.value)}
+                                        type="checkbox"
+                                        className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500"
+                                        checked={!!conraissConfig[level]}
+                                        onChange={e => handleConfigChange(level, e.target.checked)}
                                     />
-                                </div>
+                                    <span className={`text-sm font-bold ${conraissConfig[level] ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                        CON {level}
+                                    </span>
+                                </label>
                             ))}
                         </div>
 
