@@ -267,6 +267,24 @@ export const appendStaffCsv = async (file: File): Promise<any> => {
     return response.json();
 }
 
+export const updateStaffContacts = async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_URL}/update-contacts`, {
+        method: 'POST',
+        headers: getAuthHeadersFormData(),
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Update Contacts Error Details:', errorData);
+        throw new Error(errorData.detail || 'Failed to update staff contacts');
+    }
+    return response.json();
+}
+
 export const promoteStaff = async (file: File, confirm: boolean = false, promotionDate?: string): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);

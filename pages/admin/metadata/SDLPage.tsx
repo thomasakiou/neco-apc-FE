@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getStaffList, deleteStaff, createStaff, updateStaff, uploadStaffCsv, appendStaffCsv, promoteStaff, getAllStaff, bulkDeleteStaff, isRetiring, isEducationQualified } from '../../../services/staff';
+import { updateStaffContacts } from '../../../services/staff';
 import { Staff, StaffCreate } from '../../../types/staff';
 import { getPageCache, setPageCache } from '../../../services/pageCache';
 import StaffModal from '../StaffModal';
@@ -405,6 +406,50 @@ const SDLPage: React.FC = () => {
         } finally {
             if (appendFileInputRef.current) {
                 appendFileInputRef.current.value = '';
+            }
+            setLoading(false);
+        }
+    };
+
+    const updateContactsFileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleUpdateContactsUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setLoading(true);
+
+            // Call backend endpoint
+            const response = await updateStaffContacts(file);
+
+            setAlertModal({
+                isOpen: true,
+                title: 'Contact Update Complete',
+                message: response.message || 'Contacts updated successfully.',
+                type: 'success',
+                details: {
+                    updated: response.updated_count,
+                    skipped: response.skipped_count,
+                    errors: response.error_count || 0,
+                    errorList: response.errors || []
+                }
+            });
+
+            fetchData(true);
+            fetchAllStaffData(true);
+
+        } catch (error: any) {
+            console.error('Contact update failed:', error);
+            setAlertModal({
+                isOpen: true,
+                title: 'Update Failed',
+                message: error.message || 'An error occurred while processing the file.',
+                type: 'error'
+            });
+        } finally {
+            if (updateContactsFileInputRef.current) {
+                updateContactsFileInputRef.current.value = '';
             }
             setLoading(false);
         }
@@ -999,6 +1044,22 @@ const SDLPage: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-blue-600 dark:from-indigo-400 dark:to-blue-500 group-hover:scale-110 transition-transform text-lg">trending_up</span>
                         Promote Staff
+                    </button>
+
+                    <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        className="hidden"
+                        ref={updateContactsFileInputRef}
+                        onChange={handleUpdateContactsUpload}
+                        style={{ display: 'none' }}
+                    />
+                    <button
+                        onClick={() => updateContactsFileInputRef.current?.click()}
+                        className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all duration-200"
+                    >
+                        <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-cyan-600 dark:from-blue-400 dark:to-cyan-500 group-hover:scale-110 transition-transform text-lg">contact_phone</span>
+                        Update Contacts
                     </button>
 
                     <input
