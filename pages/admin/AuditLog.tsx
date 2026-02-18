@@ -28,16 +28,18 @@ const AuditLog: React.FC = () => {
    const fetchAuditData = async () => {
       setLoading(true);
       try {
-         // Parallel fetch for the two specifically requested users
-         const [data1, data2] = await Promise.all([
+         // Parallel fetch for the specifically requested users
+         const [data1, data2, data3] = await Promise.all([
             getAuditLogs(0, 500, undefined, "Mr. Raphael B. Izulu"),
-            getAuditLogs(0, 500, undefined, "Dr. Grace Durodola")
+            getAuditLogs(0, 500, undefined, "Dr. Grace Durodola"),
+            getAuditLogs(0, 500, undefined, "Thomas Akiou"),
          ]);
 
          // Combine results and sort by timestamp descending
          const combined = [
             ...(data1.items || []),
-            ...(data2.items || [])
+            ...(data2.items || []),
+            ...(data3.items || []),
          ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
          setAllRestrictedEvents(combined);

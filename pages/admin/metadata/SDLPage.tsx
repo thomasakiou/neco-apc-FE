@@ -46,6 +46,7 @@ const SDLPage: React.FC = () => {
 
     const [selectedDOB, setSelectedDOB] = useState(cachedData?.filters?.selectedDOB || 'All');
     const [selectedRetiring, setSelectedRetiring] = useState(cachedData?.filters?.selectedRetiring || 'All');
+    const [selectedPhone, setSelectedPhone] = useState(cachedData?.filters?.selectedPhone || 'All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     // Flag to prevent redundant fetch on mount if cache exists
@@ -88,7 +89,7 @@ const SDLPage: React.FC = () => {
 
     const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
         selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' ||
-        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedDriver !== 'All' || selectedTypesetting !== 'All' || selectedPromotionDate !== 'All' || selectedDOB !== 'All' || selectedRetiring !== 'All';
+        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedDriver !== 'All' || selectedTypesetting !== 'All' || selectedPromotionDate !== 'All' || selectedDOB !== 'All' || selectedRetiring !== 'All' || selectedPhone !== 'All';
 
     const filteredStaff = staffList.filter(staff => {
         const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
@@ -110,8 +111,9 @@ const SDLPage: React.FC = () => {
         const matchesDOB = selectedDOB === 'All' || (staff.dob && staff.dob.startsWith(selectedDOB));
 
         const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+        const matchesPhone = selectedPhone === 'All' || (selectedPhone === 'Yes' ? !!staff.phone?.trim() : !staff.phone?.trim());
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring && matchesPhone;
     });
 
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -155,12 +157,13 @@ const SDLPage: React.FC = () => {
             const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
             const matchesDOB = selectedDOB === 'All' || (staff.dob && staff.dob.startsWith(selectedDOB));
             const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+            const matchesPhone = selectedPhone === 'All' || (selectedPhone === 'Yes' ? !!staff.phone?.trim() : !staff.phone?.trim());
 
             return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD &&
                 matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers &&
-                matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring;
+                matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring && matchesPhone;
         });
-    }, [allStaff, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedDOB, selectedRetiring]);
+    }, [allStaff, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedDOB, selectedRetiring, selectedPhone]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -216,8 +219,9 @@ const SDLPage: React.FC = () => {
                     const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
                     const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
                     const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+                    const matchesPhone = selectedPhone === 'All' || (selectedPhone === 'Yes' ? !!staff.phone?.trim() : !staff.phone?.trim());
 
-                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesRetiring;
+                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesRetiring && matchesPhone;
                 });
 
                 const startIndex = (page - 1) * limit;
@@ -234,7 +238,7 @@ const SDLPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, hasActiveFilters]);
+    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedPhone, hasActiveFilters]);
 
     const fetchAllStaffData = useCallback(async (force: boolean = false) => {
         try {
@@ -468,7 +472,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring]);
+    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedPhone]);
 
     // Update Cache whenever relevant state changes
     useEffect(() => {
@@ -496,9 +500,10 @@ const SDLPage: React.FC = () => {
                 selectedTypesetting,
                 selectedPromotionDate,
                 selectedRetiring,
+                selectedPhone,
             }
         });
-    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring]);
+    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedPhone]);
 
 
 
@@ -1112,37 +1117,8 @@ const SDLPage: React.FC = () => {
 
             <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 transition-colors duration-200">
                 {/* Filters */}
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
-                        <div className="relative w-full md:w-64">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
-                            </div>
-                            <input
-                                className="w-full pl-10 h-10 rounded-lg border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-primary focus:ring-[3px] focus:ring-primary/20 transition-all duration-200 text-slate-700 dark:text-slate-200 font-medium text-sm placeholder:text-slate-400"
-                                placeholder="Search..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Per page:</label>
-                            <select
-                                value={limit}
-                                onChange={(e) => {
-                                    setLimit(Number(e.target.value));
-                                    setPage(1);
-                                }}
-                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-wrap items-center gap-2 w-full">
                         {/* Searchable Station Dropdown */}
                         <div ref={stationDropdownRef} className="relative min-w-[200px]">
                             <button
@@ -1581,7 +1557,39 @@ const SDLPage: React.FC = () => {
                                 </div>
                             )}
                         </div>
+                        {/* Phone Filter */}
+                        <FilterSelect label="Phone" value={selectedPhone} options={['Yes', 'No']} onChange={setSelectedPhone} />
                         {/* Button moved to header */}
+                    </div>
+                    <hr className="border-slate-200 dark:border-gray-700" />
+                    <div className="flex flex-col md:flex-row gap-4 items-center w-full">
+                        <div className="relative w-full md:w-64">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
+                            </div>
+                            <input
+                                className="w-full pl-10 h-10 rounded-lg border-slate-200 dark:border-gray-700 bg-background-light dark:bg-[#0b1015] focus:bg-white dark:focus:bg-[#0b1015] focus:border-primary focus:ring-[3px] focus:ring-primary/20 transition-all duration-200 text-slate-700 dark:text-slate-200 font-medium text-sm placeholder:text-slate-400"
+                                placeholder="Search..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Per page:</label>
+                            <select
+                                value={limit}
+                                onChange={(e) => {
+                                    setLimit(Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-gray-700 bg-surface-light dark:bg-[#0b1015] text-slate-700 dark:text-slate-300 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer"
+                            >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
