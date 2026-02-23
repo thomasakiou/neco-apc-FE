@@ -221,7 +221,28 @@ const RandomizedPost: React.FC = () => {
 
 
     // Optional Filters
-    const [filterStation, setFilterStation] = useState<string>(''); // Filters by staff's current station
+    const [filterStations, setFilterStations] = useState<string[]>([]); // Filters by staff's current station (Multi-select)
+    const [showStationDropdown, setShowStationDropdown] = useState(false);
+    const [stationSearchText, setStationSearchText] = useState('');
+    const stationDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Click-outside handler for station dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (stationDropdownRef.current && !stationDropdownRef.current.contains(event.target as Node)) {
+                setShowStationDropdown(false);
+            }
+        };
+
+        if (showStationDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showStationDropdown]);
+
     const [filterQualifications, setFilterQualifications] = useState<string[]>([]); // Filters by specific qualification groups
     const [showQualificationDropdown, setShowQualificationDropdown] = useState(false);
     const [qualificationSearchText, setQualificationSearchText] = useState('');
@@ -443,7 +464,7 @@ const RandomizedPost: React.FC = () => {
 
             // --- NEW FILTERS ---
             // 1. Station Filter
-            if (filterStation && staff.station !== filterStation) return;
+            if (filterStations.length > 0 && !filterStations.includes(staff.station || '')) return;
 
             // 2. Qualification Filter
             if (filterQualifications.length > 0 && !filterQualifications.includes(getQualificationGroup(staff.qualification))) return;
@@ -483,7 +504,7 @@ const RandomizedPost: React.FC = () => {
         });
 
         return { total, breakdown };
-    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterStation, filterQualifications, educationStaffSet, filterCategory, staffCategoryMap, getQualificationGroup, filterGender, conraissConfig]);
+    }, [selectedAssignment, selectedMandate, allAPC, assignments, mandates, existingPostings, existingFinalPostings, filterStations, filterQualifications, educationStaffSet, filterCategory, staffCategoryMap, getQualificationGroup, filterGender, conraissConfig]);
 
     useEffect(() => {
         fetchInitialData();
@@ -787,7 +808,7 @@ const RandomizedPost: React.FC = () => {
 
                 // --- NEW FILTERS ---
                 // 1. Station Filter
-                if (filterStation && staff.station !== filterStation) return false;
+                if (filterStations.length > 0 && !filterStations.includes(staff.station || '')) return false;
 
                 // 2. Qualification Filter
                 if (filterQualifications.length > 0 && !filterQualifications.includes(getQualificationGroup(staff.qualification))) return false;
@@ -1973,19 +1994,121 @@ const RandomizedPost: React.FC = () => {
 
                         {/* Optional Filters Row */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
-                            {/* 1. Station Filter */}
+                            {/* 1. Station Filter (Multi-select) */}
                             <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Filter by Station</label>
-                                <select
-                                    className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-slate-900 dark:text-white"
-                                    value={filterStation}
-                                    onChange={e => setFilterStation(e.target.value)}
-                                >
-                                    <option value="">All Stations</option>
-                                    {uniqueStations.map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                    ))}
-                                </select>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-bold uppercase text-slate-500">Filter by Station</label>
+                                </div>
+                                <div className="relative" ref={stationDropdownRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowStationDropdown(!showStationDropdown)}
+                                        className="w-full h-11 px-3 rounded-xl border bg-white dark:bg-[#0f161d] border-slate-200 dark:border-gray-700 text-left flex items-center justify-between cursor-pointer hover:border-emerald-400 text-slate-900 dark:text-white"
+                                    >
+                                        <span className="truncate">
+                                            {filterStations.length === 0
+                                                ? 'All Stations'
+                                                : filterStations.length === 1
+                                                    ? filterStations[0]
+                                                    : `${filterStations.length} selected`}
+                                        </span>
+                                        <span className="material-symbols-outlined text-slate-400">
+                                            {showStationDropdown ? 'expand_less' : 'expand_more'}
+                                        </span>
+                                    </button>
+
+                                    {/* Dropdown Panel */}
+                                    {showStationDropdown && (
+                                        <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-80 overflow-y-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl">
+                                            {/* Search & Actions */}
+                                            <div className="sticky top-0 bg-white dark:bg-[#1a2533] p-2 border-b border-slate-100 dark:border-gray-700 flex flex-col gap-2 z-20">
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFilterStations(uniqueStations)}
+                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                                                    >
+                                                        Select All
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFilterStations([])}
+                                                        className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                    >
+                                                        Clear All
+                                                    </button>
+                                                </div>
+                                                <div className="relative">
+                                                    <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search station..."
+                                                        value={stationSearchText}
+                                                        onChange={(e) => setStationSearchText(e.target.value)}
+                                                        className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                        autoFocus
+                                                    />
+                                                    {stationSearchText && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setStationSearchText('')}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5"
+                                                        >
+                                                            <span className="material-symbols-outlined text-sm">close</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* List */}
+                                            <div className="p-2">
+                                                {uniqueStations
+                                                    .filter(s => s.toLowerCase().includes(stationSearchText.toLowerCase()))
+                                                    .map(s => {
+                                                        const isSelected = filterStations.includes(s);
+                                                        return (
+                                                            <div
+                                                                key={s}
+                                                                onClick={() => {
+                                                                    if (isSelected) {
+                                                                        setFilterStations(prev => prev.filter(item => item !== s));
+                                                                    } else {
+                                                                        setFilterStations(prev => [...prev, s]);
+                                                                    }
+                                                                }}
+                                                                className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors rounded-lg mb-1 ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => { }}
+                                                                    className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                                />
+                                                                <span className={`text-sm ${isSelected ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                    {s}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                {uniqueStations.filter(s => s.toLowerCase().includes(stationSearchText.toLowerCase())).length === 0 && (
+                                                    <div className="text-center py-4 text-slate-400 text-sm italic">
+                                                        No matches found
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Done Button */}
+                                            <div className="sticky bottom-0 bg-white dark:bg-[#1a2533] p-2 border-t border-slate-100 dark:border-gray-700">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowStationDropdown(false)}
+                                                    className="w-full text-sm font-bold px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                                >
+                                                    Done ({filterStations.length} selected)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* 2. Category Tag Filter */}
