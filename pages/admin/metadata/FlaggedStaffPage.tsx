@@ -140,7 +140,7 @@ const FlaggedStaffPage: React.FC = () => {
                 startY: 40,
                 margin: { top: 40, bottom: 20 },
                 theme: 'grid',
-                headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: 'bold' }, // Rose 600
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green
                 styles: { fontSize: 8 },
                 columnStyles: {
                     0: { cellWidth: 10 },

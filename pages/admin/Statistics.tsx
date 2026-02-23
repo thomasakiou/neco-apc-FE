@@ -232,7 +232,7 @@ const Statistics: React.FC = () => {
                 ['Total Postings', stats.totalPostings],
             ],
             theme: 'grid',
-            headStyles: { fillColor: [41, 128, 185] }
+            headStyles: { fillColor: [0, 128, 0] }
         });
 
         // Detailed Table
@@ -256,7 +256,7 @@ const Statistics: React.FC = () => {
                 ];
             }),
             styles: { fontSize: 8 },
-            headStyles: { fillColor: [52, 73, 94] }
+            headStyles: { fillColor: [0, 128, 0] }
         });
 
         doc.save('statistics_report.pdf');

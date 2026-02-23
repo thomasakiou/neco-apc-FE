@@ -339,7 +339,7 @@ const TypesettingPostingReports: React.FC = () => {
             const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => { const img = new Image(); img.src = '/images/neco.png'; img.onload = () => resolve(img); img.onerror = reject; });
             const signatureImg = await new Promise<HTMLImageElement | null>((resolve) => { const img = new Image(); img.src = '/images/signature.png'; img.onload = () => resolve(img); img.onerror = () => resolve(null); });
 
-            const config = { NCEE: { color: [0, 80, 160] }, ACCREDITATION: { color: [180, 0, 0] }, SSCE: { color: [0, 128, 0] }, MARKING: { color: [0, 128, 0] } }[reportTemplate as keyof typeof Object] || { color: [0, 128, 0] };
+            const config = { NCEE: { color: [0, 128, 0] }, ACCREDITATION: { color: [0, 128, 0] }, SSCE: { color: [0, 128, 0] }, MARKING: { color: [0, 128, 0] } }[reportTemplate as keyof typeof Object] || { color: [0, 128, 0] };
 
             const drawPageHeader = (data: any) => {
                 const aspectRatio = logoImg.width / logoImg.height;

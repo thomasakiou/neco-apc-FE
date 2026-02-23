@@ -687,16 +687,16 @@ const HODPostingsTable: React.FC = () => {
                     case 'NCEE':
                         return {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
-                            headerColor: [0, 80, 160], // Blue-ish
-                            tableHeaderColor: [0, 80, 160],
+                            headerColor: [0, 128, 0], // Green
+                            tableHeaderColor: [0, 128, 0],
                             defaultTitle1: reportTitle1,
                             defaultTitle2: reportTitle2
                         };
                     case 'ACCREDITATION':
                         return {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
-                            headerColor: [180, 0, 0], // Red-ish
-                            tableHeaderColor: [180, 0, 0],
+                            headerColor: [0, 128, 0], // Green
+                            tableHeaderColor: [0, 128, 0],
                             defaultTitle1: reportTitle1,
                             defaultTitle2: reportTitle2
                         };

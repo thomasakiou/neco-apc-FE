@@ -447,16 +447,16 @@ const GeneratePage: React.FC = () => {
                     case 'NCEE':
                         return {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
-                            headerColor: [0, 80, 160], // Blue-ish
-                            tableHeaderColor: [0, 80, 160],
+                            headerColor: [0, 128, 0], // Green
+                            tableHeaderColor: [0, 128, 0],
                             defaultTitle1: "2026 NATIONAL COMMON ENTRANCE EXAMINATION",
                             defaultTitle2: "NCEE OFFICERS POSTING LIST"
                         };
                     case 'ACCREDITATION':
                         return {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
-                            headerColor: [180, 0, 0], // Red-ish
-                            tableHeaderColor: [180, 0, 0],
+                            headerColor: [0, 128, 0], // Green
+                            tableHeaderColor: [0, 128, 0],
                             defaultTitle1: "2026 ACCREDITATION EXERCISE",
                             defaultTitle2: "ACCREDITATION OFFICERS POSTING LIST"
                         };
@@ -464,8 +464,8 @@ const GeneratePage: React.FC = () => {
                     default:
                         return {
                             headerTitle: "NATIONAL EXAMINATIONS COUNCIL (NECO)",
-                            headerColor: [0, 0, 0], // Black text for header, Green for table
-                            tableHeaderColor: [4, 120, 87], // Green
+                            headerColor: [0, 128, 0], // Green
+                            tableHeaderColor: [0, 128, 0], // Green
                             defaultTitle1: reportTitle1 || "2026 SENIOR SCHOOL CERTIFICATE EXAMINATION (SSCE)",
                             defaultTitle2: reportTitle2 || "SSCE OFFICERS POSTING LIST"
                         };
@@ -494,7 +494,7 @@ const GeneratePage: React.FC = () => {
                 doc.addImage(logoImg, 'PNG', 15, 8, logoSize, logoSize / aspectRatio);
 
                 // Header Color Check inside function
-                doc.setTextColor(4, 120, 87); // Green color for NECO header
+                doc.setTextColor(0, 128, 0); // Green color for NECO header
 
                 doc.setFontSize(isPortrait ? 17 : 18);
                 doc.setFont("helvetica", "bold");

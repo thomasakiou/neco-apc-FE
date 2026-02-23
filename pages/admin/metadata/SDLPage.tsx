@@ -699,7 +699,7 @@ const SDLPage: React.FC = () => {
 
             // Add title
             doc.setFontSize(22);
-            doc.setTextColor(20, 158, 136); // Emerald-600
+            doc.setTextColor(0, 128, 0); // Green
             doc.text('Staff Disposition List (SDL)', 14, 20);
 
             // Add metadata
@@ -737,7 +737,7 @@ const SDLPage: React.FC = () => {
                 body: tableRows,
                 startY: 38,
                 styles: { fontSize: 8.5, font: 'helvetica', cellPadding: 2 },
-                headStyles: { fillColor: [20, 158, 136], textColor: [255, 255, 255], fontStyle: 'bold' },
+                headStyles: { fillColor: [0, 128, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
                 alternateRowStyles: { fillColor: [245, 247, 250] },
                 margin: { top: 38, left: 10, right: 10 },
                 didDrawPage: (data) => {

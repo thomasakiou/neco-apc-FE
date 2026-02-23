@@ -555,7 +555,7 @@ const ReplacementPostPage: React.FC = () => {
                 margin: { top: 40, bottom: 20 },
                 theme: 'grid',
                 headStyles: {
-                    fillColor: [22, 163, 74], // Green-600
+                    fillColor: [0, 128, 0], // Green
                     textColor: 255,
                     fontStyle: 'bold',
                     halign: 'center',

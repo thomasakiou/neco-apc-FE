@@ -196,7 +196,7 @@ const AssignmentValidationPage: React.FC = () => {
                 startY: 40,
                 margin: { top: 40, bottom: 20 },
                 theme: 'grid',
-                headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' }, // Indigo
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold' }, // Green
                 styles: { fontSize: 9 },
                 didDrawPage: (data) => drawHeader(data)
             });
