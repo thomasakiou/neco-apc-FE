@@ -2,9 +2,10 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
 import { APCRecord, APCCreate, APCUpdate } from '../../types/apc';
-import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, appendAPC, bulkDeleteAPC, getAllAPCRecords } from '../../services/apc';
+import { getAllAPC, createAPC, updateAPC, deleteAPC, uploadAPC, appendAPC, bulkDeleteAPC, getAllAPCRecords, getAssignmentUsage } from '../../services/apc';
 import { getAllAssignments } from '../../services/assignment';
 import { getAllStaff, isRetiring } from '../../services/staff';
+import { Staff } from '../../types/staff';
 import { getAllPostingRecords, updatePosting } from '../../services/posting';
 import { getPageCache, setPageCache } from '../../services/pageCache';
 import { PostingResponse } from '../../types/posting';
@@ -34,6 +35,7 @@ const APCList: React.FC = () => {
 
 
     const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>(cached?.assignmentOptions || []);
+    const [allStaff, setAllStaff] = useState<Staff[]>([]);
 
     // Filters
     const [searchFileNo, setSearchFileNo] = useState(cached?.searchTerm || '');
@@ -241,18 +243,67 @@ const APCList: React.FC = () => {
 
         setLoading(true);
         try {
-            const [all, postingsData] = await Promise.all([
+            const [all, postingsData, staffData] = await Promise.all([
                 getAllAPCRecords(false, force),
-                getAllPostingRecords(force)
+                getAllPostingRecords(force),
+                getAllStaff(true, force)
             ]);
+
             setAllRecords(all);
             setAllPostings(postingsData);
+            setAllStaff(staffData);
+
+            // If it's a force refresh, sync SAPC data with SDL
+            if (force && all.length > 0 && staffData.length > 0) {
+                console.log('[APCList] Starting SAPC/SDL Synchronization...');
+                const staffMap = new Map(staffData.map(s => [s.fileno, s]));
+                let syncCount = 0;
+
+                for (const record of all) {
+                    const staff = staffMap.get(record.file_no);
+                    if (staff) {
+                        const needsUpdate =
+                            record.name !== (staff.full_name.includes('(Retiring)') ? staff.full_name : staff.full_name) ||
+                            record.conraiss !== (staff.conr || '') ||
+                            record.station !== (staff.station || '') ||
+                            record.qualification !== (staff.qualification || '') ||
+                            record.sex !== (staff.sex || '') ||
+                            record.remark !== (staff.remark || '');
+
+                        if (needsUpdate) {
+                            const updatedData: APCUpdate = {
+                                ...record,
+                                name: staff.full_name,
+                                conraiss: staff.conr || '',
+                                station: staff.station || '',
+                                qualification: staff.qualification || '',
+                                sex: staff.sex || '',
+                                remark: staff.remark || ''
+                            };
+                            await updateAPC(record.id, updatedData);
+                            syncCount++;
+                        }
+                    }
+                }
+
+                if (syncCount > 0) {
+                    setAlertModal({
+                        isOpen: true,
+                        title: 'Synchronization Complete',
+                        message: `${syncCount} records were updated to match the latest Staff Data (SDL).`,
+                        type: 'success'
+                    });
+                    // Refresh again to show updated records
+                    const updatedAPC = await getAllAPCRecords(false, true);
+                    setAllRecords(updatedAPC);
+                }
+            }
         } catch (error) {
-            console.error('Error fetching all records:', error);
+            console.error('Error fetching/syncing records:', error);
             setAlertModal({
                 isOpen: true,
                 title: 'Error',
-                message: 'Failed to fetch records. Please try again.',
+                message: 'Failed to sync records. Please try again.',
                 type: 'error'
             });
         } finally {
@@ -1327,6 +1378,7 @@ const APCList: React.FC = () => {
                     }
                 }}
                 initialData={editingRecord}
+                allStaff={allStaff}
             />
 
             <HelpModal
@@ -1585,7 +1637,8 @@ const APCModal: React.FC<{
     onClose: () => void;
     onSubmit: (data: APCCreate) => Promise<void>;
     initialData?: APCRecord | null;
-}> = ({ isOpen, onClose, onSubmit, initialData }) => {
+    allStaff: Staff[];
+}> = ({ isOpen, onClose, onSubmit, initialData, allStaff }) => {
     const [formData, setFormData] = useState<APCCreate>({
         file_no: '',
         name: '',
@@ -1644,14 +1697,43 @@ const APCModal: React.FC<{
         }
     }, [initialData, isOpen]);
 
+    // Auto-fill logic when File Number changes
+    useEffect(() => {
+        if (!initialData && formData.file_no) {
+            const staff = allStaff.find(s => s.fileno.toLowerCase() === formData.file_no.toLowerCase());
+            if (staff) {
+                setFormData(prev => ({
+                    ...prev,
+                    name: staff.full_name,
+                    conraiss: staff.conr || '',
+                    station: staff.station || '',
+                    qualification: staff.qualification || '',
+                    sex: staff.sex || '',
+                    remark: staff.remark || ''
+                }));
+            }
+        }
+    }, [formData.file_no, allStaff, initialData]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        // Convert empty date string to null for date fields
-        if (name === 'reactivation_date' && value === '') {
-            setFormData(prev => ({ ...prev, [name]: null }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-        }
+
+        setFormData(prev => {
+            const updated = { ...prev, [name]: name === 'reactivation_date' && value === '' ? null : value };
+
+            // Auto-calculate count if an assignment field was changed
+            const assignmentFieldsList = [
+                'tt', 'mar_accr', 'ncee', 'gifted', 'becep', 'bece_mrkp',
+                'ssce_int', 'swapping', 'ssce_int_mrk', 'oct_accr', 'ssce_ext',
+                'ssce_ext_mrk', 'pur_samp', 'int_audit', 'stock_tk'
+            ];
+
+            if (assignmentFieldsList.includes(name)) {
+                updated.count = getAssignmentUsage(updated as any);
+            }
+
+            return updated;
+        });
     };
 
     const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {

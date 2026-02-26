@@ -247,7 +247,10 @@ export const createCustomAPCFromCSV = async (data: { fileno: string; assignmentC
 
             if (existing) {
                 const { id, created_at, updated_at, created_by, updated_by, ...clean } = existing;
-                await updateAPC(id, { ...clean, [fieldName]: val });
+                const updatedRecord = { ...clean, [fieldName]: val };
+                // Recalculate count to ensure consistency
+                updatedRecord.count = getAssignmentUsage(updatedRecord as any);
+                await updateAPC(id, updatedRecord);
                 results.updated++;
             } else {
                 results.errors++;

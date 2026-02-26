@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getAllAPCRecords } from '../../../services/apc';
+import { getAllAPCRecords, getAssignmentUsage } from '../../../services/apc';
+import { getAllStaff } from '../../../services/staff';
 import { APCRecord } from '../../../types/apc';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 interface FlaggedReason {
-    type: 'count_mismatch' | 'assignment_count_mismatch';
+    type: 'count_mismatch' | 'assignment_count_mismatch' | 'data_inconsistency';
     message: string;
 }
 
@@ -17,6 +18,7 @@ interface FlaggedStaff {
     conraiss: string;
     expectedCount: number;
     apcCount: number;
+    actualUsage: number;
     reasons: FlaggedReason[];
 }
 
@@ -27,6 +29,7 @@ const FlaggedStaffPage: React.FC = () => {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(25);
     const [ignoredStaff, setIgnoredStaff] = useState<Set<string>>(new Set());
+    const [staffCategoryMap, setStaffCategoryMap] = useState<Map<string, { is_hod: boolean; is_state_coordinator: boolean }>>(new Map());
 
     useEffect(() => {
         fetchData();
@@ -123,7 +126,7 @@ const FlaggedStaffPage: React.FC = () => {
                 doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, width - 15, height - 10, { align: 'right' });
             };
 
-            const columns = ["S/N", "FILE NO", "NAME", "CONR", "EXPECT", "FOUND", "REASONS"];
+            const columns = ["S/N", "FILE NO", "NAME", "CONR", "EXPECT", "RECORD", "FOUND", "REASONS"];
             const rows = filteredData.map((s, i) => [
                 i + 1,
                 s.fileNo,
@@ -131,6 +134,7 @@ const FlaggedStaffPage: React.FC = () => {
                 s.conraiss,
                 s.expectedCount,
                 s.apcCount,
+                s.actualUsage,
                 s.reasons.map(r => r.message).join('\n')
             ]);
 
@@ -162,10 +166,23 @@ const FlaggedStaffPage: React.FC = () => {
         }
     };
 
-    const fetchData = async () => {
+    const fetchData = async (force: boolean = false) => {
         setLoading(true);
         try {
-            const apcList = await getAllAPCRecords(true, false);
+            const [apcList, staffData] = await Promise.all([
+                getAllAPCRecords(true, force),
+                getAllStaff(true, force)
+            ]);
+
+            const catMap = new Map<string, { is_hod: boolean; is_state_coordinator: boolean }>();
+            staffData.forEach(s => {
+                catMap.set(s.fileno, {
+                    is_hod: !!s.is_hod,
+                    is_state_coordinator: !!s.is_state_coordinator
+                });
+            });
+
+            setStaffCategoryMap(catMap);
             setApcRecords(apcList);
         } catch (error) {
             console.error("Error fetching flagging data:", error);
@@ -197,15 +214,36 @@ const FlaggedStaffPage: React.FC = () => {
             if (expectedBaseCount === 0) return; // Skip those not in the defined ranges
             if (ignoredStaff.has(apc.id)) return; // Skip ignored staff
 
+            // Exclude HOD and State Coordinators
+            const categories = staffCategoryMap.get(apc.file_no);
+            if (categories?.is_hod || categories?.is_state_coordinator) return;
+
             const apcCount = apc.count || 0;
+            const actualUsage = getAssignmentUsage(apc);
 
             const reasons: FlaggedReason[] = [];
 
-            // Flagging Condition: Database count mismatch (APC 'count' field vs CONRAISS rule)
-            if (apcCount !== expectedBaseCount) {
+            // Flagging Condition 1: Actual assignments found vs CONRAISS rule
+            if (actualUsage !== expectedBaseCount) {
+                reasons.push({
+                    type: 'assignment_count_mismatch',
+                    message: `CONRAISS grade rules expect ${expectedBaseCount} assignments, but ${actualUsage} assignments were found in the record.`
+                });
+            }
+
+            // Flagging Condition 2: APC 'count' field mismatch with actual assignments (Data Inconsistency)
+            if (apcCount !== actualUsage) {
+                reasons.push({
+                    type: 'data_inconsistency',
+                    message: `APC Record "Count" field (${apcCount}) does not match the actual numbering of assignments (${actualUsage}).`
+                });
+            }
+
+            // Flagging Condition 3: Database count mismatch vs CONRAISS rule (Legacy Check)
+            if (apcCount !== expectedBaseCount && actualUsage === expectedBaseCount) {
                 reasons.push({
                     type: 'count_mismatch',
-                    message: `CONRAISS grade rules expect ${expectedBaseCount} assignments, but APC Record specifies ${apcCount}.`
+                    message: `APC Record specifies ${apcCount} assignments, but CONRAISS grade rules expect ${expectedBaseCount}.`
                 });
             }
 
@@ -217,6 +255,7 @@ const FlaggedStaffPage: React.FC = () => {
                     conraiss: conraiss,
                     expectedCount: expectedBaseCount,
                     apcCount: apcCount,
+                    actualUsage: actualUsage,
                     reasons: reasons
                 });
             }
@@ -251,22 +290,34 @@ const FlaggedStaffPage: React.FC = () => {
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Identifying staff with assignment count violations based on CONRAISS grade rules.</p>
                 </div>
 
-                {!loading && filteredData.length > 0 && (
+                {!loading && (
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={handleExportPDF}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
+                            onClick={() => fetchData(true)}
+                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-teal-600 dark:text-teal-400 font-bold text-xs shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
+                            title="Force refresh data from server"
                         >
-                            <span className="material-symbols-outlined text-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
-                            Export PDF
+                            <span className="material-symbols-outlined group-hover:rotate-180 transition-transform duration-500 text-lg">refresh</span>
+                            Refresh Data
                         </button>
-                        <button
-                            onClick={handleExportCSV}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
-                        >
-                            <span className="material-symbols-outlined text-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
-                            Export CSV
-                        </button>
+                        {filteredData.length > 0 && (
+                            <>
+                                <button
+                                    onClick={handleExportPDF}
+                                    className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
+                                >
+                                    <span className="material-symbols-outlined text-rose-500 group-hover:scale-110 transition-transform text-lg">picture_as_pdf</span>
+                                    Export PDF
+                                </button>
+                                <button
+                                    onClick={handleExportCSV}
+                                    className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-background-light dark:hover:bg-slate-800 transition-all duration-200"
+                                >
+                                    <span className="material-symbols-outlined text-indigo-500 group-hover:scale-110 transition-transform text-lg">download</span>
+                                    Export CSV
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
@@ -343,7 +394,8 @@ const FlaggedStaffPage: React.FC = () => {
                                     <th className="px-6 py-4">Staff Details</th>
                                     <th className="px-6 py-4">CONRAISS</th>
                                     <th className="px-6 py-4 text-center">Expected</th>
-                                    <th className="px-6 py-4 text-center">APC Count</th>
+                                    <th className="px-6 py-4 text-center">Record</th>
+                                    <th className="px-6 py-4 text-center">Found</th>
                                     <th className="px-6 py-4">Flagging Reasons</th>
                                     <th className="px-6 py-4 text-center">Actions</th>
                                 </tr>
@@ -372,8 +424,13 @@ const FlaggedStaffPage: React.FC = () => {
                                                 <span className="px-2 py-1 rounded bg-background-light dark:bg-slate-800 font-black text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-gray-700">{staff.expectedCount}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-1 rounded font-black ${staff.apcCount === staff.expectedCount ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20'}`}>
+                                                <span className={`px-2 py-1 rounded font-black ${staff.apcCount === staff.expectedCount ? 'text-slate-700 dark:text-slate-300' : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20'}`}>
                                                     {staff.apcCount}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-1 rounded font-black ${staff.actualUsage === staff.expectedCount ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20'}`}>
+                                                    {staff.actualUsage}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
