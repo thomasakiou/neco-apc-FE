@@ -1524,7 +1524,7 @@ const APCRow = React.memo<{
                                 {activeAssignments.length > 0 ? (
                                     activeAssignments.map((name, idx) => (
                                         <span key={idx} className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 w-fit">
-                                            {name}
+                                            • {name}
                                         </span>
                                     ))
                                 ) : (
