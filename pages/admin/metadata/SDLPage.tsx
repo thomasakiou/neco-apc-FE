@@ -46,6 +46,7 @@ const SDLPage: React.FC = () => {
 
     const [selectedDOB, setSelectedDOB] = useState(cachedData?.filters?.selectedDOB || 'All');
     const [selectedRetiring, setSelectedRetiring] = useState(cachedData?.filters?.selectedRetiring || 'All');
+    const [selectedActive, setSelectedActive] = useState(cachedData?.filters?.selectedActive || 'All');
     const [selectedPhone, setSelectedPhone] = useState(cachedData?.filters?.selectedPhone || 'All');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -89,7 +90,7 @@ const SDLPage: React.FC = () => {
 
     const hasActiveFilters = selectedStation !== 'All' || selectedRank !== 'All' || selectedConr !== 'All' || selectedState !== 'All' ||
         selectedHOD !== 'All' || selectedStateCoord !== 'All' || selectedDirector !== 'All' || selectedEducation !== 'All' ||
-        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedDriver !== 'All' || selectedTypesetting !== 'All' || selectedPromotionDate !== 'All' || selectedDOB !== 'All' || selectedRetiring !== 'All' || selectedPhone !== 'All';
+        selectedSecretary !== 'All' || selectedOthers !== 'All' || selectedDriver !== 'All' || selectedTypesetting !== 'All' || selectedPromotionDate !== 'All' || selectedDOB !== 'All' || selectedRetiring !== 'All' || selectedActive !== 'All' || selectedPhone !== 'All';
 
     const filteredStaff = staffList.filter(staff => {
         const matchesStation = selectedStation === 'All' || staff.station === selectedStation;
@@ -111,9 +112,10 @@ const SDLPage: React.FC = () => {
         const matchesDOB = selectedDOB === 'All' || (staff.dob && staff.dob.startsWith(selectedDOB));
 
         const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+        const matchesActive = selectedActive === 'All' || (selectedActive === 'Yes' ? !!staff.active : !staff.active);
         const matchesPhone = selectedPhone === 'All' || (selectedPhone === 'Yes' ? !!staff.phone?.trim() : !staff.phone?.trim());
 
-        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring && matchesPhone;
+        return matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring && matchesActive && matchesPhone;
     });
 
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -157,13 +159,14 @@ const SDLPage: React.FC = () => {
             const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
             const matchesDOB = selectedDOB === 'All' || (staff.dob && staff.dob.startsWith(selectedDOB));
             const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+            const matchesActive = selectedActive === 'All' || (selectedActive === 'Yes' ? !!staff.active : !staff.active);
             const matchesPhone = selectedPhone === 'All' || (selectedPhone === 'Yes' ? !!staff.phone?.trim() : !staff.phone?.trim());
 
             return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD &&
                 matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers &&
-                matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring && matchesPhone;
+                matchesDriver && matchesTypesetting && matchesPromotionDate && matchesDOB && matchesRetiring && matchesActive && matchesPhone;
         });
-    }, [allStaff, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedDOB, selectedRetiring, selectedPhone]);
+    }, [allStaff, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedDOB, selectedRetiring, selectedActive, selectedPhone]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -219,9 +222,10 @@ const SDLPage: React.FC = () => {
                     const matchesTypesetting = selectedTypesetting === 'All' || (selectedTypesetting === 'Yes' ? !!staff.is_typesetting : !staff.is_typesetting);
                     const matchesPromotionDate = selectedPromotionDate === 'All' || (staff.dopa && (staff.dopa.split('T')[0].split(' ')[0] === selectedPromotionDate));
                     const matchesRetiring = selectedRetiring === 'All' || (selectedRetiring === 'Yes' ? isRetiring(staff) : !isRetiring(staff));
+                    const matchesActive = selectedActive === 'All' || (selectedActive === 'Yes' ? !!staff.active : !staff.active);
                     const matchesPhone = selectedPhone === 'All' || (selectedPhone === 'Yes' ? !!staff.phone?.trim() : !staff.phone?.trim());
 
-                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesRetiring && matchesPhone;
+                    return matchesSearch && matchesStation && matchesRank && matchesConr && matchesState && matchesHOD && matchesStateCoord && matchesDirector && matchesEducation && matchesSecretary && matchesOthers && matchesDriver && matchesTypesetting && matchesPromotionDate && matchesRetiring && matchesActive && matchesPhone;
                 });
 
                 const startIndex = (page - 1) * limit;
@@ -238,7 +242,7 @@ const SDLPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedPhone, hasActiveFilters]);
+    }, [page, limit, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedDOB, selectedRetiring, selectedActive, selectedPhone, hasActiveFilters]);
 
     const fetchAllStaffData = useCallback(async (force: boolean = false) => {
         try {
@@ -472,7 +476,7 @@ const SDLPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedPhone]);
+    }, [selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedActive, selectedPhone]);
 
     // Update Cache whenever relevant state changes
     useEffect(() => {
@@ -500,10 +504,11 @@ const SDLPage: React.FC = () => {
                 selectedTypesetting,
                 selectedPromotionDate,
                 selectedRetiring,
+                selectedActive,
                 selectedPhone,
             }
         });
-    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedPhone]);
+    }, [staffList, allStaff, total, page, limit, sortField, sortDirection, searchTerm, selectedStation, selectedRank, selectedConr, selectedState, selectedHOD, selectedStateCoord, selectedDirector, selectedEducation, selectedSecretary, selectedOthers, selectedDriver, selectedTypesetting, selectedPromotionDate, selectedRetiring, selectedActive, selectedPhone]);
 
 
 
@@ -1407,6 +1412,13 @@ const SDLPage: React.FC = () => {
                             options={['Yes', 'No']}
                             onChange={setSelectedRetiring}
                         />
+                        <FilterSelect
+                            label="SDL Status"
+                            value={selectedActive}
+                            options={['Yes', 'No']}
+                            onChange={setSelectedActive}
+                            displayValues={{ 'Yes': 'Active', 'No': 'Inactive' }}
+                        />
                         {/* Searchable DOPA Dropdown */}
                         <div ref={dopaDropdownRef} className="relative min-w-[200px]">
                             <button
@@ -1755,7 +1767,7 @@ const SortableHeader = ({
     );
 };
 
-const FilterSelect = ({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (val: string) => void }) => (
+const FilterSelect = ({ label, value, options, onChange, displayValues }: { label: string; value: string; options: string[]; onChange: (val: string) => void; displayValues?: Record<string, string> }) => (
     <div className="relative min-w-[200px]">
         <select
             value={value}
@@ -1763,7 +1775,11 @@ const FilterSelect = ({ label, value, options, onChange }: { label: string; valu
             className="appearance-none w-full h-10 pl-3 pr-8 rounded-lg bg-white dark:bg-[#0b1015] border border-slate-200 dark:border-gray-700 hover:border-primary/50 text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm transition-all cursor-pointer focus:ring-primary focus:border-primary truncate"
         >
             <option value="All">{label}: All</option>
-            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            {options.map(opt => (
+                <option key={opt} value={opt}>
+                    {displayValues && displayValues[opt] ? displayValues[opt] : opt}
+                </option>
+            ))}
         </select>
         <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">arrow_drop_down</span>
     </div>
