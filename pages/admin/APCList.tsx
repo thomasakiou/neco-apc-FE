@@ -79,6 +79,7 @@ const APCList: React.FC = () => {
     // DOB Map and Search State
     const [staffDobMap, setStaffDobMap] = useState<Map<string, string>>(new Map());
     const [staffRetiringMap, setStaffRetiringMap] = useState<Map<string, boolean>>(new Map());
+    const [staffActiveMap, setStaffActiveMap] = useState<Map<string, boolean>>(new Map());
     const [staffCategoryMap, setStaffCategoryMap] = useState<Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>>(new Map());
     const [dobSearchText, setDobSearchText] = useState('');
     const [showDobDropdown, setShowDobDropdown] = useState(false);
@@ -96,7 +97,10 @@ const APCList: React.FC = () => {
     }, [debouncedSearchFileNo, debouncedSearchName, filterConraiss, debouncedFilterStation, filterAssignment, filterStatus, selectedDOB, selectedRetiring, selectedTag]);
 
     const filteredRecords = useMemo(() => {
-        let result = [...allRecords];
+        let result = allRecords.filter(record => {
+            // CRITICAL: Must be active in SDL to be visible in APC table
+            return staffActiveMap.get(record.file_no) !== false;
+        });
 
         // FILTER LOGIC
         if (debouncedSearchFileNo) {
@@ -246,12 +250,38 @@ const APCList: React.FC = () => {
             const [all, postingsData, staffData] = await Promise.all([
                 getAllAPCRecords(false, force),
                 getAllPostingRecords(force),
-                getAllStaff(true, force)
+                getAllStaff(false, force) // Fetch ALL staff to get active status
             ]);
 
             setAllRecords(all);
             setAllPostings(postingsData);
             setAllStaff(staffData);
+
+            const dobMap = new Map<string, string>();
+            const retiringMap = new Map<string, boolean>();
+            const activeMap = new Map<string, boolean>();
+            const catMap = new Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>();
+
+            staffData.forEach(s => {
+                dobMap.set(s.fileno, s.dob || '');
+                retiringMap.set(s.fileno, isRetiring(s));
+                activeMap.set(s.fileno, !!s.active);
+                catMap.set(s.fileno, {
+                    is_hod: !!s.is_hod,
+                    is_state_coordinator: !!s.is_state_coordinator,
+                    is_director: !!s.is_director,
+                    is_education: !!s.is_education,
+                    is_secretary: !!s.is_secretary,
+                    is_driver: !!s.is_driver,
+                    is_typesetting: !!s.is_typesetting,
+                    others: !!s.others
+                });
+            });
+
+            setStaffDobMap(dobMap);
+            setStaffRetiringMap(retiringMap);
+            setStaffActiveMap(activeMap);
+            setStaffCategoryMap(catMap);
 
             // If it's a force refresh, sync SAPC data with SDL
             if (force && all.length > 0 && staffData.length > 0) {

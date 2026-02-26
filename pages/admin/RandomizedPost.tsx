@@ -433,6 +433,9 @@ const RandomizedPost: React.FC = () => {
             if (!staff.active) return;
             const normalizedStaffNo = staff.file_no.toString().padStart(4, '0');
 
+            // CRITICAL: Must be active in SDL (Staff Data table)
+            if (!staffCategoryMap.has(staff.file_no)) return;
+
             // 1. Check if already posted for THIS assignment/mandate (Strict Exclusion)
             if (staffAlreadyPostedForAssignment.has(normalizedStaffNo)) return;
 
@@ -787,6 +790,10 @@ const RandomizedPost: React.FC = () => {
             const eligibleStaff = allAPC.filter(staff => {
                 if (!staff.active) return false;
                 const normalizedStaffNo = staff.file_no.toString().padStart(4, '0');
+
+                // CRITICAL: Must be active in SDL (Staff Data table)
+                if (!staffCategoryMap.has(staff.file_no)) return false;
+
                 if (alreadyAssignedStaffIds.has(normalizedStaffNo)) {
                     skippedDueToDuplicate++;
                     return false;

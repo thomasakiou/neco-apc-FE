@@ -214,9 +214,9 @@ const FlaggedStaffPage: React.FC = () => {
             if (expectedBaseCount === 0) return; // Skip those not in the defined ranges
             if (ignoredStaff.has(apc.id)) return; // Skip ignored staff
 
-            // Exclude HOD and State Coordinators
+            // Exclude HOD, State Coordinators, and Inactive SDL staff
             const categories = staffCategoryMap.get(apc.file_no);
-            if (categories?.is_hod || categories?.is_state_coordinator) return;
+            if (!categories || categories.is_hod || categories.is_state_coordinator) return;
 
             const apcCount = apc.count || 0;
             const actualUsage = getAssignmentUsage(apc);
