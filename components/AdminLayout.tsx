@@ -45,7 +45,7 @@ const AdminLayout: React.FC = () => {
       {/* SideNavBar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 ${isSidebarCollapsed ? 'w-20' : 'w-64'} flex flex-col border-r border-slate-300 dark:border-gray-800 bg-surface-light dark:bg-[#121b25] 
-        transition-all duration-300 ease-in-out h-full overflow-y-auto overflow-x-hidden
+        transition-all duration-300 ease-in-out h-full overflow-y-auto overflow-x-hidden custom-scrollbar
         lg:translate-x-0 lg:static lg:h-screen
         ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
       `}>

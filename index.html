@@ -62,8 +62,8 @@
     }
 
     .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 4px;
+      height: 4px;
     }
 
     .custom-scrollbar::-webkit-scrollbar-track {
@@ -71,12 +71,21 @@
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: rgba(100, 116, 139, 0.2);
-      border-radius: 10px;
+      background: rgba(100, 116, 139, 0.15);
+      border-radius: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: rgba(100, 116, 139, 0.4);
+      background: rgba(67, 160, 71, 0.4);
+    }
+
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(67, 160, 71, 0.6);
     }
 
     .workspace-grid {
