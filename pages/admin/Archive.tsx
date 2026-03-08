@@ -3,8 +3,11 @@ import { getAllArchives, createArchive, updateArchive, deleteArchive } from '../
 import { getAllStaff } from '../../services/staff';
 import { ArchiveRecord } from '../../types/archive';
 import { Staff } from '../../types/staff';
+import { useNotification } from '../../context/NotificationContext';
+import AlertModal from '../../components/AlertModal';
 
 const ArchivePage: React.FC = () => {
+    const { success, error, warning } = useNotification();
     const [loading, setLoading] = useState(false);
 
     // Form States
@@ -22,6 +25,14 @@ const ArchivePage: React.FC = () => {
     // Editing States
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editComment, setEditComment] = useState('');
+
+    // Pagination States
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+
+    // Alert Modal States
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [recordToDelete, setRecordToDelete] = useState<ArchiveRecord | null>(null);
 
     useEffect(() => {
         loadInitialData();
@@ -45,7 +56,7 @@ const ArchivePage: React.FC = () => {
 
     const handleSearch = () => {
         if (!searchFileNo.trim()) {
-            alert('Please enter a File Number to search.');
+            warning('Please enter a File Number to search.');
             return;
         }
 
@@ -56,18 +67,18 @@ const ArchivePage: React.FC = () => {
             setFoundStaff(staff);
         } else {
             setFoundStaff(null);
-            alert('Staff not found. Please verify the File Number.');
+            error('Staff not found. Please verify the File Number.');
         }
     };
 
     const handleArchiveSubmit = async () => {
         if (!foundStaff) {
-            alert('Please search for a valid staff member first.');
+            warning('Please search for a valid staff member first.');
             return;
         }
 
         if (!comment.trim()) {
-            alert('Please provide a comment/reason for archiving.');
+            warning('Please provide a comment/reason for archiving.');
             return;
         }
 
@@ -84,7 +95,7 @@ const ArchivePage: React.FC = () => {
                 comment: comment.trim()
             });
 
-            alert('Staff successfully archived.');
+            success('Staff successfully archived.');
 
             // Reset form
             setSearchFileNo('');
@@ -95,28 +106,35 @@ const ArchivePage: React.FC = () => {
             const archivesData = await getAllArchives(0, 1000, true);
             setArchives(archivesData.items);
 
-        } catch (error: any) {
-            console.error("Failed to archive staff", error);
-            alert(`Failed to archive: ${error.message || 'Unknown error'}`);
+        } catch (err: any) {
+            console.error("Failed to archive staff", err);
+            error(`Failed to archive: ${err.message || 'Unknown error'}`);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDeleteArchive = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this archive record?')) return;
+    const handleDeleteClick = (record: ArchiveRecord) => {
+        setRecordToDelete(record);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteArchive = async () => {
+        if (!recordToDelete) return;
 
         setLoading(true);
         try {
-            await deleteArchive(id);
-            alert('Archive record deleted successfully.');
+            await deleteArchive(recordToDelete.id);
+            success('Archive record deleted successfully.');
             const archivesData = await getAllArchives(0, 1000, true);
             setArchives(archivesData.items);
-        } catch (error: any) {
-            console.error("Failed to delete archive", error);
-            alert(`Failed to delete archive: ${error.message}`);
+        } catch (err: any) {
+            console.error("Failed to delete archive", err);
+            error(`Failed to delete archive: ${err.message}`);
         } finally {
             setLoading(false);
+            setIsDeleteModalOpen(false);
+            setRecordToDelete(null);
         }
     };
 
@@ -133,7 +151,7 @@ const ArchivePage: React.FC = () => {
 
     const handleSaveEdit = async (record: ArchiveRecord) => {
         if (!editComment.trim()) {
-            alert('Comment cannot be empty.');
+            warning('Comment cannot be empty.');
             return;
         }
         setLoading(true);
@@ -146,14 +164,14 @@ const ArchivePage: React.FC = () => {
                 year: record.year,
                 comment: editComment.trim()
             });
-            alert('Archive record updated.');
+            success('Archive record updated.');
             setEditingId(null);
             setEditComment('');
             const archivesData = await getAllArchives(0, 1000, true);
             setArchives(archivesData.items);
-        } catch (error: any) {
-            console.error("Failed to update archive", error);
-            alert(`Failed to update: ${error.message}`);
+        } catch (err: any) {
+            console.error("Failed to update archive", err);
+            error(`Failed to update: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -171,12 +189,22 @@ const ArchivePage: React.FC = () => {
         );
     }, [archives, tableSearch]);
 
+    const paginatedArchives = useMemo(() => {
+        const start = (page - 1) * limit;
+        return filteredArchives.slice(start, start + limit);
+    }, [filteredArchives, page, limit]);
+
+    // Reset to page 1 when search changes
+    useEffect(() => {
+        setPage(1);
+    }, [tableSearch]);
+
     return (
         <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
             {/* Header */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-600 via-slate-500 to-slate-600 dark:from-slate-400 dark:via-slate-300 dark:to-slate-400 tracking-tight">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-300">
+                <div>
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-900 to-teal-800 dark:from-emerald-400 dark:to-teal-500 tracking-tight">
                         Staff Archive
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
@@ -321,30 +349,30 @@ const ArchivePage: React.FC = () => {
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/50">
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-16 text-center">S/N</th>
-                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">File No</th>
-                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">Name</th>
-                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">Station / CONRAISS</th>
-                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">Year</th>
-                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">Comment</th>
+                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-28">File No</th>
+                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-48">Name</th>
+                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-40">Station / CONRAISS</th>
+                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-20">Year</th>
+                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 min-w-[300px]">Comment</th>
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-28 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-[#121b25] divide-y divide-slate-100 dark:divide-gray-800">
-                            {filteredArchives.length === 0 ? (
+                            {paginatedArchives.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400 font-medium italic">
                                         {tableSearch ? 'No records match your search.' : 'No archived records found.'}
                                     </td>
                                 </tr>
                             ) : (
-                                filteredArchives.map((record, index) => (
+                                paginatedArchives.map((record, index) => (
                                     <tr key={record.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${editingId === record.id ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
-                                        <td className="p-4 text-sm font-bold text-slate-500 text-center">{index + 1}</td>
+                                        <td className="p-4 text-sm font-bold text-slate-500 text-center">{(page - 1) * limit + index + 1}</td>
                                         <td className="p-4 text-sm font-black text-slate-800 dark:text-slate-200">{record.file_no}</td>
                                         <td className="p-4 text-sm font-bold text-slate-700 dark:text-slate-300">{record.name}</td>
                                         <td className="p-4">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{record.station || '-'}</span>
+                                                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 truncate max-w-[140px]" title={record.station || ''}>{record.station || '-'}</span>
                                                 <span className="text-xs font-bold text-slate-500 uppercase">{record.conraiss || '-'}</span>
                                             </div>
                                         </td>
@@ -358,7 +386,7 @@ const ArchivePage: React.FC = () => {
                                                     autoFocus
                                                 />
                                             ) : (
-                                                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 block max-w-xs" title={record.comment || ''}>
+                                                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 block break-words" title={record.comment || ''}>
                                                     {record.comment || '-'}
                                                 </span>
                                             )}
@@ -394,7 +422,7 @@ const ArchivePage: React.FC = () => {
                                                             <span className="material-symbols-outlined text-[18px]">edit</span>
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteArchive(record.id)}
+                                                            onClick={() => handleDeleteClick(record)}
                                                             disabled={loading}
                                                             className="w-8 h-8 rounded bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 transition-colors flex items-center justify-center disabled:opacity-50"
                                                             title="Delete Archive"
@@ -412,12 +440,90 @@ const ArchivePage: React.FC = () => {
                     </table>
                 </div>
 
+                {/* Pagination Controls */}
+                {filteredArchives.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4 border-t border-slate-100 dark:border-gray-800 pt-4">
+                        <div className="flex items-center gap-4">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                                Showing <span className="text-slate-900 dark:text-white font-bold">{Math.min((page - 1) * limit + 1, filteredArchives.length)}</span> to <span className="text-slate-900 dark:text-white font-bold">{Math.min(page * limit, filteredArchives.length)}</span> of <span className="text-slate-900 dark:text-white font-bold">{filteredArchives.length}</span> archives
+                            </p>
+                            <select
+                                value={limit}
+                                onChange={(e) => {
+                                    setLimit(Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                className="h-8 pl-2 pr-8 rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 ring-primary/20 outline-none transition-all cursor-pointer"
+                            >
+                                <option value={10}>10 per page</option>
+                                <option value={20}>20 per page</option>
+                                <option value={50}>50 per page</option>
+                                <option value={100}>100 per page</option>
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="w-8 h-8 rounded-lg border border-slate-200 dark:border-gray-700 flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-lg">chevron_left</span>
+                            </button>
+
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: Math.ceil(filteredArchives.length / limit) }, (_, i) => i + 1)
+                                    .filter(p => {
+                                        const totalPages = Math.ceil(filteredArchives.length / limit);
+                                        if (totalPages <= 7) return true;
+                                        if (p === 1 || p === totalPages) return true;
+                                        return Math.abs(p - page) <= 1;
+                                    })
+                                    .map((p, i, arr) => (
+                                        <React.Fragment key={p}>
+                                            {i > 0 && arr[i - 1] !== p - 1 && (
+                                                <span className="text-slate-400 px-1">...</span>
+                                            )}
+                                            <button
+                                                onClick={() => setPage(p)}
+                                                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${page === p
+                                                    ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110'
+                                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                    }`}
+                                            >
+                                                {p}
+                                            </button>
+                                        </React.Fragment>
+                                    ))}
+                            </div>
+
+                            <button
+                                onClick={() => setPage(p => Math.min(Math.ceil(filteredArchives.length / limit), p + 1))}
+                                disabled={page >= Math.ceil(filteredArchives.length / limit)}
+                                className="w-8 h-8 rounded-lg border border-slate-200 dark:border-gray-700 flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-lg">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {loading && (
                     <div className="absolute inset-0 bg-white/50 dark:bg-black/20 backdrop-blur-sm flex items-center justify-center rounded-2xl z-10">
                         <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-300 border-t-slate-800 dark:border-gray-700 dark:border-t-white"></div>
                     </div>
                 )}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            <AlertModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                title="Delete Archive Record"
+                message={`Are you sure you want to delete the archive record for ${recordToDelete?.name}? This action cannot be undone.`}
+                type="warning"
+                onConfirm={handleDeleteArchive}
+            />
         </div>
     );
 };
