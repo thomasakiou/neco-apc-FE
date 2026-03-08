@@ -221,6 +221,7 @@ const AdminLayout: React.FC = () => {
               </CollapsibleNavSection>
             )}
 
+            <NavItem to="/admin/archive" icon="archive" label="Archive" active={isActive('/admin/archive')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
             <NavItem to="/admin/statistics" icon="bar_chart" label="Statistics" active={isActive('/admin/statistics')} isLocked={isModuleLocked('reports') && !isSuperAdmin} isCollapsed={isSidebarCollapsed} />
           </nav>
         </div>

@@ -56,6 +56,7 @@ import Statistics from './pages/admin/Statistics';
 import HODJuxtapose from './pages/admin/HODJuxtapose';
 import TypesettingJuxtapose from './pages/admin/TypesettingJuxtapose';
 import DriverJuxtapose from './pages/admin/DriverJuxtapose';
+import ArchivePage from './pages/admin/Archive';
 import AdminLayout from './components/AdminLayout';
 
 const ScrollToTop = () => {
@@ -143,6 +144,7 @@ const App: React.FC = () => {
               <Route path="assignments/drivers/reports" element={<ProtectedRoute moduleName="reports"><DriverPostingReports /></ProtectedRoute>} />
               <Route path="assignments/typesetting/reports" element={<ProtectedRoute moduleName="reports"><TypesettingPostingReports /></ProtectedRoute>} />
               <Route path="mandates/history" element={<ProtectedRoute moduleName="reports"><AssignmentHistory /></ProtectedRoute>} />
+              <Route path="archive" element={<ProtectedRoute moduleName="reports"><ArchivePage /></ProtectedRoute>} />
               <Route path="statistics" element={<ProtectedRoute moduleName="reports"><Statistics /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute requiredRole="super_admin"><AuditLog /></ProtectedRoute>} />
               <Route path="audit/staff-login" element={<ProtectedRoute requiredRole="super_admin"><StaffLoginLogs /></ProtectedRoute>} />

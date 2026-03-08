@@ -1,0 +1,374 @@
+{
+  "/api/final-posting/archive": {
+    "post": {
+      "tags": [
+        "Final Posting"
+      ],
+      "summary": "Archive Current Postings",
+      "description": "Archive all records from the current Posting table to the FinalPosting table.\nThis copies all data but does not delete from the original table.",
+      "operationId": "archive_current_postings_api_final_posting_archive_post",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalPostingBulkUploadResponse"
+              }
+            }
+          }
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/api/hod-final-posting/archive": {
+    "post": {
+      "tags": [
+        "HOD Final Posting"
+      ],
+      "summary": "Archive Current Hod Postings",
+      "description": "Archive all records from the current HODPosting table to the HODFinalPosting table.\nThis copies all data but does not delete from the original table.",
+      "operationId": "archive_current_hod_postings_api_hod_final_posting_archive_post",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HODFinalPostingBulkUploadResponse"
+              }
+            }
+          }
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/api/final-drivers-posting/archive": {
+    "post": {
+      "tags": [
+        "Final Drivers Posting"
+      ],
+      "summary": "Archive Current Postings",
+      "description": "Archive all records from the current DriversPosting table to the FinalDriversPosting table.\nThis copies all data but does not delete from the original table.",
+      "operationId": "archive_current_postings_api_final_drivers_posting_archive_post",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalDriversPostingBulkUploadResponse"
+              }
+            }
+          }
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/api/final-typsetting-posting/archive": {
+    "post": {
+      "tags": [
+        "Final Typsetting Posting"
+      ],
+      "summary": "Archive Current Postings",
+      "description": "Archive all records from the current TypsettingPosting table to the FinalTypsettingPosting table.\nThis copies all data but does not delete from the original table.",
+      "operationId": "archive_current_postings_api_final_typsetting_posting_archive_post",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalTypsettingPostingBulkUploadResponse"
+              }
+            }
+          }
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/api/archives": {
+    "get": {
+      "tags": [
+        "Archive"
+      ],
+      "summary": "Get All Archives",
+      "description": "Get all archive records with pagination.",
+      "operationId": "get_all_archives_api_archives_get",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "skip",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of records to skip",
+            "default": 0,
+            "title": "Skip"
+          },
+          "description": "Number of records to skip"
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "maximum": 10000,
+            "minimum": 1,
+            "description": "Maximum records to return",
+            "default": 1000,
+            "title": "Limit"
+          },
+          "description": "Maximum records to return"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveListResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "Archive"
+      ],
+      "summary": "Create Archive",
+      "description": "Create a new archive record.",
+      "operationId": "create_archive_api_archives_post",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ArchiveCreate"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/archives/{archive_id}": {
+    "get": {
+      "tags": [
+        "Archive"
+      ],
+      "summary": "Get Archive By Id",
+      "description": "Get an archive record by ID.",
+      "operationId": "get_archive_by_id_api_archives__archive_id__get",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "archive_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Archive Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    },
+    "put": {
+      "tags": [
+        "Archive"
+      ],
+      "summary": "Update Archive",
+      "description": "Update an existing archive record.",
+      "operationId": "update_archive_api_archives__archive_id__put",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "archive_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Archive Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ArchiveUpdate"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "tags": [
+        "Archive"
+      ],
+      "summary": "Delete Archive",
+      "description": "Delete an archive record.",
+      "operationId": "delete_archive_api_archives__archive_id__delete",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "archive_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Archive Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__application__schemas__archive_schema__MessageResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

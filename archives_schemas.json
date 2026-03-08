@@ -1,0 +1,278 @@
+{
+  "ArchiveCreate": {
+    "properties": {
+      "file_no": {
+        "type": "string",
+        "maxLength": 50,
+        "title": "File No"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 255,
+        "title": "Name"
+      },
+      "conraiss": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 50
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Conraiss"
+      },
+      "station": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Station"
+      },
+      "year": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 10
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Year"
+      },
+      "comment": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Comment"
+      }
+    },
+    "type": "object",
+    "required": [
+      "file_no",
+      "name"
+    ],
+    "title": "ArchiveCreate",
+    "description": "Schema for creating an Archive record."
+  },
+  "ArchiveResponse": {
+    "properties": {
+      "file_no": {
+        "type": "string",
+        "maxLength": 50,
+        "title": "File No"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 255,
+        "title": "Name"
+      },
+      "conraiss": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 50
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Conraiss"
+      },
+      "station": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Station"
+      },
+      "year": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 10
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Year"
+      },
+      "comment": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Comment"
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "title": "Id"
+      },
+      "created_at": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Created At"
+      },
+      "updated_at": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Updated At"
+      }
+    },
+    "type": "object",
+    "required": [
+      "file_no",
+      "name",
+      "id"
+    ],
+    "title": "ArchiveResponse",
+    "description": "Schema for Archive response."
+  },
+  "ArchiveUpdate": {
+    "properties": {
+      "file_no": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 50
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "File No"
+      },
+      "name": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Name"
+      },
+      "conraiss": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 50
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Conraiss"
+      },
+      "station": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 255
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Station"
+      },
+      "year": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 10
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Year"
+      },
+      "comment": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Comment"
+      }
+    },
+    "type": "object",
+    "title": "ArchiveUpdate",
+    "description": "Schema for updating an Archive record."
+  },
+  "ArchiveListResponse": {
+    "properties": {
+      "items": {
+        "items": {
+          "$ref": "#/components/schemas/ArchiveResponse"
+        },
+        "type": "array",
+        "title": "Items"
+      },
+      "total": {
+        "type": "integer",
+        "title": "Total"
+      },
+      "skip": {
+        "type": "integer",
+        "title": "Skip"
+      },
+      "limit": {
+        "type": "integer",
+        "title": "Limit"
+      }
+    },
+    "type": "object",
+    "required": [
+      "items",
+      "total",
+      "skip",
+      "limit"
+    ],
+    "title": "ArchiveListResponse",
+    "description": "Schema for paginated Archive response."
+  }
+}

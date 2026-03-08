@@ -59,7 +59,7 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         getMandatesByAssignment(assignment),
         useCache ? Promise.resolve(staffCache) : getAllStaff(true),
         useCache ? Promise.resolve({ items: apcCacheFull }) : getAllAPC(0, 100000, '', true),
-        getAllPostingRecords(true), // Always fetch postings fresh as they change frequently
+        getAllPostingRecords(false), // Fetch postings from cache when possible to speed up dropdown changes
         getAllFinalPostings() // Also fetch final postings to exclude already archived staff
     ]);
 
@@ -100,6 +100,7 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const apcMap = new Map<string, any>(); // staff_no -> apc_record
     const staffPostingsCount = new Map<string, number>(); // staff_no -> count
     const staffPostedSpecifics = new Map<string, Set<string>>(); // staff_no -> specifics
+    const staffMap = new Map<string, any>((allStaff as any[]).map(s => [s.fileno.toString().padStart(4, '0'), s]));
 
     apcResponse.items.forEach((record: any) => {
         const normalizedFileNo = record.file_no.toString().padStart(4, '0');
@@ -153,6 +154,20 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const unassignedStaff: StaffMandateAssignment[] = [];
     const usedApcIds = new Set<string>();
 
+    const normalizeForCheck = (s: string) => (s || '').toString().trim().toUpperCase();
+    const assignmentCodeObj = normalizeForCheck(assignment.code);
+    const assignmentNameObj = normalizeForCheck(assignment.name);
+
+    const checkPosted = (postedSpecifics: Set<string> | undefined) => {
+        if (!postedSpecifics) return false;
+        for (const stored of postedSpecifics) {
+            if (stored === assignmentCodeObj || stored === assignmentNameObj || assignmentNameObj.includes(stored) || stored.includes(assignmentCodeObj)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     allStaff!.forEach((staff: any) => {
         const normalizedStaffFileNo = staff.fileno.toString().padStart(4, '0');
         const postedSpecifics = staffPostedSpecifics.get(normalizedStaffFileNo);
@@ -161,21 +176,7 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         if (staff.is_secretary) return;
 
         // Hide if already posted for THIS assignment type (Case-Insensitive)
-        // Check both assignment code AND name since postings may store either
-        const normalize = (s: string) => s.toString().trim().toUpperCase();
-        const assignmentCode = normalize(assignment.code);
-        const assignmentName = normalize(assignment.name);
-
-        if (postedSpecifics) {
-            // Check if any stored value matches the code or name
-            const isPosted = Array.from(postedSpecifics).some(stored =>
-                stored === assignmentCode ||
-                stored === assignmentName ||
-                assignmentName.includes(stored) ||
-                stored.includes(assignmentCode)
-            );
-            if (isPosted) return;
-        }
+        if (checkPosted(postedSpecifics)) return;
 
         const existingApcRecord = apcMap.get(normalizedStaffFileNo);
         const totalPosted = staffPostingsCount.get(normalizedStaffFileNo) || 0;
@@ -224,26 +225,11 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
             const postedSpecifics = staffPostedSpecifics.get(normalizedFileNo);
 
             // Exclude secretaries from orphan records too
-            const staffSDL = allStaff!.find((s: any) => s.fileno.toString().padStart(4, '0') === normalizedFileNo);
+            const staffSDL = staffMap.get(normalizedFileNo);
             if (staffSDL?.is_secretary) return;
 
             // Hide if already posted for THIS assignment type (Case-Insensitive)
-            // Check both assignment code AND name since postings may store either
-            const normalize = (s: string) => s.toString().trim().toUpperCase();
-            const assignmentCode = normalize(assignment.code);
-            const assignmentName = normalize(assignment.name);
-
-            if (postedSpecifics) {
-                // Check if any stored value matches the code or name
-                const isPosted = Array.from(postedSpecifics).some(stored =>
-                    stored === assignmentCode ||
-                    stored === assignmentName ||
-                    assignmentName.includes(stored) ||
-                    stored.includes(assignmentCode)
-                );
-
-                if (isPosted) return;
-            }
+            if (checkPosted(postedSpecifics)) return;
 
             const val = record[fieldName as keyof APCRecord];
             if (val && val.toString().trim() !== '') {
@@ -299,10 +285,13 @@ export const bulkSaveAssignments = async (
     const { assignment, changes, station, numberOfNights, description } = payload;
     if (!assignment || !changes || changes.length === 0) return;
 
-    // Load heavy dependencies once
+    // Load heavy dependencies once — use cached data where possible since
+    // APC records don't change during a commit, and postings were just loaded
     const [allPostings, allAPCResp, mandates] = await Promise.all([
-        getAllPostingRecords(true),
-        getAllAPC(0, 100000, '', true),
+        getAllPostingRecords(false),
+        apcCacheFull
+            ? Promise.resolve({ items: apcCacheFull })
+            : getAllAPC(0, 100000, '', true),
         getMandatesByAssignment(assignment)
     ]);
     const postingMap = new Map<string, any>(allPostings.map(p => [p.file_no.toString().padStart(4, '0'), p]));
@@ -497,8 +486,9 @@ export const bulkSaveAssignments = async (
         await bulkCreatePostings({ items: batch });
     }
 
-    // Invalidate local caches to force fresh data on next load
-    lastCacheTime = 0;
+    // Only invalidate posting cache — staff & APC data didn't change during commit
+    // The posting service cache is already invalidated by bulkDeletePostings/bulkCreatePostings
+    // We keep staffCache and apcCacheFull intact to speed up the board reload
 };
 
 export const assignStaffToMandate = async () => { }; // Stub for unused

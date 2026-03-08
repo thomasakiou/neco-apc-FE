@@ -426,7 +426,12 @@ const FinalDriverPostings: React.FC = () => {
         if (!window.confirm(`Restore ${recordsToProcess.length} records to staging?`)) return;
         try {
             setRestoring(true);
-            const items = recordsToProcess.map(({ id, created_at, updated_at, created_by, updated_by, ...rest }) => rest);
+            const items = recordsToProcess.map(({ id, created_at, updated_at, created_by, updated_by, ...rest }) => {
+                return {
+                    ...rest,
+                    state: rest.state ? rest.state.split(' | ') : []
+                };
+            });
             await bulkCreateDriverPostings({ items });
             await bulkDeleteDriverFinalPostings(recordsToProcess.map(r => r.id));
             success("Restored to staging.");

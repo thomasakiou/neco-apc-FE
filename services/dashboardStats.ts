@@ -97,7 +97,7 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
     ]);
 
     const staffCount = staffData.total || 0;
-    const apcCount = apcData.total || 0;
+    let apcCount = apcData.total || 0;
     const statesCount = stateData.total || 0;
     const venuesCount = venueData.total || 0;
     const nceeCount = nceeData.length;
@@ -140,6 +140,13 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
         safeFetch(getAllAPC(0, 50000, '', true).then(res => res.items).catch(() => []), [])
     ]);
 
+    // Active Staff Filter for APCs
+    const activeStaffSet = new Set(allStaff.map(s => s.fileno));
+    const activeAPCs = allAPCs.filter(apc => activeStaffSet.has(apc.file_no) && apc.active !== false);
+
+    // Update apcCount to correctly reflect only active SDL & APC records
+    apcCount = activeAPCs.length;
+
     // Data Processing for Charts with null checks
     const stationCounts: Record<string, number> = {};
 
@@ -181,14 +188,14 @@ export const getDashboardStats = async (forceRefresh = false): Promise<Dashboard
     let pending = 0;
     let completed = 0;
 
-    if (allAPCs.length > 0) {
+    if (activeAPCs.length > 0) {
         const postingMap = new Map();
         for (let i = 0; i < allPostings.length; i++) {
             if (allPostings[i]?.file_no) postingMap.set(allPostings[i].file_no, allPostings[i]);
         }
 
-        for (let i = 0; i < allAPCs.length; i++) {
-            const apc = allAPCs[i];
+        for (let i = 0; i < activeAPCs.length; i++) {
+            const apc = activeAPCs[i];
             if (!apc) continue;
             const posting = postingMap.get(apc.file_no);
             const allotted = apc.count || 0;

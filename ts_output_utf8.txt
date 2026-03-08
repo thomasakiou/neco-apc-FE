@@ -1,0 +1,9 @@
+﻿pages/admin/FinalDriverPostings.tsx(296,55): error TS2345: Argument of type 'DriverPostingResponse[]' is not assignable to parameter of type 'DriverFinalPostingResponse[]'.
+  Type 'DriverPostingResponse' is not assignable to type 'DriverFinalPostingResponse'.
+    Types of property 'state' are incompatible.
+      Type 'string[]' is not assignable to type 'string'.
+pages/admin/FinalDriverPostings.tsx(430,46): error TS2322: Type '{ file_no: string; name: string; station?: string; conraiss?: string; sex?: string; year?: string; assignment_venue?: any[]; assignments?: any[]; mandates?: any[]; state?: string; count?: number; posted_for?: number; to_be_posted?: number; numb_of__nites?: number; description?: string; }[]' is not assignable to type 'DriverPostingCreate[]'.
+  Type '{ file_no: string; name: string; station?: string; conraiss?: string; sex?: string; year?: string; assignment_venue?: any[]; assignments?: any[]; mandates?: any[]; state?: string; count?: number; posted_for?: number; to_be_posted?: number; numb_of__nites?: number; description?: string; }' is not assignable to type 'DriverPostingCreate'.
+    Types of property 'state' are incompatible.
+      Type 'string' is not assignable to type 'string[]'.
+services/driverPersonalizedPost.ts(220,41): error TS2339: Property 'code' does not exist on type '{ id: string; name: string; type: string; state?: string; }'.

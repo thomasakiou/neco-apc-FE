@@ -1,10 +1,10 @@
-import { DriverPostingResponse, DriverPostingListResponse } from '../types/driverPosting';
+import { DriverFinalPostingResponse, DriverFinalPostingListResponse } from '../types/driverFinalPosting';
 import { API_BASE_URL } from '../src/config';
 import { getAuthHeaders } from './apiUtils';
 
 const REQUEST_URL = `${API_BASE_URL}/final-drivers-posting`;
 
-export const getAllDriverFinalPostings = async (skip: number = 0, limit: number = 100): Promise<DriverPostingListResponse> => {
+export const getAllDriverFinalPostings = async (skip: number = 0, limit: number = 100): Promise<DriverFinalPostingListResponse> => {
     const params = new URLSearchParams({
         skip: skip.toString(),
         limit: limit.toString(),

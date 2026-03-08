@@ -117,7 +117,7 @@ export const bulkSaveDriverAssignments = async (
     payload: {
         assignment: Assignment;
         mandate?: MandateColumn;
-        station?: { id: string; name: string; type: string; state?: string | null };
+        station?: { id: string; name: string; type: string; code?: string; state?: string | null };
         changes: { staff: StaffMandateAssignment; action: 'add' | 'remove' | 'move'; targetMandateId: string | null }[];
         numberOfNights?: number;
         description?: string;

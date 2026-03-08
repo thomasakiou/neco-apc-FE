@@ -20,6 +20,7 @@ export interface DriverPostingResponse {
     updated_at?: string | null;
     created_by?: string | null;
     updated_by?: string | null;
+    qualification?: string | null;
 }
 
 export interface DriverPostingListResponse {
@@ -46,6 +47,7 @@ export interface DriverPostingCreate {
     numb_of__nites?: number | null;
     description?: string | null;
     venue_code?: string[] | null;
+    qualification?: string | null;
 }
 
 export interface BulkDriverPostingCreateRequest {
