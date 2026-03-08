@@ -95,6 +95,7 @@ const GeneratePage: React.FC = () => {
     const [filterMandate, setFilterMandate] = useState('');
     const [filterAssignment, setFilterAssignment] = useState(''); // New filter state
     const [filterDescription, setFilterDescription] = useState('');
+    const [filterState, setFilterState] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -148,7 +149,7 @@ const GeneratePage: React.FC = () => {
                 getAllGiftedCenters()
             ]);
 
-            const activeFileNos = new Set(activeAPC.map(a => a.file_no));
+            const activeFileNos = new Set<string>(activeAPC.map(a => a.file_no));
             const activePostings = postingsData.filter(p => activeFileNos.has(p.file_no));
 
             // FLATTEN DATA
@@ -165,18 +166,23 @@ const GeneratePage: React.FC = () => {
     };
 
     const uniqueMandates = useMemo(() => {
-        const set = new Set(allFlatRows.map(r => r.mandate).filter(Boolean));
+        const set = new Set<string>(allFlatRows.map(r => r.mandate).filter((s): s is string => !!s));
         return Array.from(set).sort();
     }, [allFlatRows]);
 
     const uniqueAssignments = useMemo(() => {
-        const set = new Set(allFlatRows.map(r => r.assignment).filter(Boolean));
+        const set = new Set<string>(allFlatRows.map(r => r.assignment).filter((s): s is string => !!s));
         return Array.from(set).sort();
     }, [allFlatRows]);
 
     const uniqueDescriptions = useMemo(() => {
-        const set = new Set(allFlatRows.map(r => r.description).filter(Boolean));
+        const set = new Set<string>(allFlatRows.map(r => r.description).filter((s): s is string => !!s));
         return Array.from(set).sort();
+    }, [allFlatRows]);
+
+    const uniqueStates = useMemo(() => {
+        const set = new Set<string>(allFlatRows.map(r => r.state).filter((s): s is string => !!s && s !== '-'));
+        return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     }, [allFlatRows]);
 
     const filteredFlatRows = useMemo(() => {
@@ -204,8 +210,12 @@ const GeneratePage: React.FC = () => {
             result = result.filter(r => r.description === filterDescription);
         }
 
+        if (filterState) {
+            result = result.filter(r => r.state === filterState);
+        }
+
         return result;
-    }, [allFlatRows, debouncedSearchQuery, filterMandate, filterAssignment, filterDescription]);
+    }, [allFlatRows, debouncedSearchQuery, filterMandate, filterAssignment, filterDescription, filterState]);
 
     const total = filteredFlatRows.length;
 
@@ -558,7 +568,7 @@ const GeneratePage: React.FC = () => {
                 });
 
 
-                const sortedStates = Object.keys(groupedByState).sort();
+                const sortedStates = Object.keys(groupedByState).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
                 let currentY = 50; // Reduced from 60 to match other pages
 
                 const accreditationColumns = activeFields.map(f => f.label);
@@ -576,10 +586,10 @@ const GeneratePage: React.FC = () => {
                         if (conraissA !== conraissB) {
                             return conraissB - conraissA; // Descending order
                         }
-                        // Secondary sort by venue if CONRAISS is equal
-                        const venueA = a.venue || '';
-                        const venueB = b.venue || '';
-                        return venueA.localeCompare(venueB);
+                        // Secondary sort by file number ascending if CONRAISS is equal
+                        const fileA = parseInt(a.file_no?.replace(/\D/g, '') || '0', 10);
+                        const fileB = parseInt(b.file_no?.replace(/\D/g, '') || '0', 10);
+                        return fileA - fileB;
                     }).map((post, index) => {
                         const apc = apcMap.get(post.file_no);
                         const rowData = activeFields.map(f => {
@@ -1277,8 +1287,19 @@ const GeneratePage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Sorting Controls */}
+                {/* State Filter + Sorting Controls */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">State</label>
+                        <select
+                            className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-[#0f161d] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none text-sm font-medium"
+                            value={filterState}
+                            onChange={(e) => setFilterState(e.target.value)}
+                        >
+                            <option value="">All States</option>
+                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
                     <div className="relative">
                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Sort By</label>
                         <div className="flex gap-2">

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { getAllArchives, createArchive, deleteArchive } from '../../services/archive';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getAllArchives, createArchive, updateArchive, deleteArchive } from '../../services/archive';
 import { getAllStaff } from '../../services/staff';
 import { ArchiveRecord } from '../../types/archive';
 import { Staff } from '../../types/staff';
@@ -16,6 +16,13 @@ const ArchivePage: React.FC = () => {
     // Archive List States
     const [archives, setArchives] = useState<ArchiveRecord[]>([]);
 
+    // Search / Filter on archived records
+    const [tableSearch, setTableSearch] = useState('');
+
+    // Editing States
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editComment, setEditComment] = useState('');
+
     useEffect(() => {
         loadInitialData();
     }, []);
@@ -24,7 +31,7 @@ const ArchivePage: React.FC = () => {
         setLoading(true);
         try {
             const [staffData, archivesData] = await Promise.all([
-                getAllStaff(false), // Fetch all staff (active and inactive) for search
+                getAllStaff(false),
                 getAllArchives(0, 1000)
             ]);
             setAllStaff(staffData);
@@ -103,7 +110,6 @@ const ArchivePage: React.FC = () => {
         try {
             await deleteArchive(id);
             alert('Archive record deleted successfully.');
-            // Reload archives
             const archivesData = await getAllArchives(0, 1000, true);
             setArchives(archivesData.items);
         } catch (error: any) {
@@ -113,6 +119,57 @@ const ArchivePage: React.FC = () => {
             setLoading(false);
         }
     };
+
+    // --- Edit Handlers ---
+    const handleStartEdit = (record: ArchiveRecord) => {
+        setEditingId(record.id);
+        setEditComment(record.comment || '');
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setEditComment('');
+    };
+
+    const handleSaveEdit = async (record: ArchiveRecord) => {
+        if (!editComment.trim()) {
+            alert('Comment cannot be empty.');
+            return;
+        }
+        setLoading(true);
+        try {
+            await updateArchive(record.id, {
+                file_no: record.file_no,
+                name: record.name,
+                conraiss: record.conraiss,
+                station: record.station,
+                year: record.year,
+                comment: editComment.trim()
+            });
+            alert('Archive record updated.');
+            setEditingId(null);
+            setEditComment('');
+            const archivesData = await getAllArchives(0, 1000, true);
+            setArchives(archivesData.items);
+        } catch (error: any) {
+            console.error("Failed to update archive", error);
+            alert(`Failed to update: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // --- Filtered Archives ---
+    const filteredArchives = useMemo(() => {
+        if (!tableSearch.trim()) return archives;
+        const q = tableSearch.trim().toLowerCase();
+        return archives.filter(r =>
+            r.file_no.toLowerCase().includes(q) ||
+            r.name.toLowerCase().includes(q) ||
+            (r.comment || '').toLowerCase().includes(q) ||
+            (r.station || '').toLowerCase().includes(q)
+        );
+    }, [archives, tableSearch]);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-background-light dark:bg-[#101922] p-8 gap-8 overflow-y-auto transition-colors duration-200">
@@ -222,20 +279,41 @@ const ArchivePage: React.FC = () => {
             </div>
 
             {/* List Section */}
-            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 flex-1 min-h-[400px]">
-                <div className="flex items-center gap-2 pb-4 border-b border-slate-100 dark:border-gray-800 justify-between">
+            <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 flex-1 min-h-[400px] relative">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-4 border-b border-slate-100 dark:border-gray-800 justify-between">
                     <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-slate-500">list_alt</span>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Archived Records</h3>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500">{filteredArchives.length}</span>
                     </div>
-                    <button
-                        onClick={loadInitialData}
-                        disabled={loading}
-                        className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                        title="Refresh Archives"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">refresh</span>
-                    </button>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:min-w-[280px]">
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                            <input
+                                type="text"
+                                placeholder="Search by name, file no, comment..."
+                                value={tableSearch}
+                                onChange={(e) => setTableSearch(e.target.value)}
+                                className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900 text-sm font-medium text-slate-900 dark:text-white focus:ring-2 ring-indigo-500/20 outline-none transition-all"
+                            />
+                            {tableSearch && (
+                                <button
+                                    onClick={() => setTableSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                </button>
+                            )}
+                        </div>
+                        <button
+                            onClick={loadInitialData}
+                            disabled={loading}
+                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
+                            title="Refresh Archives"
+                        >
+                            <span className="material-symbols-outlined text-[20px]">refresh</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-gray-700">
@@ -248,19 +326,19 @@ const ArchivePage: React.FC = () => {
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">Station / CONRAISS</th>
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">Year</th>
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700">Comment</th>
-                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-24 text-center">Actions</th>
+                                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-gray-700 w-28 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-[#121b25] divide-y divide-slate-100 dark:divide-gray-800">
-                            {archives.length === 0 ? (
+                            {filteredArchives.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400 font-medium italic">
-                                        No archived records found.
+                                        {tableSearch ? 'No records match your search.' : 'No archived records found.'}
                                     </td>
                                 </tr>
                             ) : (
-                                archives.map((record, index) => (
-                                    <tr key={record.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                filteredArchives.map((record, index) => (
+                                    <tr key={record.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${editingId === record.id ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
                                         <td className="p-4 text-sm font-bold text-slate-500 text-center">{index + 1}</td>
                                         <td className="p-4 text-sm font-black text-slate-800 dark:text-slate-200">{record.file_no}</td>
                                         <td className="p-4 text-sm font-bold text-slate-700 dark:text-slate-300">{record.name}</td>
@@ -271,19 +349,60 @@ const ArchivePage: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="p-4 text-sm font-bold text-slate-600 dark:text-slate-400">{record.year}</td>
-                                        <td className="p-4 text-sm font-medium text-slate-600 dark:text-slate-400 max-w-xs truncate" title={record.comment || ''}>
-                                            {record.comment || '-'}
+                                        <td className="p-4">
+                                            {editingId === record.id ? (
+                                                <textarea
+                                                    className="w-full min-h-[60px] p-2 rounded-lg border border-indigo-300 dark:border-indigo-600 bg-white dark:bg-slate-900 text-sm font-medium text-slate-900 dark:text-slate-100 focus:ring-2 ring-indigo-500/30 outline-none"
+                                                    value={editComment}
+                                                    onChange={(e) => setEditComment(e.target.value)}
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 block max-w-xs" title={record.comment || ''}>
+                                                    {record.comment || '-'}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-4">
-                                            <div className="flex justify-center gap-2">
-                                                <button
-                                                    onClick={() => handleDeleteArchive(record.id)}
-                                                    disabled={loading}
-                                                    className="w-8 h-8 rounded bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 transition-colors flex items-center justify-center disabled:opacity-50"
-                                                    title="Delete Archive"
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                                                </button>
+                                            <div className="flex justify-center gap-1.5">
+                                                {editingId === record.id ? (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleSaveEdit(record)}
+                                                            disabled={loading}
+                                                            className="w-8 h-8 rounded bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 transition-colors flex items-center justify-center disabled:opacity-50"
+                                                            title="Save"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[18px]">check</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEdit}
+                                                            className="w-8 h-8 rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 transition-colors flex items-center justify-center"
+                                                            title="Cancel"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleStartEdit(record)}
+                                                            disabled={loading}
+                                                            className="w-8 h-8 rounded bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 text-indigo-600 transition-colors flex items-center justify-center disabled:opacity-50"
+                                                            title="Edit Comment"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteArchive(record.id)}
+                                                            disabled={loading}
+                                                            className="w-8 h-8 rounded bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 transition-colors flex items-center justify-center disabled:opacity-50"
+                                                            title="Delete Archive"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

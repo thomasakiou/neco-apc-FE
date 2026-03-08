@@ -793,7 +793,7 @@ const HODPostingsTable: React.FC = () => {
                     groupedData[state].push(post);
                 });
 
-                const sortedStates = Object.keys(groupedData).sort();
+                const sortedStates = Object.keys(groupedData).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
                 let currentY = 40;
 
                 // Add S/N column if not present
