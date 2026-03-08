@@ -31,9 +31,9 @@ const EnvironmentSwitcher: React.FC = () => {
             {/* Floating Trigger Button */}
             <button
                 onClick={() => setIsOpen(true)}
-                className={`fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border border-white/10 transition-all hover:scale-105 active:scale-95 ${env === 'local'
-                        ? 'bg-amber-600 text-white hover:bg-amber-500'
-                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                className={`fixed bottom-0 left-32 z-50 flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border border-white/10 transition-all hover:scale-105 active:scale-95 ${env === 'local'
+                    ? 'bg-amber-600 text-white hover:bg-amber-500'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                     }`}
                 title="Switch API Environment"
             >
