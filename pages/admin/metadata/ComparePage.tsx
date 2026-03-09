@@ -96,8 +96,8 @@ const ComparePage: React.FC = () => {
         setLoading(true);
         try {
             const [apcRecords, staffList] = await Promise.all([
-                getAllAPCRecords(true, force),   // Active APC records only (matches APC table)
-                getAllStaff(false, force)         // ALL SDL staff (active + inactive, matches SDL table)
+                getAllAPCRecords(true, force),
+                getAllStaff(false, force) // Fetch ALL staff for accurate total count
             ]);
             const staffMap = new Map<string, Staff>();
 
@@ -122,7 +122,8 @@ const ComparePage: React.FC = () => {
 
                 processedStaffIds.add(fileNoKey);
 
-                if (staff) {
+                // Only consider it a match/mismatch if staff exists AND is active
+                if (staff && staff.active) {
                     const apcNameNorm = apc.name.replace(/\s+/g, '').toLowerCase();
                     const sdlNameNorm = staff.full_name.replace(/\s+/g, '').toLowerCase();
                     const nameMatch = apcNameNorm === sdlNameNorm;
@@ -176,6 +177,7 @@ const ComparePage: React.FC = () => {
 
             const missing: MissingRow[] = [];
             staffList.forEach(s => {
+                if (!s.active) return; // Only expect active staff to be in APC
                 const fileNoKey = s.fileno?.trim().toUpperCase();
                 if (fileNoKey && !processedStaffIds.has(fileNoKey)) {
                     missing.push({
@@ -232,7 +234,7 @@ const ComparePage: React.FC = () => {
                 <StatCard label="Perfect Matches" value={stats.matches} icon="check_circle" color="text-emerald-600 dark:text-emerald-400" bg="bg-emerald-50 dark:bg-emerald-900/10" />
                 <StatCard label="Mismatches" value={stats.mismatches} icon="warning" color="text-amber-600 dark:text-amber-400" bg="bg-amber-50 dark:bg-amber-900/10" />
                 <StatCard label="Missing in APC" value={stats.missingInAPC} icon="person_off" color="text-rose-600 dark:text-rose-400" bg="bg-rose-50 dark:bg-rose-900/10" />
-                <StatCard label="Missing in SDL" value={stats.missingInSDL} icon="person_remove" color="text-purple-600 dark:text-purple-400" bg="bg-purple-50 dark:bg-purple-900/10" />
+                <StatCard label="Inactive in SDL" value={stats.missingInSDL} icon="person_remove" color="text-purple-600 dark:text-purple-400" bg="bg-purple-50 dark:bg-purple-900/10" />
             </div>
 
             <div className="bg-surface-light dark:bg-[#121b25] p-6 rounded-2xl border border-slate-100 dark:border-gray-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col gap-6 min-h-[500px] transition-colors duration-200">
@@ -264,7 +266,7 @@ const ComparePage: React.FC = () => {
                         <TabButton
                             active={activeTab === 'missingSDL'}
                             onClick={() => setActiveTab('missingSDL')}
-                            label="Missing in SDL"
+                            label="Inactive in SDL"
                             count={missingInSDL.length}
                             icon="person_remove"
                             alert={missingInSDL.length > 0}
