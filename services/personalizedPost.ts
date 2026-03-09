@@ -100,7 +100,7 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const apcMap = new Map<string, any>(); // staff_no -> apc_record
     const staffPostingsCount = new Map<string, number>(); // staff_no -> count
     const staffPostedSpecifics = new Map<string, Set<string>>(); // staff_no -> specifics
-    const staffMap = new Map<string, any>((allStaff as any[]).map(s => [s.fileno.toString().padStart(4, '0'), s]));
+    const staffMap = new Map<string, any>(allStaff!.map((s: any) => [s.fileno.toString().trim().padStart(4, '0'), s]));
 
     apcResponse.items.forEach((record: any) => {
         const normalizedFileNo = record.file_no.toString().padStart(4, '0');
@@ -154,14 +154,15 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
     const unassignedStaff: StaffMandateAssignment[] = [];
     const usedApcIds = new Set<string>();
 
-    const normalizeForCheck = (s: string) => (s || '').toString().trim().toUpperCase();
-    const assignmentCodeObj = normalizeForCheck(assignment.code);
-    const assignmentNameObj = normalizeForCheck(assignment.name);
+    // Get all valid aliases for this assignment's APC field (to ensure robust matching)
+    const validAliases = fieldName ? Object.keys(assignmentFieldMap)
+        .filter(key => assignmentFieldMap[key] === fieldName)
+        .map(key => key.toUpperCase()) : [];
 
     const checkPosted = (postedSpecifics: Set<string> | undefined) => {
         if (!postedSpecifics) return false;
         for (const stored of postedSpecifics) {
-            if (stored === assignmentCodeObj || stored === assignmentNameObj || assignmentNameObj.includes(stored) || stored.includes(assignmentCodeObj)) {
+            if (validAliases.includes(stored)) {
                 return true;
             }
         }
@@ -184,7 +185,9 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
         const assignLeft = Math.max(0, totalAllotted - totalPosted);
         const mandateId = assignedStaffMap.get(normalizedStaffFileNo);
 
-        if (assignLeft <= 0 && !mandateId) return; // Hide exhausted staff unless they are already assigned on board
+        // [REFINED] Synchronize with Validation page: Only hide if already posted for THIS assignment
+        // The capacity check (assignLeft <= 0) is bypassed for unassigned staff to match manual balance counts
+        if (!existingApcRecord && !mandateId) return;
 
         if (existingApcRecord) usedApcIds.add(existingApcRecord.id);
 
@@ -231,40 +234,38 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
             // Hide if already posted for THIS assignment type (Case-Insensitive)
             if (checkPosted(postedSpecifics)) return;
 
+            // [REFINED] Exclude Orphans as per user request
+            // We still process them for assigned mandates but they are omitted from the pool
             const val = record[fieldName as keyof APCRecord];
             if (val && val.toString().trim() !== '') {
                 const mandateId = assignedStaffMap.get(normalizedFileNo);
                 const assignLeft = Math.max(0, (record.count || 0) - (staffPostingsCount.get(normalizedFileNo) || 0));
 
-                if (assignLeft <= 0 && !mandateId) return;
-
-                const orphanStaff: StaffMandateAssignment = {
-                    id: `orphan-${record.id}`,
-                    staff_no: record.file_no,
-                    staff_name: record.name,
-                    rank: 'N/A',
-                    current_station: record.station || 'Unknown',
-                    qualification: record.qualification || '',
-                    conr: record.conraiss || '',
-                    apc_id: record.id,
-                    mandate_id: mandateId || null,
-                    total_allotted: record.count || 0,
-                    assign_left: assignLeft,
-                    is_hod: !!staffSDL?.is_hod,
-                    is_state_coordinator: !!staffSDL?.is_state_coordinator,
-                    is_secretary: !!staffSDL?.is_secretary,
-                    is_education: !!staffSDL?.is_education,
-                    is_director: !!staffSDL?.is_director,
-                    is_driver: !!staffSDL?.is_driver,
-                    is_typesetting: !!staffSDL?.is_typesetting,
-                    others: !!staffSDL?.others
-                };
-
                 if (mandateId) {
+                    const orphanStaff: StaffMandateAssignment = {
+                        id: `orphan-${record.id}`,
+                        staff_no: record.file_no,
+                        staff_name: record.name,
+                        rank: 'N/A',
+                        current_station: record.station || 'Unknown',
+                        qualification: record.qualification || '',
+                        conr: record.conraiss || '',
+                        apc_id: record.id,
+                        mandate_id: mandateId || null,
+                        total_allotted: record.count || 0,
+                        assign_left: assignLeft,
+                        is_hod: false,
+                        is_state_coordinator: false,
+                        is_secretary: false,
+                        is_education: false,
+                        is_director: false,
+                        is_driver: false,
+                        is_typesetting: false,
+                        others: false
+                    };
                     mandateColumns.find(c => c.id === mandateId)?.staff.push(orphanStaff);
-                } else {
-                    unassignedStaff.push(orphanStaff);
                 }
+                // ORPHANS ARE EXCLUDED FROM unassignedStaff POOL
             }
         }
     });

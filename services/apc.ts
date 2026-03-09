@@ -269,10 +269,6 @@ export const createCustomAPCFromCSV = async (data: { fileno: string; assignmentC
 export const getEligibleStaffForAPC = async (): Promise<Staff[]> => {
     const allStaff = await getAllStaff(true);
     return allStaff.filter(s =>
-        !s.is_director &&
-        !s.is_hod &&
-        !s.is_state_coordinator &&
-        !s.is_secretary &&
-        !s.others
+        !s.is_secretary
     );
 };

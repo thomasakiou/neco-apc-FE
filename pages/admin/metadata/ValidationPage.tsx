@@ -220,7 +220,7 @@ const AssignmentValidationPage: React.FC = () => {
                 getAllAPCRecords(true, force), // only active
                 getAllPostingRecords(force),
                 getAllFinalPostings(0, 100000, force),
-                getAllStaff(force)
+                getAllStaff(true, force) // only active staff, force controls cache refresh
             ]);
 
             const targetField = assignmentFieldMap[selectedAssignment];
@@ -230,11 +230,14 @@ const AssignmentValidationPage: React.FC = () => {
                 return;
             }
 
-            // Create a Set of file numbers for secretaries
+            // Create a Set of file numbers for SDL check
+            const staffFileNos = new Set<string>();
             const secretaryFileNos = new Set<string>();
             allStaff.forEach(s => {
+                const norm = s.fileno.trim().padStart(4, '0');
+                staffFileNos.add(norm);
                 if (s.is_secretary) {
-                    secretaryFileNos.add(s.fileno.trim().padStart(4, '0'));
+                    secretaryFileNos.add(norm);
                 }
             });
 
@@ -292,12 +295,21 @@ const AssignmentValidationPage: React.FC = () => {
 
             const issues: ValidationResult[] = [];
 
-            // 4. Cross-reference - Only show staff scheduled but NOT posted for this assignment
+            // 4. Cross-reference
             scheduledStaff.forEach(staff => {
                 const normFileNo = staff.file_no.trim().padStart(4, '0');
+                const hasSDL = staffFileNos.has(normFileNo);
 
-                // If staff is NOT in the alreadyPostedForAssignment set, they need to be posted
-                if (!alreadyPostedForAssignment.has(normFileNo)) {
+                if (!hasSDL) {
+                    // Flag as Orphan
+                    issues.push({
+                        fileNo: staff.file_no.trim(),
+                        name: staff.name,
+                        station: staff.station || '-',
+                        issue: 'Orphan: Missing from Staff Data (SDL)'
+                    });
+                } else if (!alreadyPostedForAssignment.has(normFileNo)) {
+                    // Not posted yet
                     issues.push({
                         fileNo: staff.file_no.trim(),
                         name: staff.name,
@@ -468,12 +480,20 @@ const AssignmentValidationPage: React.FC = () => {
                                         {selectedAssignment}
                                     </span>
                                 </div>
-                                <span className={`text-xs font-black uppercase px-3 py-1 rounded-full ${filteredResults.length === 0
-                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-                                    }`}>
-                                    {filteredResults.length} Issues Found
-                                </span>
+                                <div className="flex gap-4">
+                                    <span className={`text-xs font-black uppercase px-3 py-1 rounded-full ${filteredResults.filter(r => !r.issue.includes('Orphan')).length === 0
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                        }`}>
+                                        {filteredResults.filter(r => r.issue.includes('posted')).length} Unposted Staff
+                                    </span>
+                                    <span className={`text-xs font-black uppercase px-3 py-1 rounded-full ${filteredResults.filter(r => r.issue.includes('Orphan')).length === 0
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                        : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                                        }`}>
+                                        {filteredResults.filter(r => r.issue.includes('Orphan')).length} Data Inconsistencies (Orphans)
+                                    </span>
+                                </div>
                             </div>
 
                             {filteredResults.length === 0 ? (
@@ -513,8 +533,13 @@ const AssignmentValidationPage: React.FC = () => {
                                                             {result.station}
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-2 px-3 py-1 rounded bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 w-fit max-w-full">
-                                                                <span className="material-symbols-outlined text-base flex-shrink-0">warning</span>
+                                                            <div className={`flex items-center gap-2 px-3 py-1 rounded border w-fit max-w-full ${result.issue.includes('Orphan')
+                                                                ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/30'
+                                                                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
+                                                                }`}>
+                                                                <span className="material-symbols-outlined text-base flex-shrink-0">
+                                                                    {result.issue.includes('Orphan') ? 'error' : 'warning'}
+                                                                </span>
                                                                 <span className="text-xs font-bold break-words">{result.issue}</span>
                                                             </div>
                                                         </td>

@@ -387,6 +387,11 @@ const RandomizedPost: React.FC = () => {
             }
         }
 
+        // Valid assignment aliases (e.g. 'SSCE-INT' and 'SSCE INTERNAL')
+        const validAliases = Object.keys(assignmentFieldMap)
+            .filter(key => assignmentFieldMap[key] === apcField)
+            .map(key => key.toUpperCase());
+
         // Pre-calculate posted counts and check for duplicate assignments
         const postedCountMap = new Map<string, number>();
         const staffAlreadyPostedForAssignment = new Set<string>();
@@ -398,15 +403,14 @@ const RandomizedPost: React.FC = () => {
 
             // Helper for robust comparison
             const normalize = (s: any) => s ? String(s).trim().toUpperCase() : '';
-            const targetCode = normalize(assignmentCode);
-            const targetName = normalize(assignmentName);
             const targetMandateNorm = selectedMandate ? normalize(selectedMandate) : '';
 
             let matchesAssignment = false;
             if (Array.isArray(p.assignments)) {
                 matchesAssignment = p.assignments.some((a: any) => {
                     const normA = normalize(a.code || a.name || a);
-                    return (targetCode && normA === targetCode) || (targetName && normA === targetName);
+                    // Check against all valid aliases for this APC field
+                    return validAliases.some(alias => normA === alias);
                 });
             }
 
@@ -431,18 +435,14 @@ const RandomizedPost: React.FC = () => {
 
         allAPC.forEach(staff => {
             if (!staff.active) return;
-            const normalizedStaffNo = staff.file_no.toString().padStart(4, '0');
+            const normalizedStaffNo = staff.file_no.toString().trim().padStart(4, '0');
 
             // CRITICAL: Must be active in SDL (Staff Data table)
-            if (!staffCategoryMap.has(staff.file_no)) return;
+            // This strictly excludes orphans as requested.
+            if (!staffCategoryMap.has(normalizedStaffNo)) return;
 
             // 1. Check if already posted for THIS assignment/mandate (Strict Exclusion)
             if (staffAlreadyPostedForAssignment.has(normalizedStaffNo)) return;
-
-            // 2. Capacity Check
-            const totalPosted = postedCountMap.get(normalizedStaffNo) || 0;
-            const totalAllotted = staff.count || 0;
-            if (totalPosted >= totalAllotted) return;
 
             // Check if staff has the assignment field set
             const val = staff[apcField as keyof APCRecord];
@@ -473,11 +473,11 @@ const RandomizedPost: React.FC = () => {
             if (filterQualifications.length > 0 && !filterQualifications.includes(getQualificationGroup(staff.qualification))) return;
 
             // 3. Exclude Secretaries
-            if (secretaryStaffSet.has(staff.file_no)) return;
+            if (secretaryStaffSet.has(normalizedStaffNo)) return;
 
             // 5. Category Filter
             if (filterCategory !== 'All') {
-                const cats = staffCategoryMap.get(staff.file_no);
+                const cats = staffCategoryMap.get(normalizedStaffNo);
                 if (!cats) return;
                 switch (filterCategory) {
                     case 'HOD': if (!cats.is_hod) return; break;
@@ -540,9 +540,10 @@ const RandomizedPost: React.FC = () => {
             const secSet = new Set<string>();
             const catMap = new Map<string, { is_hod: boolean; is_state_coordinator: boolean; is_director: boolean; is_education: boolean; is_secretary: boolean; is_driver: boolean; is_typesetting: boolean; others: boolean }>();
             staffData.forEach(s => {
-                if (s.is_education) eduSet.add(s.fileno);
-                if (s.is_secretary) secSet.add(s.fileno);
-                catMap.set(s.fileno, {
+                const norm = s.fileno.toString().trim().padStart(4, '0');
+                if (s.is_education) eduSet.add(norm);
+                if (s.is_secretary) secSet.add(norm);
+                catMap.set(norm, {
                     is_hod: !!s.is_hod,
                     is_state_coordinator: !!s.is_state_coordinator,
                     is_director: !!s.is_director,

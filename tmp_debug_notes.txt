@@ -1,0 +1,36 @@
+
+const fs = require('fs');
+const path = require('path');
+
+// Mocking some service logic since I can't run the actual TS files directly easily
+// I will read the JSON dumps if they exist or simulate based on what I know.
+// Actually, I'll just write a script that I can run via node if I can find the data.
+
+// Since I can't easily run the backend-connected code, I'll use the file system to 
+// look at the exports/data if available, or just proceed with logical mapping.
+
+async function calculatePermutations() {
+    console.log("Starting analysis...");
+    
+    // I don't have direct access to run node with imports in this environment efficiently 
+    // without potentially hitting build issues. I will instead rely on logical analysis 
+    // of the existing code and the user's numbers.
+    
+    // Total in APC (Accr 1) = 539
+    // Currently "Already Posted" (Any) = 193
+    // Result = 346.
+    
+    // Observations:
+    // 1. Validation Page uses "Exclude if posted for ANY" + "Include Orphans" = 346.
+    // 2. If we "Exclude if posted for TARGET ONLY", the 193 will decrease.
+    //    (e.g., if 10 people are posted for TT, they would no longer be excluded).
+    //    Count would become 346 + people_posted_for_other_things.
+    // 3. If we "Exclude Orphans", the count will decrease.
+    //    (e.g., if there are 10 orphans, count becomes (346 + others) - 10).
+    
+    // The user thinks this combination will hit 346. 
+    // This implies that (people_posted_for_other_things) == (orphans).
+}
+
+// I'll try to refine the logic in the implementation plan to reflect EXACTLY what the user wants 
+// and see if it makes sense.
