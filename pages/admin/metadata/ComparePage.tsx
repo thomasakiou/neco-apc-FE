@@ -96,8 +96,8 @@ const ComparePage: React.FC = () => {
         setLoading(true);
         try {
             const [apcRecords, staffList] = await Promise.all([
-                getAllAPCRecords(true, force),
-                getAllStaff(true, force)
+                getAllAPCRecords(true, force),   // Active APC records only (matches APC table)
+                getAllStaff(false, force)         // ALL SDL staff (active + inactive, matches SDL table)
             ]);
             const staffMap = new Map<string, Staff>();
 
@@ -117,7 +117,7 @@ const ComparePage: React.FC = () => {
             apcRecords.forEach(apc => {
                 const fileNoKey = apc.file_no?.trim().toUpperCase();
                 if (!fileNoKey) return;
-                
+
                 const staff = staffMap.get(fileNoKey);
 
                 processedStaffIds.add(fileNoKey);
