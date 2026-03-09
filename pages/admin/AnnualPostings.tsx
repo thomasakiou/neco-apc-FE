@@ -467,7 +467,7 @@ const AnnualPostings: React.FC = () => {
     postings.forEach(p => {
       if (p.description) descSet.add(p.description);
     });
-    return Array.from(descSet).sort();
+    return Array.from(descSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   }, [postings]);
 
   const uniqueVenues = useMemo(() => {

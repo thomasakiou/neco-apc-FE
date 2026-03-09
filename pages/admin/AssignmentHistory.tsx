@@ -177,7 +177,7 @@ const GeneratePage: React.FC = () => {
 
     const uniqueDescriptions = useMemo(() => {
         const set = new Set<string>(allFlatRows.map(r => r.description).filter((s): s is string => !!s));
-        return Array.from(set).sort();
+        return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     }, [allFlatRows]);
 
     const uniqueStates = useMemo(() => {
