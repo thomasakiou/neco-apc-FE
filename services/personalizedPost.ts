@@ -210,7 +210,8 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
             is_director: !!staff.is_director,
             is_driver: !!staff.is_driver,
             is_typesetting: !!staff.is_typesetting,
-            others: !!staff.others
+            others: !!staff.others,
+            dopa: staff.dopa || null
         };
 
         if (mandateId) {
@@ -261,7 +262,8 @@ export const getAssignmentBoardData = async (assignment: Assignment): Promise<As
                         is_director: false,
                         is_driver: false,
                         is_typesetting: false,
-                        others: false
+                        others: false,
+                        dopa: staffSDL?.dopa || null
                     };
                     mandateColumns.find(c => c.id === mandateId)?.staff.push(orphanStaff);
                 }

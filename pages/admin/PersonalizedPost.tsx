@@ -36,7 +36,7 @@ const PersonalizedPost: React.FC = () => {
     const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string>>(new Set());
     const [poolSearch, setPoolSearch] = useState('');
     const [poolFilterConraiss, setPoolFilterConraiss] = useState('');
-    const [poolFilterStation, setPoolFilterStation] = useState('');
+    const [poolFilterStations, setPoolFilterStations] = useState<string[]>([]);
     const [showPoolStationDropdown, setShowPoolStationDropdown] = useState(false);
     const [poolStationSearch, setPoolStationSearch] = useState('');
     const poolStationDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -70,6 +70,38 @@ const PersonalizedPost: React.FC = () => {
             setSelectedMandateId('');
         }
     }, [selectedAssignmentId]);
+
+    // Auto-load default station type when assignment changes
+    useEffect(() => {
+        if (!selectedAssignmentId || assignments.length === 0) return;
+
+        const assignment = assignments.find(a => a.id === selectedAssignmentId);
+        if (!assignment) return;
+
+        const name = (assignment.name || '').toLowerCase();
+        let targetType = '';
+
+        if (name.includes('accreditation') || name.includes('internal audit') || name.includes('purposive sampling')) {
+            targetType = 'state';
+        } else if (name.includes('trial test')) {
+            targetType = 'tt_center';
+        } else if (name.includes('ssce internal') && name.includes('marking')) {
+            targetType = 'marking_venue';
+        } else if (name.includes('ssce ext') && name.includes('marking')) {
+            targetType = 'ssce_ext_marking_venue';
+        } else if (name.includes('bece marking') || (name.includes('bece') && name.includes('marking'))) {
+            targetType = 'bece_marking_venue';
+        } else if (name.includes('common entrance') || name.includes('ncee')) {
+            targetType = 'ncee_center';
+        } else if (name.includes('gifted')) {
+            targetType = 'gifted_center';
+        }
+
+        if (targetType) {
+            handleStationTypeSelect(targetType);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedAssignmentId, assignments]);
 
     // Click outside to close dropdowns
     useEffect(() => {
@@ -440,17 +472,32 @@ const PersonalizedPost: React.FC = () => {
         }
     }, [selectedTag]);
 
+    const sortStaff = (a: StaffMandateAssignment, b: StaffMandateAssignment) => {
+        const conrA = parseInt(a.conr?.replace(/\D/g, '') || '0', 10);
+        const conrB = parseInt(b.conr?.replace(/\D/g, '') || '0', 10);
+
+        if (conrA !== conrB) {
+            return conrB - conrA; // Descending CONRAISS
+        }
+
+        // If CONRAISS is equal, sort by DOPA descending
+        const dopaA = a.dopa ? new Date(a.dopa).getTime() : 0;
+        const dopaB = b.dopa ? new Date(b.dopa).getTime() : 0;
+
+        return dopaB - dopaA;
+    };
+
     const filteredPool = useMemo(() => {
         if (!boardData) return [];
         return boardData.unassignedStaff.filter(s => {
             const matchesSearch = s.staff_name.toLowerCase().includes(poolSearch.toLowerCase()) ||
                 s.staff_no.toLowerCase().includes(poolSearch.toLowerCase());
             const matchesConraiss = !poolFilterConraiss || s.conr === poolFilterConraiss;
-            const matchesStation = !poolFilterStation || s.current_station.toLowerCase().includes(poolFilterStation.toLowerCase());
+            const matchesStation = poolFilterStations.length === 0 || poolFilterStations.some(station => s.current_station.toLowerCase().includes(station.toLowerCase()));
             const matchesTag = filterByTag(s);
             return matchesSearch && matchesConraiss && matchesStation && matchesTag;
-        });
-    }, [boardData, poolSearch, poolFilterConraiss, poolFilterStation, filterByTag]);
+        }).sort(sortStaff);
+    }, [boardData, poolSearch, poolFilterConraiss, poolFilterStations, filterByTag]);
 
     const filteredBoard = useMemo(() => {
         if (!boardData) return [];
@@ -462,7 +509,7 @@ const PersonalizedPost: React.FC = () => {
                     s.staff_no.toLowerCase().includes(search);
                 const matchesTag = filterByTag(s);
                 return matchesSearch && matchesTag;
-            })
+            }).sort(sortStaff)
         }));
     }, [boardData?.mandateColumns, boardSearch, filterByTag]);
 
@@ -756,38 +803,76 @@ const PersonalizedPost: React.FC = () => {
                                     onClick={() => setShowPoolStationDropdown(!showPoolStationDropdown)}
                                     className="w-full h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between cursor-pointer hover:border-indigo-400 outline-none transition-all"
                                 >
-                                    <span className="truncate">{poolFilterStation || 'Station'}</span>
+                                    <span className="truncate">
+                                        {poolFilterStations.length === 0
+                                            ? 'Station'
+                                            : poolFilterStations.length === 1
+                                                ? poolFilterStations[0]
+                                                : `${poolFilterStations.length} stations selected`}
+                                    </span>
                                     <span className="material-symbols-outlined text-[14px] text-slate-400">expand_more</span>
                                 </button>
                                 {showPoolStationDropdown && (
-                                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="absolute z-50 top-full left-0 right-0 mt-1 w-64 md:w-auto bg-white dark:bg-[#1a2533] border border-slate-200 dark:border-gray-700 rounded-xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="flex gap-2 p-2 border-b border-slate-100 dark:border-gray-800">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPoolFilterStations(uniquePoolStations)}
+                                                className="flex-1 text-[10px] font-bold px-2 py-1.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
+                                            >
+                                                Select All
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPoolFilterStations([])}
+                                                className="flex-1 text-[10px] font-bold px-2 py-1.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                            >
+                                                Clear All
+                                            </button>
+                                        </div>
                                         <div className="p-2 border-b border-slate-100 dark:border-gray-800">
                                             <input
                                                 type="text"
                                                 placeholder="Search station..."
                                                 value={poolStationSearch}
                                                 onChange={(e) => setPoolStationSearch(e.target.value)}
-                                                className="w-full h-8 px-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-gray-700 rounded-lg text-xs outline-none focus:ring-1 ring-indigo-500/30"
+                                                className="w-full h-8 px-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-gray-700 rounded-lg text-xs text-slate-700 dark:text-slate-200 outline-none focus:ring-1 ring-indigo-500/30"
                                             />
                                         </div>
-                                        <div className="max-h-48 overflow-y-auto">
-                                            <button
-                                                onClick={() => { setPoolFilterStation(''); setShowPoolStationDropdown(false); }}
-                                                className="w-full px-3 py-2 text-left text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                            >
-                                                Clear Station
-                                            </button>
+                                        <div className="max-h-56 overflow-y-auto p-1 custom-scrollbar">
                                             {uniquePoolStations
                                                 .filter(s => s.toLowerCase().includes(poolStationSearch.toLowerCase()))
-                                                .map(s => (
-                                                    <button
-                                                        key={s}
-                                                        onClick={() => { setPoolFilterStation(s); setShowPoolStationDropdown(false); }}
-                                                        className="w-full px-3 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600 transition-colors"
-                                                    >
-                                                        {s}
-                                                    </button>
-                                                ))}
+                                                .map(s => {
+                                                    const isSelected = poolFilterStations.includes(s);
+                                                    return (
+                                                        <label
+                                                            key={s}
+                                                            className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                                        >
+                                                            <div className="relative flex items-center justify-center">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => {
+                                                                        setPoolFilterStations(prev =>
+                                                                            prev.includes(s) ? prev.filter(st => st !== s) : [...prev, s]
+                                                                        );
+                                                                    }}
+                                                                    className="peer appearance-none w-4 h-4 border-2 border-slate-300 dark:border-slate-600 rounded mt-0.5 checked:bg-indigo-500 checked:border-indigo-500 transition-all cursor-pointer"
+                                                                />
+                                                                <span className="material-symbols-outlined text-[12px] font-black text-white absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity">
+                                                                    check
+                                                                </span>
+                                                            </div>
+                                                            <span className={`text-xs ${isSelected ? 'font-bold text-slate-800 dark:text-slate-200' : 'font-medium text-slate-600 dark:text-slate-400'}`}>
+                                                                {s}
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            {uniquePoolStations.filter(s => s.toLowerCase().includes(poolStationSearch.toLowerCase())).length === 0 && (
+                                                <div className="px-3 py-4 text-center text-xs text-slate-400 italic">No stations match criteria</div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

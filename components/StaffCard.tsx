@@ -79,19 +79,29 @@ export const StaffCard = React.memo<StaffCardProps>(({ staff, onDragStart, onCli
                         <span className="italic font-medium leading-tight">{staff.qualification}</span>
                     </div>
                 )}
-                <div className="flex items-center justify-between mt-1">
-                    {staff.conr && (
-                        <div className="flex items-center gap-1.5" title="CONRAISS">
-                            <span className="material-symbols-outlined text-[14px] text-purple-500">trending_up</span>
-                            <span className="truncate font-bold">CONR: {staff.conr}</span>
-                        </div>
-                    )}
-                    {(staff.assign_left !== undefined) && (
-                        <div className={`px-1.5 py-0.5 rounded text-xs font-black border uppercase tracking-tighter ${staff.assign_left === 0
-                            ? 'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800'
-                            : 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-                            }`}>
-                            {staff.assign_left} Slots
+                <div className="flex flex-col gap-1 w-full">
+                    <div className="flex items-center justify-between mt-1">
+                        {staff.conr && (
+                            <div className="flex items-center gap-1.5" title="CONRAISS">
+                                <span className="material-symbols-outlined text-[14px] text-purple-500">trending_up</span>
+                                <span className="truncate font-bold">CONR: {staff.conr}</span>
+                            </div>
+                        )}
+                        {(staff.assign_left !== undefined) && (
+                            <div className={`px-1.5 py-0.5 rounded text-xs font-black border uppercase tracking-tighter ${staff.assign_left === 0
+                                ? 'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800'
+                                : 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+                                }`}>
+                                {staff.assign_left} Slots
+                            </div>
+                        )}
+                    </div>
+                    {staff.dopa && (
+                        <div className="flex items-center gap-1.5 mt-0.5" title="Date of Present Appointment (DOPA)">
+                            <span className="material-symbols-outlined text-[14px] text-teal-500">event</span>
+                            <span className="truncate font-black text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded border border-teal-100 dark:border-teal-800 shadow-sm text-[11px]">
+                                DOPA: {staff.dopa.split('T')[0]}
+                            </span>
                         </div>
                     )}
                 </div>

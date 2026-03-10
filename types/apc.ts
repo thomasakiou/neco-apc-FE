@@ -99,6 +99,7 @@ export interface StaffMandateAssignment {
     // Draft State
     pendingAction?: 'add' | 'remove' | 'move';
     originalMandateId?: string | null; // To track changes
+    dopa?: string | null; // Date of Present Appointment
 }
 
 export interface MandateColumn {
