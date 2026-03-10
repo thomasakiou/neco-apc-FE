@@ -71,37 +71,7 @@ const PersonalizedPost: React.FC = () => {
         }
     }, [selectedAssignmentId]);
 
-    // Auto-load default station type when assignment changes
-    useEffect(() => {
-        if (!selectedAssignmentId || assignments.length === 0) return;
 
-        const assignment = assignments.find(a => a.id === selectedAssignmentId);
-        if (!assignment) return;
-
-        const name = (assignment.name || '').toLowerCase();
-        let targetType = '';
-
-        if (name.includes('accreditation') || name.includes('internal audit') || name.includes('purposive sampling')) {
-            targetType = 'state';
-        } else if (name.includes('trial test')) {
-            targetType = 'tt_center';
-        } else if (name.includes('ssce internal') && name.includes('marking')) {
-            targetType = 'marking_venue';
-        } else if (name.includes('ssce ext') && name.includes('marking')) {
-            targetType = 'ssce_ext_marking_venue';
-        } else if (name.includes('bece marking') || (name.includes('bece') && name.includes('marking'))) {
-            targetType = 'bece_marking_venue';
-        } else if (name.includes('common entrance') || name.includes('ncee')) {
-            targetType = 'ncee_center';
-        } else if (name.includes('gifted')) {
-            targetType = 'gifted_center';
-        }
-
-        if (targetType) {
-            handleStationTypeSelect(targetType);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedAssignmentId, assignments]);
 
     // Click outside to close dropdowns
     useEffect(() => {
@@ -131,6 +101,30 @@ const PersonalizedPost: React.FC = () => {
             if (!assignment) return;
             const data = await getAssignmentBoardData(assignment);
             setBoardData(data);
+
+            // [NEW] Auto-load default stations seamlessly within the same loading spinner
+            const name = (assignment.name || '').toLowerCase();
+            let targetType = '';
+            if (name.includes('accreditation') || name.includes('internal audit') || name.includes('purposive sampling')) {
+                targetType = 'state';
+            } else if (name.includes('trial test')) {
+                targetType = 'tt_center';
+            } else if (name.includes('ssce internal') && name.includes('marking')) {
+                targetType = 'marking_venue';
+            } else if (name.includes('ssce ext') && name.includes('marking')) {
+                targetType = 'ssce_ext_marking_venue';
+            } else if (name.includes('bece marking') || (name.includes('bece') && name.includes('marking'))) {
+                targetType = 'bece_marking_venue';
+            } else if (name.includes('common entrance') || name.includes('ncee')) {
+                targetType = 'ncee_center';
+            } else if (name.includes('gifted')) {
+                targetType = 'gifted_center';
+            }
+
+            if (targetType) {
+                await handleStationTypeSelect(targetType, true); // true = skip repetitive setLoading(false)
+            }
+
             setHasUnsavedChanges(false);
             setPendingChanges([]);
             setSelectedStaffIds(new Set());
@@ -370,7 +364,7 @@ const PersonalizedPost: React.FC = () => {
 
     // --- Station Loading Utility ---
 
-    const handleStationTypeSelect = async (type: string) => {
+    const handleStationTypeSelect = async (type: string, keepLoading: boolean = false) => {
         setLoading(true);
         try {
             let data: any[] = [];
@@ -420,7 +414,9 @@ const PersonalizedPost: React.FC = () => {
             setManualStationType(type);
             setIsStationModalOpen(false);
         } catch (error) { showAlert('Error', 'Failed to load stations', 'error'); }
-        finally { setLoading(false); }
+        finally {
+            if (!keepLoading) setLoading(false);
+        }
     };
 
     const downloadCsvTemplate = () => {
