@@ -580,13 +580,20 @@ const GeneratePage: React.FC = () => {
 
                 for (const state of sortedStates) {
                     const stateRows = groupedByState[state].sort((a, b) => {
-                        // For ACCREDITATION, always sort by CONRAISS descending (15, 14, 13...)
+                        // Priority 1: Team Leader comes first
+                        const isALeader = a.mandate?.toUpperCase().includes('TEAM LEADER');
+                        const isBLeader = b.mandate?.toUpperCase().includes('TEAM LEADER');
+
+                        if (isALeader && !isBLeader) return -1;
+                        if (!isALeader && isBLeader) return 1;
+
+                        // Priority 2: Sort by CONRAISS descending (15, 14, 13...)
                         const conraissA = parseInt(a.conraiss?.replace(/\D/g, '') || '0', 10);
                         const conraissB = parseInt(b.conraiss?.replace(/\D/g, '') || '0', 10);
                         if (conraissA !== conraissB) {
                             return conraissB - conraissA; // Descending order
                         }
-                        // Secondary sort by file number ascending if CONRAISS is equal
+                        // Priority 3: Secondary sort by file number ascending if CONRAISS is equal
                         const fileA = parseInt(a.file_no?.replace(/\D/g, '') || '0', 10);
                         const fileB = parseInt(b.file_no?.replace(/\D/g, '') || '0', 10);
                         return fileA - fileB;
