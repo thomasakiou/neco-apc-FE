@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
       host: 'localhost',
       proxy: {
         '/api': {
-          target: 'https://vmi2848672.contaboserver.net/apcic',
+          target: 'https://vmi2848672.contaboserver.net/apc',
           changeOrigin: true,
           secure: false,
         },

@@ -1,4 +1,4 @@
-const PROD_URL = 'https://vmi2848672.contaboserver.net/apcic/api';
+const PROD_URL = 'https://vmi2848672.contaboserver.net/apc/api';
 const DEFAULT_LOCAL_URL = 'http://localhost:8000/api';
 
 // Check if we are forcibly in local mode via localStorage
