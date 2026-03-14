@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getAllFinalPostings, updateFinalPosting, getAllFinalPostings as fetchAllFinalPostings } from '../../services/finalPosting'; // Alias for clarity
+import { getAllPostingRecords, updatePosting } from '../../services/posting'; 
 import { getAllAPCRecords } from '../../services/apc';
+import { getAllStaff } from '../../services/staff';
 import { getAllAssignments } from '../../services/assignment';
 import { assignmentFieldMap } from '../../services/personalizedPost';
-import { FinalPostingResponse } from '../../types/finalPosting';
+import { PostingResponse } from '../../types/posting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
 import { getPageCache, setPageCache } from '../../services/pageCache';
@@ -37,8 +38,9 @@ interface ExtendedHistoryItem extends ReplacementHistoryItem {
 
 const ReplacementPostPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
-    const [finalPostings, setFinalPostings] = useState<FinalPostingResponse[]>([]);
+    const [finalPostings, setFinalPostings] = useState<PostingResponse[]>([]);
     const [apcRecords, setApcRecords] = useState<APCRecord[]>([]);
+    const [allStaff, setAllStaff] = useState<any[]>([]);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [filterAssignment, setFilterAssignment] = useState('');
 
@@ -63,18 +65,20 @@ const ReplacementPostPage: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [finalData, apcData, assignmentsData] = await Promise.all([
-                getAllFinalPostings(0, 10000),
-                getAllAPCRecords(false),
-                getAllAssignments(false)
+            const [finalData, apcData, assignmentsData, staffData] = await Promise.all([
+                getAllPostingRecords(false),
+                getAllAPCRecords(true, false), // onlyActive=true
+                getAllAssignments(false),
+                getAllStaff(true) // onlyActive=true
             ]);
 
-            const finalItems = finalData.items || (Array.isArray(finalData) ? finalData : []);
+            const finalItems = Array.isArray(finalData) ? finalData : [];
             const apcItems = Array.isArray(apcData) ? apcData : [];
 
             setFinalPostings(finalItems);
             setApcRecords(apcItems);
             setAssignments(assignmentsData);
+            setAllStaff(staffData);
         } catch (error) {
             console.error("Failed to load data", error);
         } finally {
@@ -92,38 +96,53 @@ const ReplacementPostPage: React.FC = () => {
         return map;
     }, [assignments]);
 
-    // Unique Assignments in Final Postings
+    // All Assignments for filtering
     const uniqueAssignments = useMemo(() => {
-        const set = new Set<string>();
-        finalPostings.forEach(p => {
-            p.assignments?.forEach((a: any) => {
-                const val = typeof a === 'string' ? a : a.name || a.code;
-                const name = assignmentMap.get(val) || val;
-                if (name) set.add(name);
-            });
-        });
-        return Array.from(set).sort();
-    }, [finalPostings, assignmentMap]);
+        return assignments.map(a => a.name).sort();
+    }, [assignments]);
 
     // Filtered Options
     const postedOptions = useMemo(() => {
-        let filtered = finalPostings;
+        if (!filterAssignment) return []; // Require assignment selection first
 
-        if (filterAssignment) {
-            filtered = filtered.filter(p => p.assignments?.some((a: any) => {
-                const val = typeof a === 'string' ? a : a.name || a.code;
-                const name = assignmentMap.get(val) || val;
-                return name === filterAssignment;
-            }));
+        const assignmentObj = assignments.find(a => a.name === filterAssignment || a.code === filterAssignment);
+        if (!assignmentObj) return [];
+
+        const validAliases = Object.keys(assignmentFieldMap)
+            .filter(key => {
+                const targetField = assignmentFieldMap[assignmentObj.name] || assignmentFieldMap[assignmentObj.code];
+                return assignmentFieldMap[key] === targetField;
+            })
+            .map(key => key.toUpperCase());
+
+        let filtered = finalPostings.filter(p => p.assignments?.some((a: any) => {
+            const val = typeof a === 'string' ? a : a.name || a.code;
+            return validAliases.includes(val.toString().trim().toUpperCase()) || val.toString().trim().toUpperCase() === assignmentObj.code.toUpperCase();
+        }));
+
+        if (!searchPosted) {
+            // Deduplicate logic - keep only unique staff (by file_no)
+            const seen = new Set<string>();
+            return filtered.filter(p => {
+                if (seen.has(p.file_no)) return false;
+                seen.add(p.file_no);
+                return true;
+            });
         }
 
-        if (!searchPosted) return filtered.slice(0, 50);
-
         const q = searchPosted.toLowerCase();
-        return filtered.filter(p =>
-            p.name.toLowerCase().includes(q) ||
-            p.file_no.toLowerCase().includes(q)
-        ).slice(0, 50);
+        // Deduplicate logic with search
+        const seen = new Set<string>();
+        return filtered.filter(p => {
+            if (seen.has(p.file_no)) return false;
+            
+            const matches = p.name.toLowerCase().includes(q) || p.file_no.toLowerCase().includes(q);
+            if (matches) {
+                seen.add(p.file_no);
+                return true;
+            }
+            return false;
+        });
     }, [finalPostings, searchPosted, filterAssignment, assignmentMap]);
 
     // Derived state for quick lookup of posted file numbers
@@ -136,34 +155,101 @@ const ReplacementPostPage: React.FC = () => {
         let source: any[] = [];
 
         if (reason === 'Replacement') {
-            // Requirement check: When Action is replacement, I expect the name area to be empty until and Assignment is choosen 
             if (!filterAssignment) return [];
 
-            // Staff who are scheduled for the selected assignment (having the assignment in their APC) but not posted yet
-            const fieldName = assignmentFieldMap[filterAssignment] ||
-                Object.keys(assignmentFieldMap).find(k => k.toUpperCase() === filterAssignment.toUpperCase()) ? assignmentFieldMap[Object.keys(assignmentFieldMap).find(k => k.toUpperCase() === filterAssignment.toUpperCase()) as string] : null;
+            // 1. Find the actual assignment object to get its code
+            const assignmentObj = assignments.find(a => a.name === filterAssignment || a.code === filterAssignment);
+            if (!assignmentObj) return [];
 
-            if (!fieldName) {
-                // If we can't map the assignment name to a field, we show empty as we enforcement scheduling.
-                return [];
-            }
+            // 2. Derive field mapping (Same logic as personalizedPost.ts)
+            const getFieldName = (code?: string, name?: string) => {
+                const keys = [code, name].filter(Boolean) as string[];
+                for (const k of keys) {
+                    const upper = k.toUpperCase().trim();
+                    const withHyphen = upper.replace(/\s+/g, '-');
+                    const withoutHyphen = upper.replace(/-/g, ' ');
 
-            source = apcRecords.filter(p => {
-                const isUnposted = !postedFileNumbers.has(p.file_no.trim());
-                const val = (p as any)[fieldName];
+                    if (assignmentFieldMap[upper]) return assignmentFieldMap[upper];
+                    if (assignmentFieldMap[withHyphen]) return assignmentFieldMap[withHyphen];
+                    if (assignmentFieldMap[withoutHyphen]) return assignmentFieldMap[withoutHyphen];
+                }
+                return null;
+            };
+
+            const fieldName = getFieldName(assignmentObj.code, assignmentObj.name);
+            if (!fieldName) return [];
+
+            const validAliases = Object.keys(assignmentFieldMap)
+                .filter(key => assignmentFieldMap[key] === fieldName)
+                .map(key => key.toUpperCase());
+
+            // 3. Count postings and specifics for exclusion
+            const staffPostedSpecifics = new Map<string, Set<string>>();
+            finalPostings.forEach(p => {
+                const normalizedNo = p.file_no.toString().trim().padStart(4, '0');
+                const assignmentsArr = Array.isArray(p.assignments) ? p.assignments : [];
+                
+                if (assignmentsArr.length > 0) {
+                    const specificSet = staffPostedSpecifics.get(normalizedNo) || new Set();
+                    assignmentsArr.forEach(codeOrObj => {
+                        const val = typeof codeOrObj === 'string' ? codeOrObj : (codeOrObj?.code || codeOrObj?.name);
+                        if (val) specificSet.add(val.toString().trim().toUpperCase());
+                    });
+                    staffPostedSpecifics.set(normalizedNo, specificSet);
+                }
+            });
+
+            // 4. Map APC records for quick lookup
+            const apcMap = new Map<string, APCRecord>();
+            apcRecords.forEach(r => {
+                apcMap.set(r.file_no.toString().trim().padStart(4, '0'), r);
+            });
+
+            // 5. Filter allStaff to find scheduled staff who are not posted for THIS assignment
+            const checkPosted = (postedSpecifics: Set<string> | undefined) => {
+                if (!postedSpecifics) return false;
+                for (const stored of postedSpecifics) {
+                    if (validAliases.includes(stored)) return true;
+                }
+                return false;
+            };
+
+            source = allStaff.filter(staff => {
+                const normalizedNo = staff.fileno.toString().trim().padStart(4, '0');
+                
+                // Exclude secretaries
+                if (staff.is_secretary) return false;
+
+                const postedSpecifics = staffPostedSpecifics.get(normalizedNo);
+
+                // Hide if already posted for THIS assignment type (Case-Insensitive)
+                if (checkPosted(postedSpecifics)) return false;
+
+                const apc = apcMap.get(normalizedNo);
+                if (!apc) return false;
+
+                // Check if they are scheduled for THIS assignment in APC
+                const val = (apc as any)[fieldName];
                 const isScheduled = val && typeof val === 'string' && val.trim() !== '' && val.toUpperCase() !== 'RETURNED';
-                return isUnposted && isScheduled;
+
+                return isScheduled;
+            }).map(staff => {
+                return {
+                    id: staff.id,
+                    name: staff.full_name || 'Unknown',
+                    file_no: staff.fileno,
+                    rank: staff.rank || staff.conr || ''
+                };
             });
         } else {
             // Swapping: Show POSTED staff (excluding the currently selected one)
-            let pool = finalPostings;
-            if (filterAssignment) {
-                pool = pool.filter(p => p.assignments?.some((a: any) => {
-                    const val = typeof a === 'string' ? a : a.name || a.code;
-                    const name = assignmentMap.get(val) || val;
-                    return name === filterAssignment;
-                }));
-            }
+            if (!filterAssignment) return []; // Both boxes wait for Assignment Selection
+            
+            let pool = finalPostings.filter(p => p.assignments?.some((a: any) => {
+                const val = typeof a === 'string' ? a : a.name || a.code;
+                const name = assignmentMap.get(val) || val;
+                return name === filterAssignment;
+            }));
 
             source = pool.filter(p => String(p.id) !== String(selectedPostingId));
         }
@@ -175,7 +261,7 @@ const ReplacementPostPage: React.FC = () => {
             );
         }
 
-        return source.slice(0, 50);
+        return source;
     }, [apcRecords, finalPostings, searchReplacement, reason, selectedPostingId, postedFileNumbers, filterAssignment, assignmentMap]);
 
     const handleSwap = async () => {
@@ -189,7 +275,17 @@ const ReplacementPostPage: React.FC = () => {
 
         let newStaff: any = null;
         if (reason === 'Replacement') {
-            newStaff = apcRecords.find(p => String(p.id) === String(selectedReplacementId));
+            const staff = allStaff.find(s => String(s.id) === String(selectedReplacementId));
+            if (staff) {
+                newStaff = {
+                    id: staff.id,
+                    file_no: staff.fileno,
+                    name: staff.full_name,
+                    conraiss: staff.conr || '',
+                    station: staff.station || '',
+                    sex: staff.sex || staff.gender || ''
+                };
+            }
         } else {
             newStaff = finalPostings.find(p => String(p.id) === String(selectedReplacementId));
         }
@@ -236,7 +332,7 @@ const ReplacementPostPage: React.FC = () => {
                 historyArray.push(historyItem);
                 const newDescription = `${visibleDesc}${historyMarker}${JSON.stringify(historyArray)}`;
 
-                await updateFinalPosting(originalPosting.id, {
+                await updatePosting(originalPosting.id, {
                     file_no: newStaff.file_no,
                     name: newStaff.name,
                     conraiss: newStaff.conraiss || (newStaff as any).conr,
@@ -301,11 +397,11 @@ const ReplacementPostPage: React.FC = () => {
 
                 // Perform Parallel Updates
                 await Promise.all([
-                    updateFinalPosting(originalPosting.id, {
+                    updatePosting(originalPosting.id, {
                         ...personB,
                         description: buildDesc(originalPosting, historyItemA)
                     }),
-                    updateFinalPosting(newStaff.id, {
+                    updatePosting(newStaff.id, {
                         ...personA,
                         description: buildDesc(newStaff, historyItemB)
                     })
@@ -421,7 +517,7 @@ const ReplacementPostPage: React.FC = () => {
                     ? `${visibleDesc}${historyMarker}${JSON.stringify(keptItems)}`
                     : visibleDesc;
 
-                updates.push(updateFinalPosting(parentId, { ...posting, description: finalDesc }));
+                updates.push(updatePosting(parentId, { ...posting, description: finalDesc }));
             }
 
             await Promise.all(updates);
@@ -629,7 +725,7 @@ const ReplacementPostPage: React.FC = () => {
                 ? `${visibleDesc}${historyMarker}${JSON.stringify(keptItems)}`
                 : visibleDesc;
 
-            await updateFinalPosting(parentPosting.id, {
+            await updatePosting(parentPosting.id, {
                 file_no: item.original.fileNo,
                 name: item.original.name,
                 conraiss: item.original.conraiss,
@@ -733,8 +829,9 @@ const ReplacementPostPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Original Staff Selection */}
                     <div className="flex flex-col gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-gray-700">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             1. Select Posted Staff {reason === 'Swapping' ? '(Staff A)' : 'to Replace'}
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-[10px] font-black tabular-nums">{postedOptions.length}</span>
                         </label>
                         <input
                             type="text"
@@ -757,8 +854,9 @@ const ReplacementPostPage: React.FC = () => {
 
                     {/* New Staff Selection */}
                     <div className="flex flex-col gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-gray-700">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             2. Select {reason === 'Swapping' ? 'Corresponding Staff to Swap (Staff B)' : 'New Replacement Staff'}
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 text-[10px] font-black tabular-nums">{replacementOptions.length}</span>
                         </label>
                         <input
                             type="text"

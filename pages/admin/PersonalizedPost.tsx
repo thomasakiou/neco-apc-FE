@@ -94,12 +94,14 @@ const PersonalizedPost: React.FC = () => {
         } catch (error) { console.error(error); }
     };
 
-    const loadBoardData = async (assignmentId: string) => {
+    const loadBoardData = async (assignmentId: string, force: boolean = false) => {
+
         setLoading(true);
         try {
             const assignment = assignments.find(a => a.id === assignmentId);
             if (!assignment) return;
-            const data = await getAssignmentBoardData(assignment);
+            const data = await getAssignmentBoardData(assignment, force);
+
             setBoardData(data);
 
             // [NEW] Auto-load default stations seamlessly within the same loading spinner
@@ -151,7 +153,14 @@ const PersonalizedPost: React.FC = () => {
         }
     };
 
+    const handlePoolRefresh = async () => {
+        if (!selectedAssignmentId) return;
+        await loadBoardData(selectedAssignmentId, true);
+        showAlert('Updated', 'Eligible pool refreshed successfully.', 'success');
+    };
+
     const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning') => {
+
         setAlert({ open: true, title, message, type });
     };
 
@@ -904,6 +913,8 @@ const PersonalizedPost: React.FC = () => {
                                 onDrop={handleDrop}
                                 selectedStaffIds={selectedStaffIds}
                                 onToggleSelect={onToggleSelect}
+                                onRefresh={handlePoolRefresh}
+                                isLoading={loading}
                             />
                         </div>
                     </div>

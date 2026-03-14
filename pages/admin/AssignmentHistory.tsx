@@ -110,6 +110,7 @@ const GeneratePage: React.FC = () => {
     const [reportTitle3, setReportTitle3] = useState('');
     const [reportTemplate, setReportTemplate] = useState('SSCE');
     const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('landscape');
+    const [pdfFontSize, setPdfFontSize] = useState<number>(11);
 
     // Dynamic Fields
     const [orderedFieldIds, setOrderedFieldIds] = useState<string[]>(
@@ -502,22 +503,22 @@ const GeneratePage: React.FC = () => {
                 // --- Header ---
                 const logoSize = isPortrait ? 15 : 20;
                 doc.addImage(logoImg, 'PNG', 15, 8, logoSize, logoSize / aspectRatio);
-
+ 
                 // Header Color Check inside function
                 doc.setTextColor(0, 128, 0); // Green color for NECO header
-
-                doc.setFontSize(isPortrait ? 17 : 18);
+ 
+                doc.setFontSize(pdfFontSize + 7);
                 doc.setFont("helvetica", "bold");
                 doc.text(config.headerTitle, width / 2, 18, { align: 'center' });
-
+ 
                 doc.setTextColor(0);
-                doc.setFontSize(isPortrait ? 13 : 14);
+                doc.setFontSize(pdfFontSize + 2);
                 if (reportTitle1?.trim()) doc.text(reportTitle1.toUpperCase(), width / 2, 28, { align: 'center' });
-
-                doc.setFontSize(isPortrait ? 12 : 12);
+ 
+                doc.setFontSize(pdfFontSize + 1);
                 if (reportTitle2?.trim()) doc.text(reportTitle2.toUpperCase(), width / 2, 34, { align: 'center' });
-
-                doc.setFontSize(isPortrait ? 11 : 11);
+ 
+                doc.setFontSize(pdfFontSize);
                 if (reportTitle3?.trim()) doc.text(reportTitle3.toUpperCase(), width / 2, 44, { align: 'center' });
 
                 // --- Signature ---
@@ -532,11 +533,11 @@ const GeneratePage: React.FC = () => {
                     doc.addImage(signatureImg, 'PNG', 15, signatureY - sigH - 8, sigWidth, sigH);
                 }
 
-                doc.setFontSize(isPortrait ? 10 : 9);
+                doc.setFontSize(pdfFontSize - 1);
                 doc.setFont("helvetica", "bold");
                 doc.setTextColor(0);
                 doc.text("Prof. Dantani Ibrahim Wushishi", 15, signatureY);
-                doc.setFontSize(isPortrait ? 9 : 8);
+                doc.setFontSize(pdfFontSize - 2);
                 doc.text("REG/CE", 15, signatureY + 5);
 
                 // --- Footer ---
@@ -638,9 +639,9 @@ const GeneratePage: React.FC = () => {
                         startY: currentY + 5,
                         margin: { top: 45, bottom: 45 },
                         theme: 'grid',
-                        styles: { fontSize: pdfOrientation === 'portrait' ? 12 : 11, cellPadding: 2, minCellHeight: 8 },
+                        styles: { fontSize: pdfFontSize, cellPadding: 2, minCellHeight: 8 },
                         bodyStyles: { fontStyle: 'bold' },
-                        headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold', fontSize: pdfOrientation === 'portrait' ? 13 : 12 },
+                        headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold', fontSize: pdfFontSize + 1 },
                         columnStyles: colStyles,
                         rowPageBreak: 'avoid',
                         didDrawPage: (data) => {
@@ -812,11 +813,11 @@ const GeneratePage: React.FC = () => {
                             fillColor: [0, 128, 0], // Green
                             textColor: [255, 255, 255],
                             fontStyle: 'bold',
-                            fontSize: pdfOrientation === 'portrait' ? 11 : 10,
+                            fontSize: pdfFontSize,
                             valign: 'middle'
                         },
                         bodyStyles: {
-                            fontSize: pdfOrientation === 'portrait' ? 11.5 : 10.5,
+                            fontSize: pdfFontSize,
                             cellPadding: 3,
                             fontStyle: 'bold',
                             valign: 'top',
@@ -871,9 +872,9 @@ const GeneratePage: React.FC = () => {
                     startY: 50,
                     margin: { top: 45, bottom: 45 },
                     theme: 'grid',
-                    styles: { fontSize: pdfOrientation === 'portrait' ? 12 : 11, cellPadding: 2, minCellHeight: 8 },
+                    styles: { fontSize: pdfFontSize, cellPadding: 2, minCellHeight: 8 },
                     bodyStyles: { fontStyle: 'bold' },
-                    headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold', fontSize: pdfOrientation === 'portrait' ? 13 : 12 },
+                    headStyles: { fillColor: (config.tableHeaderColor as any), textColor: 255, fontStyle: 'bold', fontSize: pdfFontSize + 1 },
                     columnStyles: colStyles,
                     alternateRowStyles: { fillColor: [240, 253, 244] },
                     rowPageBreak: 'avoid',
@@ -1177,6 +1178,40 @@ const GeneratePage: React.FC = () => {
                                 </span>
                             )}
                         </label>
+                    </div>
+                </div>
+
+                {/* PDF Font Size Adjustment */}
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">PDF Content Font Size</label>
+                    <div className="flex items-center gap-4">
+                        <div className="flex-1 flex items-center gap-3 bg-white dark:bg-[#0b1015] px-4 py-3 rounded-lg border-2 border-slate-200 dark:border-slate-700">
+                            <span className="material-symbols-outlined text-slate-400">format_size</span>
+                            <input
+                                type="range"
+                                min="6"
+                                max="16"
+                                step="0.5"
+                                value={pdfFontSize}
+                                onChange={(e) => setPdfFontSize(parseFloat(e.target.value))}
+                                className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                            />
+                            <div className="flex items-center gap-2 min-w-[60px] justify-end">
+                                <input
+                                    type="number"
+                                    min="6"
+                                    max="16"
+                                    step="0.5"
+                                    value={pdfFontSize}
+                                    onChange={(e) => setPdfFontSize(parseFloat(e.target.value) || 11)}
+                                    className="w-12 text-center font-black text-sm text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 rounded border border-indigo-100 dark:border-indigo-900/50 outline-none"
+                                />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">PT</span>
+                            </div>
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400 max-w-[150px] leading-tight italic">
+                            Tip: Decrease font size to fit more columns on one page.
+                        </div>
                     </div>
                 </div>
 

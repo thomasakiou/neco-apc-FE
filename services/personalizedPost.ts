@@ -50,9 +50,11 @@ let apcCacheFull: any[] | null = null;
 let lastCacheTime = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export const getAssignmentBoardData = async (assignment: Assignment): Promise<AssignmentBoardData> => {
+export const getAssignmentBoardData = async (assignment: Assignment, force: boolean = false): Promise<AssignmentBoardData> => {
+
     const now = Date.now();
-    const useCache = staffCache && apcCacheFull && (now - lastCacheTime < CACHE_TTL);
+    const useCache = !force && staffCache && apcCacheFull && (now - lastCacheTime < CACHE_TTL);
+
 
     // 1. Fetch data (with caching logic)
     const [mandates, allStaff, apcResponse, allPostings, allFinalPostings] = await Promise.all([
