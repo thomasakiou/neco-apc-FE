@@ -4,6 +4,7 @@ import { getAllAPCRecords } from '../../services/apc';
 import { getAllStaff } from '../../services/staff';
 import { getAllAssignments } from '../../services/assignment';
 import { assignmentFieldMap } from '../../services/personalizedPost';
+import { REPLACEMENT_HISTORY_MARKER } from '../../services/descriptionUtils';
 import { PostingResponse } from '../../types/posting';
 import { APCRecord } from '../../types/apc';
 import { Assignment } from '../../types/assignment';
@@ -11,23 +12,31 @@ import { getPageCache, setPageCache } from '../../services/pageCache';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { useNotification } from '../../context/NotificationContext';
 
 interface ReplacementHistoryItem {
     original: {
         fileNo: string;
         name: string;
         conraiss: string;
+        station?: string;
+        qualification?: string;
     };
     replacement: {
         fileNo: string;
         name: string;
         conraiss: string;
+        station?: string;
+        qualification?: string;
     };
     date: string;
     reason: 'Replacement' | 'Swapping';
     remark: string;
     venue: string;
     mandate: string;
+    assignmentName?: string; // Posted to
+    numNights?: number; // Number of Nights
+    teamInfo?: string; // e.g. "Team 1"
 }
 
 // Extended interface for internal use
@@ -37,6 +46,7 @@ interface ExtendedHistoryItem extends ReplacementHistoryItem {
 }
 
 const ReplacementPostPage: React.FC = () => {
+    const { success, error, warning } = useNotification();
     const [loading, setLoading] = useState(false);
     const [finalPostings, setFinalPostings] = useState<PostingResponse[]>([]);
     const [apcRecords, setApcRecords] = useState<APCRecord[]>([]);
@@ -274,20 +284,32 @@ const ReplacementPostPage: React.FC = () => {
         const originalPosting = finalPostings.find(p => String(p.id) === String(selectedPostingId));
 
         let newStaff: any = null;
+        const normalizedOld = originalPosting.file_no.toString().trim().padStart(4, '0');
+        const oldApc = apcRecords.find(a => a.file_no.toString().trim().padStart(4, '0') === normalizedOld);
+
         if (reason === 'Replacement') {
             const staff = allStaff.find(s => String(s.id) === String(selectedReplacementId));
             if (staff) {
+                const normalizedNew = staff.fileno.toString().trim().padStart(4, '0');
+                const newApc = apcRecords.find(a => a.file_no.toString().trim().padStart(4, '0') === normalizedNew);
+
                 newStaff = {
                     id: staff.id,
                     file_no: staff.fileno,
                     name: staff.full_name,
                     conraiss: staff.conr || '',
                     station: staff.station || '',
-                    sex: staff.sex || staff.gender || ''
+                    sex: staff.sex || staff.gender || '',
+                    qualification: newApc?.qualification || staff.qualification || ''
                 };
             }
         } else {
             newStaff = finalPostings.find(p => String(p.id) === String(selectedReplacementId));
+            if (newStaff) {
+                 const normalizedNew = newStaff.file_no.toString().trim().padStart(4, '0');
+                 const newApc = apcRecords.find(a => a.file_no.toString().trim().padStart(4, '0') === normalizedNew);
+                 newStaff.qualification = newApc?.qualification || newStaff.qualification || '';
+            }
         }
 
         if (!originalPosting || !newStaff) {
@@ -299,38 +321,47 @@ const ReplacementPostPage: React.FC = () => {
         const actionText = reason === 'Swapping' ? 'swap venues between' : 'replace';
         if (!confirm(`Are you sure you want to ${actionText} ${originalPosting.name} and ${newStaff.name}?`)) return;
 
+        console.log(`Starting ${reason}:`, { originalPosting, newStaff });
         setLoading(true);
         try {
             if (reason === 'Replacement') {
                 // --- ONE WAY REPLACEMENT ---
+                const teamPart = originalPosting.description?.split(REPLACEMENT_HISTORY_MARKER)[0]?.trim() || '';
+
                 const historyItem: ReplacementHistoryItem = {
                     original: {
                         fileNo: originalPosting.file_no,
                         name: originalPosting.name,
-                        conraiss: originalPosting.conraiss || ''
+                        conraiss: originalPosting.conraiss || '',
+                        station: originalPosting.station || '',
+                        qualification: oldApc?.qualification || originalPosting.qualification || ''
                     },
                     replacement: {
                         fileNo: newStaff.file_no,
                         name: newStaff.name,
-                        conraiss: newStaff.conraiss || (newStaff as any).conr || ''
+                        conraiss: newStaff.conraiss || (newStaff as any).conr || '',
+                        station: newStaff.station || '',
+                        qualification: newStaff.qualification || ''
                     },
                     date: new Date().toISOString(),
                     reason,
                     remark,
                     venue: (originalPosting.assignment_venue || []).join(', '),
-                    mandate: (originalPosting.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate).join(', ')
+                    mandate: (originalPosting.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate).join(', '),
+                    assignmentName: (originalPosting.assignments || []).map(a => typeof a === 'string' ? a : a.name).join(', '),
+                    numNights: originalPosting.count,
+                    teamInfo: teamPart
                 };
 
                 let currentDesc = originalPosting.description || '';
                 let historyArray: ReplacementHistoryItem[] = [];
-                const historyMarker = "||REPLACEMENT_HISTORY||";
-                const parts = currentDesc.split(historyMarker);
+                const parts = currentDesc.split(REPLACEMENT_HISTORY_MARKER);
                 let visibleDesc = parts[0];
                 if (parts.length > 1) {
                     try { historyArray = JSON.parse(parts[1]); } catch (e) { }
                 }
                 historyArray.push(historyItem);
-                const newDescription = `${visibleDesc}${historyMarker}${JSON.stringify(historyArray)}`;
+                const newDescription = `${visibleDesc}${REPLACEMENT_HISTORY_MARKER}${JSON.stringify(historyArray)}`;
 
                 await updatePosting(originalPosting.id, {
                     file_no: newStaff.file_no,
@@ -361,38 +392,70 @@ const ReplacementPostPage: React.FC = () => {
                     sex: newStaff.sex
                 };
 
+                const teamPartA = originalPosting.description?.split(REPLACEMENT_HISTORY_MARKER)[0]?.trim() || '';
+                const teamPartB = (newStaff as any).description?.split(REPLACEMENT_HISTORY_MARKER)[0]?.trim() || '';
+
                 // History for Record A (Venue A, now Person B)
                 const historyItemA: ReplacementHistoryItem = {
-                    original: { fileNo: personA.file_no, name: personA.name, conraiss: personA.conraiss || '' },
-                    replacement: { fileNo: personB.file_no, name: personB.name, conraiss: personB.conraiss || '' },
+                    original: { 
+                        fileNo: personA.file_no, 
+                        name: personA.name, 
+                        conraiss: personA.conraiss || '',
+                        station: originalPosting.station || '',
+                        qualification: oldApc?.qualification || originalPosting.qualification || ''
+                    },
+                    replacement: { 
+                        fileNo: personB.file_no, 
+                        name: personB.name, 
+                        conraiss: personB.conraiss || '',
+                        station: (newStaff as any).station || '',
+                        qualification: newStaff.qualification || ''
+                    },
                     date: new Date().toISOString(),
                     reason: 'Swapping',
                     remark: `Swapped with ${personB.name}`,
                     venue: (originalPosting.assignment_venue || []).join(', '),
-                    mandate: (originalPosting.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate).join(', ')
+                    mandate: (originalPosting.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate).join(', '),
+                    assignmentName: (originalPosting.assignments || []).map(a => typeof a === 'string' ? a : a.name).join(', '),
+                    numNights: originalPosting.count,
+                    teamInfo: teamPartA
                 };
 
                 // History for Record B (Venue B, now Person A)
                 const historyItemB: ReplacementHistoryItem = {
-                    original: { fileNo: personB.file_no, name: personB.name, conraiss: personB.conraiss || '' },
-                    replacement: { fileNo: personA.file_no, name: personA.name, conraiss: personA.conraiss || '' },
+                    original: { 
+                        fileNo: personB.file_no, 
+                        name: personB.name, 
+                        conraiss: personB.conraiss || '',
+                        station: (newStaff as any).station || '',
+                        qualification: newStaff.qualification || ''
+                    },
+                    replacement: { 
+                        fileNo: personA.file_no, 
+                        name: personA.name, 
+                        conraiss: personA.conraiss || '',
+                        station: originalPosting.station || '',
+                        qualification: oldApc?.qualification || originalPosting.qualification || ''
+                    },
                     date: new Date().toISOString(),
                     reason: 'Swapping',
                     remark: `Swapped with ${personA.name}`,
                     venue: (newStaff.assignment_venue || []).join(', '),
-                    mandate: (newStaff.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate).join(', ')
+                    mandate: (newStaff.mandates || []).map((m: any) => typeof m === 'string' ? m : m.mandate).join(', '),
+                    assignmentName: (newStaff.assignments || []).map(a => typeof a === 'string' ? a : a.name).join(', '),
+                    numNights: newStaff.count,
+                    teamInfo: teamPartB
                 };
 
                 // Helper to build description
                 const buildDesc = (record: any, item: ReplacementHistoryItem) => {
                     let currentDesc = record.description || '';
                     let historyArray: ReplacementHistoryItem[] = [];
-                    const historyMarker = "||REPLACEMENT_HISTORY||";
-                    const parts = currentDesc.split(historyMarker);
+                    const parts = currentDesc.split(REPLACEMENT_HISTORY_MARKER);
                     let visibleDesc = parts[0];
                     if (parts.length > 1) { try { historyArray = JSON.parse(parts[1]); } catch (e) { } }
                     historyArray.push(item);
-                    return `${visibleDesc}${historyMarker}${JSON.stringify(historyArray)}`;
+                    return `${visibleDesc}${REPLACEMENT_HISTORY_MARKER}${JSON.stringify(historyArray)}`;
                 };
 
                 // Perform Parallel Updates
@@ -408,15 +471,15 @@ const ReplacementPostPage: React.FC = () => {
                 ]);
             }
 
-            alert("Operation successful!");
+            success(`${reason} successful!`);
             setSelectedPostingId('');
             setSelectedReplacementId('');
             setRemark('');
             loadData();
 
-        } catch (error) {
-            console.error("Action failed", error);
-            alert("Failed to process request.");
+        } catch (err: any) {
+            console.error("Action failed", err);
+            error(err.message || "Failed to process request.");
         } finally {
             setLoading(false);
         }
@@ -425,11 +488,10 @@ const ReplacementPostPage: React.FC = () => {
     // Derived History with IDs
     const replacementHistory = useMemo(() => {
         const history: ExtendedHistoryItem[] = [];
-        const historyMarker = "||REPLACEMENT_HISTORY||";
 
         finalPostings.forEach(p => {
-            if (p.description && p.description.includes(historyMarker)) {
-                const parts = p.description.split(historyMarker);
+            if (p.description && p.description.includes(REPLACEMENT_HISTORY_MARKER)) {
+                const parts = p.description.split(REPLACEMENT_HISTORY_MARKER);
                 if (parts.length > 1) {
                     try {
                         const items: ReplacementHistoryItem[] = JSON.parse(parts[1]);
@@ -438,7 +500,8 @@ const ReplacementPostPage: React.FC = () => {
                                 history.push({
                                     ...item,
                                     parentId: p.id,
-                                    _id: `${p.id}_${item.date}_${idx}` // Composite ID
+                                    _id: `${p.id}_${item.date}_${idx}`, // Composite ID
+                                    teamInfo: item.teamInfo || parts[0]?.trim() || ''
                                 });
                             });
                         }
@@ -487,8 +550,7 @@ const ReplacementPostPage: React.FC = () => {
                 const posting = finalPostings.find(p => p.id === parentId);
                 if (!posting) continue;
 
-                const historyMarker = "||REPLACEMENT_HISTORY||";
-                const parts = (posting.description || '').split(historyMarker);
+                const parts = (posting.description || '').split(REPLACEMENT_HISTORY_MARKER);
                 if (parts.length < 2) continue; // Should not happen if history exists
 
                 let visibleDesc = parts[0];
@@ -507,14 +569,8 @@ const ReplacementPostPage: React.FC = () => {
                     return !idsToRemove.has(itemId);
                 });
 
-                const newDescription = keptItems.length > 0
-                    ? `${visibleDesc}${historyMarker}${JSON.stringify(keptItems)}`
-                    : visibleDesc; // Remove marker if empty? Or keep it? keeping it is safer for future appends.
-                // If empty, cleaner to remove the marker to avoid empty JSON array clutter, but code handles empty array fine.
-                // Let's remove marker if empty to be clean.
-
                 const finalDesc = keptItems.length > 0
-                    ? `${visibleDesc}${historyMarker}${JSON.stringify(keptItems)}`
+                    ? `${visibleDesc}${REPLACEMENT_HISTORY_MARKER}${JSON.stringify(keptItems)}`
                     : visibleDesc;
 
                 updates.push(updatePosting(parentId, { ...posting, description: finalDesc }));
@@ -625,24 +681,42 @@ const ReplacementPostPage: React.FC = () => {
             };
 
             const columns = [
-                { header: "S/N", dataKey: "sn" },
-                { header: "OUTGOING STAFF (VACATED)", dataKey: "outgoing" },
-                { header: "INCOMING STAFF (FILLED BY)", dataKey: "incoming" },
-                { header: "MANDATE", dataKey: "mandate" },
-                { header: "VENUE", dataKey: "venue" },
-                { header: "ACTION TYPE", dataKey: "type" },
-                { header: "REMARK", dataKey: "remark" }
+                { header: "S/No", dataKey: "sn" },
+                { header: "Outgoing Staff", dataKey: "outgoing" },
+                { header: "Incoming Staff", dataKey: "incoming" },
+                { header: "Posting", dataKey: "posting" },
+                { header: "Number of Nights", dataKey: "numNights" },
+                { header: "Remark", dataKey: "remark" }
             ];
 
-            const rows = dataToExport.map((item, i) => ({
-                sn: i + 1,
-                outgoing: `${item.original.name}\n(${item.original.fileNo})`,
-                incoming: `${item.replacement.name}\n(${item.replacement.fileNo})`,
-                mandate: item.mandate,
-                venue: item.venue,
-                type: item.reason.toUpperCase(),
-                remark: item.remark || '-'
-            }));
+            const rows = dataToExport.map((item, i) => {
+                const getQual = (staffIdentity: any) => {
+                    // Try identity field first
+                    if (staffIdentity.qualification && isNaN(Number(staffIdentity.qualification))) {
+                        return staffIdentity.qualification;
+                    }
+                    // Fallback to APC lookup
+                    if (apcRecords.length > 0) {
+                        const normalized = staffIdentity.fileNo.toString().trim().padStart(4, '0');
+                        const apc = apcRecords.find(a => a.file_no.toString().trim().padStart(4, '0') === normalized);
+                        if (apc?.qualification) return apc.qualification;
+                    }
+                    return '-';
+                };
+                const outQual = getQual(item.original);
+                const incQual = getQual(item.replacement);
+                const teamTag = (item as any).teamInfo ? ` (${(item as any).teamInfo.toUpperCase()})` : '';
+                const mandateTag = item.mandate ? ` - ${item.mandate}` : '';
+
+                return {
+                    sn: i + 1,
+                    outgoing: `${item.original.name}\n(${item.original.fileNo})\nCONRAISS: ${item.original.conraiss}\nQUAL: ${outQual}`,
+                    incoming: `${item.replacement.name}\n(${item.replacement.fileNo})\nCONRAISS: ${item.replacement.conraiss}\nQUAL: ${incQual}`,
+                    posting: `${item.venue}${teamTag}${mandateTag}`,
+                    numNights: item.numNights || 0,
+                    remark: item.remark || '-'
+                };
+            });
 
             autoTable(doc, {
                 columns: columns,
@@ -664,12 +738,12 @@ const ReplacementPostPage: React.FC = () => {
                     cellPadding: 4
                 },
                 columnStyles: {
-                    sn: { halign: 'center', cellWidth: 10 },
+                    sn: { halign: 'center', cellWidth: 12 },
                     outgoing: { cellWidth: 55, fontStyle: 'bold' },
-                    incoming: { cellWidth: 55, fontStyle: 'bold', textColor: [22, 163, 74] }, // Green text for incoming
-                    mandate: { cellWidth: 20 },
-                    type: { halign: 'center', cellWidth: 40 },
-                    remark: { cellWidth: 'auto' }
+                    incoming: { cellWidth: 55, fontStyle: 'bold', textColor: [22, 163, 74] },
+                    posting: { cellWidth: 55 },
+                    numNights: { halign: 'center', cellWidth: 20 },
+                    remark: { cellWidth: 'auto', fontStyle: 'bold' }
                 },
                 didDrawPage: (data) => drawHeader(data)
             });
@@ -703,8 +777,7 @@ const ReplacementPostPage: React.FC = () => {
                 return;
             }
 
-            const historyMarker = "||REPLACEMENT_HISTORY||";
-            const parts = (parentPosting.description || '').split(historyMarker);
+            const parts = (parentPosting.description || '').split(REPLACEMENT_HISTORY_MARKER);
             let visibleDesc = parts[0];
             let historyItems: ReplacementHistoryItem[] = [];
 
@@ -722,7 +795,7 @@ const ReplacementPostPage: React.FC = () => {
             });
 
             const newDescription = keptItems.length > 0
-                ? `${visibleDesc}${historyMarker}${JSON.stringify(keptItems)}`
+                ? `${visibleDesc}${REPLACEMENT_HISTORY_MARKER}${JSON.stringify(keptItems)}`
                 : visibleDesc;
 
             await updatePosting(parentPosting.id, {
@@ -840,16 +913,36 @@ const ReplacementPostPage: React.FC = () => {
                             value={searchPosted}
                             onChange={e => setSearchPosted(e.target.value)}
                         />
-                        <select
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-600 bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 custom-scrollbar"
-                            value={selectedPostingId}
-                            onChange={e => setSelectedPostingId(e.target.value)}
-                            size={12}
-                        >
-                            {postedOptions.map(p => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.file_no}) - {p.assignment_venue?.join(', ')}</option>
-                            ))}
-                        </select>
+                        <div className="h-[220px] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-gray-700 rounded-lg custom-scrollbar">
+                            {postedOptions.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 italic text-sm">No staff found</div>
+                            ) : (
+                                <div className="flex flex-col">
+                                    {postedOptions.map(p => (
+                                        <div
+                                            key={p.id}
+                                            onClick={() => setSelectedPostingId(selectedPostingId === p.id ? '' : p.id)}
+                                            className={`flex items-center gap-3 p-3 border-b border-slate-50 dark:border-gray-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors ${selectedPostingId === p.id ? 'bg-indigo-50/50 dark:bg-indigo-600/10' : ''}`}
+                                        >
+                                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selectedPostingId === p.id ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                {selectedPostingId === p.id && (
+                                                    <span className="material-symbols-outlined text-white text-[16px] font-bold">check</span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className={`text-sm font-bold ${selectedPostingId === p.id ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                                                    {p.name}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-black text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">{p.file_no}</span>
+                                                    <span className="text-xs font-semibold text-slate-500 truncate max-w-[250px]">{p.assignment_venue?.join(', ')}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* New Staff Selection */}
@@ -865,23 +958,38 @@ const ReplacementPostPage: React.FC = () => {
                             value={searchReplacement}
                             onChange={e => setSearchReplacement(e.target.value)}
                         />
-                        <select
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-600 bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 custom-scrollbar"
-                            value={selectedReplacementId}
-                            onChange={e => setSelectedReplacementId(e.target.value)}
-                            size={12}
-                        >
+                        <div className="h-[220px] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-gray-700 rounded-lg custom-scrollbar">
                             {replacementOptions.length === 0 ? (
-                                <option disabled className="text-slate-400 italic">No eligible staff found</option>
+                                <div className="p-8 text-center text-slate-400 italic text-sm">No eligible staff found</div>
                             ) : (
-                                replacementOptions.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name} ({p.file_no})
-                                        {reason === 'Swapping' && (p as any).assignment_venue ? ` - ${(p as any).assignment_venue.join(', ')}` : ''}
-                                    </option>
-                                ))
+                                <div className="flex flex-col">
+                                    {replacementOptions.map(p => (
+                                        <div
+                                            key={p.id}
+                                            onClick={() => setSelectedReplacementId(selectedReplacementId === p.id ? '' : p.id)}
+                                            className={`flex items-center gap-3 p-3 border-b border-slate-50 dark:border-gray-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors ${selectedReplacementId === p.id ? 'bg-emerald-50/50 dark:bg-emerald-600/10' : ''}`}
+                                        >
+                                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selectedReplacementId === p.id ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                {selectedReplacementId === p.id && (
+                                                    <span className="material-symbols-outlined text-white text-[16px] font-bold">check</span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className={`text-sm font-bold ${selectedReplacementId === p.id ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                                                    {p.name}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-black text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">{p.file_no}</span>
+                                                    {reason === 'Swapping' && (p as any).assignment_venue && (
+                                                        <span className="text-xs font-semibold text-slate-500 truncate max-w-[250px]">{(p as any).assignment_venue.join(', ')}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
-                        </select>
+                        </div>
                     </div>
                 </div>
 

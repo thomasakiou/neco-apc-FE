@@ -19,6 +19,7 @@ import HelpModal from '../../components/HelpModal';
 import PostingEditModal from '../../components/PostingEditModal';
 import { helpContent } from '../../data/helpContent';
 import { CSVPostingData, assignmentFieldMap } from '../../services/personalizedPost';
+import { cleanDescription } from '../../services/descriptionUtils';
 
 interface CollapsibleRowProps {
   record: PostingResponse;
@@ -231,7 +232,7 @@ const CollapsibleRow = React.memo<CollapsibleRowProps>(({ record, selected, onSe
                   <div className="col-span-2 mt-2">
                     <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Description</span>
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-300 italic p-2 bg-white dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700 min-h-[30px]">
-                      {record.description || 'No description provided.'}
+                      {cleanDescription(record.description) || 'No description provided.'}
                     </p>
                   </div>
 
@@ -465,7 +466,8 @@ const AnnualPostings: React.FC = () => {
   const uniqueDescriptions = useMemo(() => {
     const descSet = new Set<string>();
     postings.forEach(p => {
-      if (p.description) descSet.add(p.description);
+      const cleaned = cleanDescription(p.description);
+      if (cleaned) descSet.add(cleaned);
     });
     return Array.from(descSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   }, [postings]);
@@ -538,7 +540,7 @@ const AnnualPostings: React.FC = () => {
       }
     }
     if (filterDescription) {
-      result = result.filter(p => p.description === filterDescription);
+      result = result.filter(p => cleanDescription(p.description) === filterDescription);
     }
     if (filterState) {
       const normalizedFilter = normalizeString(filterState);

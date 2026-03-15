@@ -5,6 +5,9 @@ import { ArchiveRecord } from '../../types/archive';
 import { Staff } from '../../types/staff';
 import { useNotification } from '../../context/NotificationContext';
 import AlertModal from '../../components/AlertModal';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const ArchivePage: React.FC = () => {
     const { success, error, warning } = useNotification();
@@ -177,6 +180,86 @@ const ArchivePage: React.FC = () => {
         }
     };
 
+    // --- Export Handlers ---
+    const handleDownloadCSV = () => {
+        try {
+            const exportData = filteredArchives.map((r, index) => ({
+                'S/N': index + 1,
+                'File No': r.file_no,
+                'Name': r.name,
+                'Station': r.station || '-',
+                'CONRAISS': r.conraiss || '-',
+                'Year': r.year,
+                'Comment': r.comment || '-'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Archived Staff");
+            XLSX.writeFile(wb, `Archived_Staff_${new Date().toISOString().split('T')[0]}.csv`);
+            success('CSV download started.');
+        } catch (err: any) {
+            console.error("CSV Export failed", err);
+            error("Failed to export CSV.");
+        }
+    };
+
+    const handleDownloadPDF = () => {
+        try {
+            const doc = new jsPDF('l', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            // Header
+            doc.setFontSize(22);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 128, 0); // Green
+            doc.text("NATIONAL EXAMINATIONS COUNCIL (NECO)", pageWidth / 2, 18, { align: 'center' });
+
+            doc.setFontSize(16);
+            doc.setTextColor(0);
+            doc.text("STAFF ARCHIVE RECORD", pageWidth / 2, 28, { align: 'center' });
+
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 35, { align: 'center' });
+
+            const tableColumn = ["S/N", "File No", "Name", "Station", "CONR", "Year", "Comment"];
+            const tableRows = filteredArchives.map((r, index) => [
+                index + 1,
+                r.file_no,
+                r.name,
+                r.station || '-',
+                r.conraiss || '-',
+                r.year,
+                r.comment || '-'
+            ]);
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 42,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 128, 0], textColor: 255, fontStyle: 'bold', fontSize: 12 },
+                styles: { fontSize: 11, cellPadding: 3 },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 12 },
+                    1: { cellWidth: 28 },
+                    2: { cellWidth: 50 },
+                    3: { cellWidth: 45 },
+                    4: { halign: 'center', cellWidth: 22 },
+                    5: { halign: 'center', cellWidth: 22 },
+                    6: { cellWidth: 'auto' }
+                }
+            });
+
+            doc.save(`Archived_Staff_${new Date().toISOString().split('T')[0]}.pdf`);
+            success('PDF download started.');
+        } catch (err: any) {
+            console.error("PDF Export failed", err);
+            error("Failed to export PDF.");
+        }
+    };
+
     // --- Filtered Archives ---
     const filteredArchives = useMemo(() => {
         if (!tableSearch.trim()) return archives;
@@ -341,6 +424,27 @@ const ArchivePage: React.FC = () => {
                         >
                             <span className="material-symbols-outlined text-[20px]">refresh</span>
                         </button>
+
+                        <div className="flex items-center gap-2 border-l border-slate-200 dark:border-gray-700 pl-3 ml-2">
+                            <button
+                                onClick={handleDownloadCSV}
+                                disabled={loading || filteredArchives.length === 0}
+                                className="flex items-center gap-2 px-3 h-10 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-bold text-xs transition-colors disabled:opacity-50"
+                                title="Download as CSV"
+                            >
+                                <span className="material-symbols-outlined text-sm">csv</span>
+                                CSV
+                            </button>
+                            <button
+                                onClick={handleDownloadPDF}
+                                disabled={loading || filteredArchives.length === 0}
+                                className="flex items-center gap-2 px-3 h-10 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold text-xs transition-colors disabled:opacity-50"
+                                title="Download as PDF"
+                            >
+                                <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                                PDF
+                            </button>
+                        </div>
                     </div>
                 </div>
 

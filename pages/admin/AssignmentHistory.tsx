@@ -13,6 +13,7 @@ import { NCEECenter } from '../../types/nceeCenter';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import HelpModal from '../../components/HelpModal';
+import { cleanDescription } from '../../services/descriptionUtils';
 import { helpContent } from '../../data/helpContent';
 import SearchableSelect from '../../components/SearchableSelect';
 
@@ -81,7 +82,7 @@ const REPORT_FIELDS: ReportField[] = [
     { id: 'location', label: 'LOCATION', accessor: r => r.location, default: false, pdfWidth: 40 },
     { id: 'state', label: 'STATE', accessor: r => r.state, default: true, pdfWidth: 30 },
     { id: 'posted To', label: 'POSTED TO', accessor: r => r.posting, default: false, pdfWidth: 30 },
-    { id: 'description', label: 'DESCRIPTION', accessor: r => r.description || '-', default: true, pdfWidth: 40 }
+    { id: 'description', label: 'DESCRIPTION', accessor: r => cleanDescription(r.description) || '-', default: true, pdfWidth: 40 }
 ];
 
 const GeneratePage: React.FC = () => {
@@ -177,7 +178,11 @@ const GeneratePage: React.FC = () => {
     }, [allFlatRows]);
 
     const uniqueDescriptions = useMemo(() => {
-        const set = new Set<string>(allFlatRows.map(r => r.description).filter((s): s is string => !!s));
+        const set = new Set<string>();
+        allFlatRows.forEach(r => {
+            const cleaned = cleanDescription(r.description);
+            if (cleaned) set.add(cleaned);
+        });
         return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     }, [allFlatRows]);
 
@@ -208,7 +213,7 @@ const GeneratePage: React.FC = () => {
         }
 
         if (filterDescription) {
-            result = result.filter(r => r.description === filterDescription);
+            result = result.filter(r => cleanDescription(r.description) === filterDescription);
         }
 
         if (filterState) {
